@@ -6,38 +6,13 @@
     <meta http-equiv="X-UA-Compatible" content="IE=edge">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>Node Website Test</title>
-    <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/bootstrap@4.0.0/dist/css/bootstrap.min.css"
-        integrity="sha384-Gn5384xqQ1aoWXA+058RXPxPg6fy4IWvTNh0E263XmFcJlSAwiGgFAW/dAiS6JXm" crossorigin="anonymous">
+    <link rel="stylesheet" text="text/css" href="../../assets/style.css">
+    <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/bootstrap@5.2.0/dist/css/bootstrap.min.css">
+    <link rel="stylesheet" href="https://pro.fontawesome.com/releases/v5.10.0/css/all.css">
 </head>
 
 <body>
-    <nav class="navbar navbar-expand-lg navbar-dark bg-dark pl-5" role="navigation">
-        <button class="navbar-toggler" type="button" data-toggle="collapse" data-target="#navbarTogglerDemo01"
-            aria-controls="false" aria-expanded="false" aria-label="Toggle-navigation">
-            <span class="navbar-toggle-icon"></span></button>
-        <div class="collapse navbar-collapse" id="navbarTogglerDemo01">
-            <a href="/" class="navbar-brand">Brand</a>
-            <ul class="nav navbar-nav">
-                <li class="nav-item active">
-                    <a href="/home" class="nav-link">Home <span class="sr-only">(current)</span></a>
-                </li>
-                <li class="nav-item"><a class="nav-link" href="/about">About</a></li>
-            </ul>
-            <ul class="navbar-nav ml-auto mr-2">
 
-                <% if(currentUser !=null) { %>
-                    <li class="nav-item"><a class="nav-link">Welcome <%= currentUser.username %>!</a></li>
-                    <li class="nav-item"><a href="/posts" class="nav-link">Posts</a></li>
-                    <li class="nav-item"><a href="/logout" class="nav-link" id="login-btn">Logout</a></li>
-                <% } %>
-
-                <% if(currentUser==null) { %>
-                    <li class="nav-item"><a href="/login" class="nav-link" id="login-btn">Login</a></li>
-                    <li class="nav-item"><a href="/signup" class="nav-link" id="login-btn">Sign-up</a></li>
-                <% } %>
-            </ul>
-        </div>
-    </nav>
     <!-- <style>
         .form-div {
             max-height: 0;
@@ -59,8 +34,11 @@
             formDiv.style = 'max-height: 500px;';
         })
     </script> -->
+    
+    <%- include('../_snippets/sidebar.ejs') %>
+    <div class="all-content">
+    <%- include('../_snippets/navbar.ejs') %> 
     <div class="container">
-
         <% if(error && error.length> 0) { %>
             <div class="alert alert-danger m-3" role="alert">
                 <%= error %>

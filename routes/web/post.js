@@ -9,10 +9,10 @@ let Post = require('../../models/posts')
 router.use(ensureAuthenticated);
 
 router.get('/', function (req, res) {
-    Post.find({userID:req.user._id}).exec(function (err, posts) {
-        if(err) { console.log(err);}
+    Post.find({ userId: req.user._id }).exec(function (err, posts) {
+        if (err) { console.log(err); }
 
-        res.render('post/posts', {posts:posts})
+        res.render('post/posts', { posts: posts })
     })
 })
 
@@ -29,8 +29,8 @@ router.post('/add', function (req, res) {
 
     })
 
-    newPost.save(function(err, post) {
-        if(err) { console.log(err);}
+    newPost.save(function (err, post) {
+        if (err) { console.log(err); }
         res.redirect('/posts')
     })
 })
