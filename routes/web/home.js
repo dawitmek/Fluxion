@@ -15,13 +15,15 @@ router.get('/home', function (req, res) {
 })
 
 router.get('/about', function (req, res) {
-    res.render('./pages/about');
+    res.render('./pages/info/about');
 })
+
+router.use('/features', require('./pages.js'));
 
 router.use("/posts", require("./post"));
 
 router.get('/login', function (req, res) {
-    res.render('./pages/login');
+    res.render('./pages/account/login');
 })
 
 router.get("/logout", function (req, res, next) {
@@ -35,7 +37,7 @@ router.get("/logout", function (req, res, next) {
 })
 
 router.get('/signup', function (req, res) {
-    res.render('./pages/signup');
+    res.render('./pages/account/signup');
 })
 
 router.post("/login", passport.authenticate("login", {

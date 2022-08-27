@@ -4,9 +4,14 @@ $('.sidebar ul li ').on('click', function () {
 })
 
 $('.sidebar-btn').on('click', function () {
-    if($('.sidebar').hasClass('active')) {
+    if ($('.sidebar').hasClass('active')) {
         $('.sidebar').removeClass('active');
     } else {
         $('.sidebar').addClass('active');
     }
+})
+
+$('.close-btn').on('click', function () {
+    $('.sidebar').removeClass('active');
+
 })
