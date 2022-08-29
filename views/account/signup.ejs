@@ -9,30 +9,43 @@
       <div class="panel-body">
         <form class="form-signin" method="POST" action="/signup">
           <div class="form-group">
-            <input type="text" name="username" class="form-control" aria-describedby="emailHelp"
+            <input type="text" name="username" class="form-control my-2" aria-describedby="emailHelp" required
               placeholder="Enter username">
           </div>
           <div class="form-group">
-            <input type="email" name="email" class="form-control" aria-describedby="emailHelp"
+            <input type="email" name="email" class="form-control my-2" aria-describedby="emailHelp" required
               placeholder="Enter email">
           </div>
           <div class="form-group">
-            <input type="password" name="password" class="form-control" placeholder="Password">
+            <input id="signup-pass" type="password" name="password" class="form-control my-2" placeholder="Password"
+              required>
+            <ul class='invalid-feedback' id="error-pass" hidden> Password should contain at least:
+              <li class="valid-feedback pass-option" id="pass-lowercase">one lowercase</li>
+              <li class="valid-feedback pass-option" id="pass-uppercase">one uppercase</li>
+              <li class="valid-feedback pass-option" id="pass-number">one number</li>
+              <li class="valid-feedback pass-option" id="pass-special">one special character "!#-/"</li>
+              <li class="valid-feedback pass-option" id="pass-length">8-20 characters</li>
+            </ul>
           </div>
           <div class="form-group">
-            <input type="password" class="form-control" placeholder="Re-password" aria-describedby="basic-addon1"
-              name="repassword">
+            <input id="re-pass" type="password" class="form-control my-2" placeholder="Re-password"
+              aria-describedby="basic-addon1" required name="repassword">
+            <div class='invalid-feedback' id="error-repass" hidden> Password doesn't match </div>
           </div>
           <div class="form-check mt-4 mb-4">
             <input type="checkbox" class="form-check-input" id="exampleCheck1">
             <label class="form-check-label " for="exampleCheck1">Remember me</label>
           </div>
 
-          <input type="submit" class="btn btn-primary" value="Sign Up" />
+          <input type="submit" class="btn btn-primary px-3 py-2" value="Sign Up" disabled/>
         </form>
       </div>
     </div>
   </div>
+
+  <script>
+
+  </script>
 
 
 
