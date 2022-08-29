@@ -53,14 +53,11 @@ router.post("/update", async function (req, res) {
     post.title = req.body.title;
     post.content = req.body.content;
 
-    // post.save()
-
     try {
-        let savePost = await post.save();
-        console.log("savepost", savePost);
+        await post.save();
         res.redirect("/posts/" + req.body.postid);
     } catch (err) {
-        console.log("error happened");
+        console.error("error happened");
         res.status(500).send(err);
     }
 

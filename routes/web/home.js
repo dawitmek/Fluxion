@@ -1,8 +1,14 @@
+const { request } = require('express');
 let express = require('express');
 let passport = require('passport');
 const Post = require('../../models/posts');
 
 let User = require('../../models/user');
+
+let startTikTok = require('../../tiktok.js');
+
+let ensureAuthenticated = require('../../auth/auth').ensureAuthenticated;
+
 
 let router = express.Router();
 
@@ -11,25 +17,29 @@ router.get('/', function (req, res) {
 })
 
 router.get('/home', function (req, res) {
-    res.render('./home/home');
+    res.redirect('./home/index');
+})
+
+router.get('/try-now', function (req, res) {
+    res.render('./home/try-now')
 })
 
 router.get('/about', function (req, res) {
-    res.render('./pages/info/about');
+    res.render('./info/about');
 })
 
 router.use('/features', require('./pages.js'));
-
 router.use("/posts", require("./post"));
 
+
 router.get('/login', function (req, res) {
-    res.render('./pages/account/login');
+    res.render('./account/login');
 })
 
 router.get("/logout", function (req, res, next) {
     req.logout((err) => {
         if (!err) {
-            res.redirect("/home");
+            res.redirect("/");
         } else {
             req.flash('error', 'There was an error logging out.')
         }
@@ -37,7 +47,7 @@ router.get("/logout", function (req, res, next) {
 })
 
 router.get('/signup', function (req, res) {
-    res.render('./pages/account/signup');
+    res.render('./account/signup');
 })
 
 router.post("/login", passport.authenticate("login", {
@@ -73,6 +83,13 @@ router.post("/signup", function (req, res, next) {
         failureFlash: true
     }));
 
+router.post('/app', function (req, res) {
+    startTikTok(req.body.username)
+    res.render('home/app', { userResponse: req.body })
+})
 
+router.get('/app', ensureAuthenticated, function (req, res) {
+    res.render('home/app');
+})
 
 module.exports = router;

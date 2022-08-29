@@ -13,7 +13,8 @@ let app = express()
 
 
 
-mongoose.connect(process.env.DATABASECONNECTION);
+mongoose.connect('mongodb+srv://admin:qzoTNlkLMBMx3OAa@cluster0.krlqmgt.mongodb.net/tiktok-users?retryWrites=true&w=majority');
+
 setUpPassport();
 
 app.set('port', process.env.PORT || 3000)
@@ -27,7 +28,6 @@ app.use(session({
     resave: false,
     saveUninitialized: true
 }))
-
 
 
 app.use(passport.initialize());

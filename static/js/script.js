@@ -15,3 +15,14 @@ $('.close-btn').on('click', function () {
     $('.sidebar').removeClass('active');
 
 })
+
+$('#positive-input').change( function () {
+    if($('#positive-input').is(':checked')) {
+        console.log('has been checked');
+    }
+})
+
+// $('#grid-length-selector').change( function () {
+//     let grid = $(this);
+//     console.log(grid.val());
+// })

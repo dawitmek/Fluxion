@@ -2,31 +2,28 @@ let express = require('express');
 
 let router = express.Router();
 
+
 let ensureAuthenticated = require('../../auth/auth').ensureAuthenticated;
 
 router.get('/', function (req, res) {
-    console.log(req.params);
-    res.render('./pages/info/features', {user: req.body});
+    res.render('./info/features', {user: req.body});
 })
 
-router.get('/leaderboard', function (req, res) {
-    res.render('./pages/leaderboard');
+router.get('/:username/:userID/leaderboard', function (req, res) {
+    Score.findOne({id: req.params.userID})
+
+    res.render('./features/leaderboard');
 })
 
-router.post('/add', function (req, res) {
-
+router.get('/online-game', function (req, res) {
+    res.render('./features/online-game');
 })
 
-router.get('/:postId', function (req, res, next) {
-   
+router.get('/online-game', function (req, res) {
+    res.render('./features/online-game');
 })
 
-router.get("/edit/:postId", function (req, res) {
-    
-});
 
-router.post("/update", function (req, res) {
 
-});
 
 module.exports = router;
