@@ -69,11 +69,11 @@ $('#signup-pass').focusout((e) => {
         }
 
         if (difference.includes('length')) {
-            $('#pass-length').removeClass('valid-feedback');
-            $('#pass-length').addClass('invalid-feedback');
-        } else {
             $('#pass-length').addClass('valid-feedback');
             $('#pass-length').removeClass('invalid-feedback');
+        } else {
+            $('#pass-length').removeClass('valid-feedback');
+            $('#pass-length').addClass('invalid-feedback');
         }
     } else {
         $('#error-pass').attr('hidden', true);
@@ -107,6 +107,7 @@ $('#signup-pass').focusout((e) => {
                 lowercase = true;
             }
             if (val.length >= 8 && val.length <= 20) {
+                console.log('it got inside and true');
                 length = true;
             }
 
