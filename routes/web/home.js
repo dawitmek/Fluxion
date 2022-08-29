@@ -20,7 +20,7 @@ router.get('/home', function (req, res) {
     res.redirect('./home/index');
 })
 
-router.get('/try-now', function (req, res) {
+router.get('/try-now', ensureAuthenticated, function (req, res) {
     res.render('./home/try-now')
 })
 
@@ -28,7 +28,7 @@ router.get('/about', function (req, res) {
     res.render('./info/about');
 })
 
-router.use('/features', require('./pages.js'));
+router.use('/app', require('./pages.js'));
 router.use("/posts", require("./post"));
 
 
@@ -83,7 +83,8 @@ router.post("/signup", function (req, res, next) {
         failureFlash: true
     }));
 
-router.post('/app', function (req, res) {
+router.post('/app', ensureAuthenticated, function (req, res) {
+    console.log(req.body.username);
     startTikTok(req.body.username)
     res.render('home/app', { userResponse: req.body })
 })

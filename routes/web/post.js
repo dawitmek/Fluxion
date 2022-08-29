@@ -37,6 +37,7 @@ router.post('/add', function (req, res) {
 
 router.get('/:postId', function (req, res, next) {
     Post.findById(req.params.postId).exec(function (err, post) {
+        console.log(post);
         res.render('post/detailpost', { post: post })
     })
 })

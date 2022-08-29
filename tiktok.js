@@ -1,32 +1,28 @@
 const { WebcastPushConnection } = require('tiktok-live-connector');
 const mongoose = require('mongoose');
 
+let ScoreFile = require('./models/comments.js')
+
 module.exports = function startTikTok(username) {
     let tiktokUsername = username;
 
     // ********************************  DATABASE *******************************************
 
-    let userComment = mongoose.Schema({
-        id: { type: String, required: true, unique: true },
-        profileImgUrl: { type: String, required: true },
-        comments: { type: Array },
-        score: { type: Number, required: true }
-    }, { collection: tiktokUsername });
-
-    let Score = mongoose.model('Score', userComment);
+    let Score = ScoreFile(tiktokUsername);
 
     async function checkUserAndUpdate(id, comment, date) {
         try {
             let newComment = { comment: comment, date: date };
 
             let findAndUpdate = await Score.findOneAndUpdate({
-                name: id
+                id: id
             }, {
                 $inc: { score: 1 },
                 $push: { comments: newComment }
             });
 
             if (findAndUpdate) {
+                console.log('found and/or updated');
                 return true;
             } else
                 return false;
@@ -38,6 +34,8 @@ module.exports = function startTikTok(username) {
 
     async function logComment(id, profileImgUrl, comment, date) {
         try {
+            console.log('created comment');
+
             await Score.create({
                 id: id,
                 profileImgUrl: profileImgUrl,
