@@ -69,11 +69,11 @@ $('#signup-pass').focusout((e) => {
         }
 
         if (difference.includes('length')) {
-            $('#pass-length').addClass('valid-feedback');
-            $('#pass-length').removeClass('invalid-feedback');
-        } else {
             $('#pass-length').removeClass('valid-feedback');
             $('#pass-length').addClass('invalid-feedback');
+        } else {
+            $('#pass-length').addClass('valid-feedback');
+            $('#pass-length').removeClass('invalid-feedback');
         }
     } else {
         $('#error-pass').attr('hidden', true);
