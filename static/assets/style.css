@@ -9,11 +9,16 @@
   color: #fff;
 }
 
+.main-container {
+  width: 100vw;
+}
+
 #side-nav {
   background-color: #000;
   min-width: 250px;
   max-width: 250px;
   transition: all 0.3s ease-in-out;
+  position: fixed;
 }
 
 .all-content {
@@ -32,7 +37,6 @@ hr.h-color {
 
 .sidebar {
   height: 100vh;
-
 }
 
 .sidebar li.active {
@@ -152,4 +156,10 @@ input:checked + .slider:before {
 
 .container {
   position: relative;
+}
+
+@media screen and (max-width: 768px) {
+  #side-nav {
+    min-width: 200px;
+  }
 }

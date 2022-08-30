@@ -34,19 +34,21 @@
             formDiv.style = 'max-height: 500px;';
         })
     </script> -->
-    
-    <%- include('../_snippets/sidebar.ejs') %>
-    <div class="all-content">
-    <%- include('../_snippets/navbar.ejs') %> 
-    <div class="container">
-        <% if(error && error.length> 0) { %>
-            <div class="alert alert-danger m-3" role="alert">
-                <%= error %>
-            </div>
+    <div class="main-container d-flex">
+        <% if(currentUser != null) { %>
+            <%- include('../_snippets/sidebar.ejs') %>
         <% } %>
+            <div class="all-content">
+                <%- include('../_snippets/navbar.ejs') %>
+                <div class="container">
+                <% if(error && error.length> 0) { %>
+                    <div class="alert alert-danger m-3" role="alert">
+                        <%= error %>
+                    </div>
+                    <% } %>
 
-        <% if(info && info.length> 0) { %>
-            <div class="alert alert-info m-3" role="alert">
-                <%= info %>
-            </div>
-        <% } %>
+                <% if(info && info.length> 0) { %>
+                    <div class="alert alert-info m-3" role="alert">
+                        <%= info %>
+                    </div>
+                    <% } %>
