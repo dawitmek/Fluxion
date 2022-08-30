@@ -24,7 +24,7 @@ router.get('/try-now', ensureAuthenticated, function (req, res) {
     res.render('./home/try-now')
 })
 
-router.get('/about', function (req, res) {
+router.get('/docs', function (req, res) {
     res.render('./info/about');
 })
 
@@ -91,6 +91,10 @@ router.post('/app', ensureAuthenticated, function (req, res) {
 
 router.get('/app', ensureAuthenticated, function (req, res) {
     res.render('home/app');
+})
+
+router.get('/features', function (req, res) {
+    res.render('./info/features');
 })
 
 module.exports = router;

@@ -11,12 +11,16 @@ router.use(ensureAuthenticated);
 let Score = scoreModel();
 
 router.get('/', function (req, res) {
-    res.render('./info/features', { user: req.body });
+    res.redirect('/dashboard');
+})
+
+router.get('/dashboard', function (req, res) {
+    res.render('');
 })
 
 router.get('/:username/:userID/leaderboard', function (req, res) {
     let documents = Score.find();
-    console.log(documents);
+    // console.log(documents);
     res.render('./features/leaderboard');
 })
 
@@ -24,8 +28,6 @@ router.get('/online-game', function (req, res) {
     res.render('./features/online-game');
 })
 
-router.get('/online-game', function (req, res) {
-    res.render('./features/online-game');
-})
+
 
 module.exports = router;

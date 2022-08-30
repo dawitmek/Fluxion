@@ -5,7 +5,7 @@
 }
 
 ::selection {
-  background-color: rgb(165, 80, 80);
+  background-color: rgb(80, 87, 165);
   color: #fff;
 }
 
@@ -28,6 +28,11 @@
 
 hr.h-color {
   background: #eee;
+}
+
+.sidebar {
+  height: 100vh;
+
 }
 
 .sidebar li.active {
@@ -56,7 +61,7 @@ hr.h-color {
 
 .hero-section {
   margin: 20px;
-  width: 50rem;
+  max-width: 50rem;
 }
 
 .feature-list {
@@ -65,7 +70,6 @@ hr.h-color {
 
 section {
   margin: auto;
-  max-width: 950px;
 }
 
 .small-option {
@@ -78,9 +82,8 @@ section {
 }
 
 .select-div select {
-  height: 20px;
+  width: 80%;
 }
-
 
 section.big-section input[type="checkbox"] {
   opacity: 0;
@@ -93,7 +96,7 @@ section.big-section input[type="checkbox"] {
   height: 34px;
 }
 
-.switch input { 
+.switch input {
   opacity: 0;
   width: 0;
   height: 0;
@@ -107,8 +110,8 @@ section.big-section input[type="checkbox"] {
   right: 0;
   bottom: 0;
   background-color: #ccc;
-  -webkit-transition: .4s;
-  transition: .4s;
+  -webkit-transition: 0.4s;
+  transition: 0.4s;
 }
 
 .slider::before {
@@ -119,17 +122,17 @@ section.big-section input[type="checkbox"] {
   left: 4px;
   bottom: 4px;
   background-color: white;
-  -webkit-transition: .4s;
-  transition: .4s;
+  -webkit-transition: 0.4s;
+  transition: 0.4s;
   border-radius: 100%;
 }
 
 input:checked + .slider {
-  background-color: #2196F3;
+  background-color: #2196f3;
 }
 
 input:focus + .slider {
-  box-shadow: 0 0 1px #2196F3;
+  box-shadow: 0 0 1px #2196f3;
 }
 
 input:checked + .slider:before {
