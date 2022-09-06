@@ -145,7 +145,6 @@ input:checked + .slider:before {
   transform: translateX(26px);
 }
 
-/* Rounded sliders */
 .slider.round {
   border-radius: 34px;
 }
@@ -156,6 +155,20 @@ input:checked + .slider:before {
 
 .container {
   position: relative;
+  height: calc(100vh - 80px);
+}
+
+.login-panel {
+  max-width: 400px;
+  min-width: 400px;
+  padding: 100px 30px;
+}
+
+#arrow-btn {
+  position: fixed;
+  bottom: 0;
+  right: 0;
+  transition: all 0.4s ease-in-out;
 }
 
 @media screen and (max-width: 768px) {

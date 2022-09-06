@@ -147,14 +147,14 @@ $('#re-pass').keyup((e) => {
 $('.form-signin').change((e) => {
     let wroteAll = 0,
         valid = true;
-    $('.form-signin').children().children("input[type='text'], input[type='email'], input[type='password']").each(function()  {
-        if($(this).val()) {
+    $('.form-signin').children().children("input[type='text'], input[type='email'], input[type='password']").each(function () {
+        if ($(this).val()) {
             wroteAll++;
         }
-        if($(this).hasClass('is-invalid')) {
+        if ($(this).hasClass('is-invalid')) {
             valid = false;
         }
-        if(wroteAll == 4 && valid === true) {
+        if (wroteAll == 4 && valid === true) {
             $(".form-signin input[type='submit']").removeAttr("disabled");
         } else {
             $(".form-signin input[type='submit']").attr("disabled");
@@ -164,3 +164,20 @@ $('.form-signin').change((e) => {
 })
 
 
+$('#arrow-btn').on('click', () => {
+    $(window).animate({scrollTop: 0}, 1000);
+});
+
+let lastScrollTop = 0;
+$(window).scroll(function (event) {
+    if ($(this).scrollTop() < lastScrollTop) {
+        $('#arrow-btn').css({
+            'display': 'block'
+        });
+    } else {
+        $('#arrow-btn').css({
+            'display': 'none'
+        });
+    }
+    lastScrollTop = $(this).scrollTop();
+});

@@ -7,9 +7,5 @@ let userComment = mongoose.Schema({
 });
 
 module.exports = function (tiktokUser) {
-    if (tiktokUser) {
-        return mongoose.model('Score', userComment, tiktokUser);
-    } else
-        return mongoose.model('Score', userComment);
-
+    return mongoose.model('Score', userComment, tiktokUser);
 }

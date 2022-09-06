@@ -52,11 +52,24 @@ module.exports = function startTikTok(username) {
     }
 
     // **************************  TIKTOK  *************************************************
+
+    // let tiktok_connect = async function () {
+    //     return new WebcastPushConnection(tiktokUsername);
+    // }
+
+    // let tiktok_client = ;
     let tiktok_client = new WebcastPushConnection(tiktokUsername);
 
-    tiktok_client.connect().then(state => {
-        console.log(`Connected to ${state.roomId}`);
-    })
+    console.log("TikTok CLient: ", tiktok_client._events);
+    
+    try {
+        tiktok_client.connect().then(state => {
+            console.log(`Connected to ${state.roomId}`);
+        })
+    } catch (error) {
+        console.error('Can\'t connect to room', error);
+    }
+
 
     tiktok_client.on('chat', (data => {
         console.log(data.uniqueId);

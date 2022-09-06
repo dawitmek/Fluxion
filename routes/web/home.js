@@ -5,7 +5,6 @@ const Post = require('../../models/posts');
 
 let User = require('../../models/user');
 
-let startTikTok = require('../../tiktok.js');
 
 let ensureAuthenticated = require('../../auth/auth').ensureAuthenticated;
 
@@ -28,7 +27,7 @@ router.get('/docs', function (req, res) {
     res.render('./info/about');
 })
 
-router.use('/app', require('./pages.js'));
+router.use('/app', require('./app.js'));
 router.use("/posts", require("./post"));
 
 
@@ -83,15 +82,6 @@ router.post("/signup", function (req, res, next) {
         failureFlash: true
     }));
 
-router.post('/app', ensureAuthenticated, function (req, res) {
-    console.log(req.body.username);
-    startTikTok(req.body.username)
-    res.render('home/app', { userResponse: req.body })
-})
-
-router.get('/app', ensureAuthenticated, function (req, res) {
-    res.render('home/app');
-})
 
 router.get('/features', function (req, res) {
     res.render('./info/features');
