@@ -1,3 +1,4 @@
+const { log } = require('console');
 let express = require('express'),
     path = require('path'),
     mongoose = require('mongoose'),
@@ -7,11 +8,17 @@ let express = require('express'),
     session = require('express-session'),
     flash = require('connect-flash');
 
+
 let setUpPassport = require('./setuppassport.js');
 
-let app = express()
+let app = express(),
+    server = require('http').createServer(app),
+    io = require('socket.io')(server, { cors: { origin: '*' } });
 
-
+io.on('connection', (socket) => {
+    console.log('connected at: ');
+    console.log(socket.id);
+})
 
 mongoose.connect('mongodb+srv://admin:qzoTNlkLMBMx3OAa@cluster0.krlqmgt.mongodb.net/tiktok-users?retryWrites=true&w=majority');
 
@@ -21,7 +28,7 @@ app.set('port', process.env.PORT || 3000)
 app.set('views', path.join(__dirname, 'views'));
 app.set('view engine', 'ejs')
 
-app.use(bodyParser.urlencoded({extended:true}));
+app.use(bodyParser.urlencoded({ extended: true }));
 app.use(cookieParser());
 app.use(session({
     secret: process.env.SESSION_SECRET,
@@ -42,4 +49,8 @@ app.use("/api", require("./routes/api"));
 
 app.listen(app.get('port'), function () {
     console.log("server listening on port http://localhost:" + app.get('port'));
+})
+
+server.listen(3001, () => {
+    console.log("server running");
 })

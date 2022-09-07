@@ -22,7 +22,6 @@ module.exports = function startTikTok(username) {
             });
 
             if (findAndUpdate) {
-                console.log('found and/or updated');
                 return true;
             } else
                 return false;
@@ -34,7 +33,6 @@ module.exports = function startTikTok(username) {
 
     async function logComment(id, profileImgUrl, comment, date) {
         try {
-            console.log('created comment');
 
             await Score.create({
                 id: id,
@@ -60,7 +58,6 @@ module.exports = function startTikTok(username) {
     // let tiktok_client = ;
     let tiktok_client = new WebcastPushConnection(tiktokUsername);
 
-    console.log("TikTok CLient: ", tiktok_client._events);
     
     try {
         tiktok_client.connect().then(state => {
@@ -72,7 +69,6 @@ module.exports = function startTikTok(username) {
 
 
     tiktok_client.on('chat', (data => {
-        console.log(data.uniqueId);
         try {
             comment(data.uniqueId, data.profilePictureUrl, data.comment, new Date(Date.now()).toLocaleString());
         } catch (error) {

@@ -82,6 +82,11 @@ router.post("/signup", function (req, res, next) {
         failureFlash: true
     }));
 
+router.post('/start', function (req, res) {
+    startTikTok(req.body.username)
+    res.redirect('/app');
+})
+
 
 router.get('/features', function (req, res) {
     res.render('./info/features');

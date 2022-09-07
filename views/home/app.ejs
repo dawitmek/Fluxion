@@ -1,24 +1,29 @@
 <%- include ("../_sections/_header.ejs"); %>
 
-<% let path = userResponse.username + '/' + currentUser._id.toString(); %>
+    <% let path=userResponse.username + '/' + currentUser._id.toString(); %>
 
 
-<section>
-    <h1>Directions for app: </h1>
-    <h1>Info: <%= path %></h1>
-    <ol class="list-group list-group-numbered ">
-        <li class="list-group-item bg-black text-white"><a href="/app/<%= userResponse.username + '/' + currentUser._id %>/leaderboard" class="text-decoration none">Leaderboard</a></li>
-        <li class="list-group-item bg-black text-white"><a href="#" class="text-decoration none">Chat logs</a></li>
-        <li class="list-group-item bg-black text-white"><a href="/app/online-game" class="text-decoration none">Chat Games</a></li>
-        <li class="list-group-item bg-black text-white"><a href="#" class="text-decoration none">Other</a></li>
-    </ol>
-</section>
+        <section>
+            <h1>Directions for app: </h1>
+            <h1>Info: <%= path %>
+            </h1>
+            <ol class="list-group list-group-numbered ">
+                <li class="list-group-item bg-black text-white"><a
+                        href="/app/<%= userResponse.username + '/' + currentUser._id %>/leaderboard"
+                        class="text-decoration none">Leaderboard</a></li>
+                <li class="list-group-item bg-black text-white"><a href="#" class="text-decoration none">Chat logs</a>
+                </li>
+                <li class="list-group-item bg-black text-white"><a href="/app/online-game"
+                        class="text-decoration none">Chat Games</a></li>
+                <li class="list-group-item bg-black text-white"><a href="#" class="text-decoration none">Other</a></li>
+            </ol>
+        </section>
 
-<style>
-    body {
-        background-color: black;
-        color: white;
-    }
-</style>
+        <style>
+            body {
+                background-color: black;
+                color: white;
+            }
+        </style>
 
-<%- include ("../_sections/_footer.ejs"); %>
+        <%- include ("../_sections/_footer.ejs"); %>
