@@ -20,7 +20,7 @@ io.on('connection', (socket) => {
     console.log(socket.id);
 })
 
-mongoose.connect('mongodb+srv://admin:qzoTNlkLMBMx3OAa@cluster0.krlqmgt.mongodb.net/tiktok-users?retryWrites=true&w=majority');
+mongoose.connect(`mongodb+srv://admin:<${process.env.DATABASECONNECTION}@cluster2023.s4mntee.mongodb.net/?retryWrites=true&w=majority`);
 
 setUpPassport();
 
