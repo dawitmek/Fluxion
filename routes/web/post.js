@@ -8,12 +8,15 @@ let Post = require('../../models/posts')
 
 router.use(ensureAuthenticated);
 
-router.get('/', function (req, res) {
-    Post.find({ userId: req.user._id }).exec(function (err, posts) {
-        if (err) { console.log(err); }
-
-        res.render('post/posts', { posts: posts })
-    })
+router.get('/', async function (req, res) {
+    try {
+        let post = await Post.find({ userId: req.user._id })
+        if (post) {
+            res.render('post/posts', { posts: posts })
+        }
+    } catch (error) {
+        console.log(error);        
+    }
 })
 
 router.get('/add', function (req, res) {

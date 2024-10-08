@@ -7,6 +7,7 @@ module.exports = pluralize;
  */
 
 exports.pluralization = [
+  [/human$/gi, 'humans'],
   [/(m)an$/gi, '$1en'],
   [/(pe)rson$/gi, '$1ople'],
   [/(child)$/gi, '$1ren'],
@@ -71,7 +72,7 @@ exports.uncountables = [
 ];
 const uncountables = exports.uncountables;
 
-/*!
+/**
  * Pluralize function.
  *
  * @author TJ Holowaychuk (extracted from _ext.js_)

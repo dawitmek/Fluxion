@@ -4,7 +4,7 @@
  * ignore
  */
 
-module.exports = function(schema) {
+module.exports = function validateBeforeSave(schema) {
   const unshift = true;
   schema.pre('save', false, function validateBeforeSave(next, options) {
     const _this = this;
@@ -32,12 +32,18 @@ module.exports = function(schema) {
       const validateOptions = hasValidateModifiedOnlyOption ?
         { validateModifiedOnly: options.validateModifiedOnly } :
         null;
-      this.$validate(validateOptions, function(error) {
-        return _this.$__schema.s.hooks.execPost('save:error', _this, [_this], { error: error }, function(error) {
-          _this.$op = 'save';
-          next(error);
-        });
-      });
+      this.$validate(validateOptions).then(
+        () => {
+          this.$op = 'save';
+          next();
+        },
+        error => {
+          _this.$__schema.s.hooks.execPost('save:error', _this, [_this], { error: error }, function(error) {
+            _this.$op = 'save';
+            next(error);
+          });
+        }
+      );
     } else {
       next();
     }

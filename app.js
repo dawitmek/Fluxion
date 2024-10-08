@@ -20,8 +20,7 @@ io.on('connection', (socket) => {
     console.log(socket.id);
 })
 
-mongoose.connect(`mongodb+srv://admin:<${process.env.DATABASECONNECTION}@cluster2023.s4mntee.mongodb.net/?retryWrites=true&w=majority`);
-
+mongoose.connect('mongodb+srv://elmonggo:lL0wTwklA4B0Gjo2@cluster0.iincsqp.mongodb.net/?retryWrites=true&w=majority&appName=Cluster0');
 setUpPassport();
 
 app.set('port', process.env.PORT || 3000)

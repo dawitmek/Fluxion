@@ -22,8 +22,13 @@ router.get('/dashboard', function (req, res) {
     res.render('./home/dashboard');
 })
 
-router.get('/:username/:userID/leaderboard', function (req, res) {
-    let documents = Score.find({ id: req.params.username})
+router.get('/:username/:userID/leaderboard', async function (req, res) {
+    
+    try {
+        let documents = await Score.find({ id: req.params.username})
+    } catch (error) {
+        console.log(error);
+    }
     res.render('./features/leaderboard');
 })
 
