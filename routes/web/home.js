@@ -1,16 +1,12 @@
 const { request } = require('express');
 let express = require('express');
 let passport = require('passport');
-const Post = require('../../models/posts');
-const startTikTok  = require('../../tiktok');
-
+const startTikTok = require('../../tiktok');
 let User = require('../../models/user');
-
-
 let ensureAuthenticated = require('../../auth/auth').ensureAuthenticated;
-
-
 let router = express.Router();
+
+router.use('/app', require('./app.js'));
 
 router.get('/', function (req, res) {
     res.render('./home/');
@@ -28,8 +24,6 @@ router.get('/docs', function (req, res) {
     res.render('./info/about');
 })
 
-router.use('/app', require('./app.js'));
-router.use("/posts", require("./post"));
 
 
 router.get('/login', function (req, res) {
@@ -51,31 +45,32 @@ router.get('/signup', function (req, res) {
 })
 
 router.post("/login", passport.authenticate("login", {
-    successRedirect: "/",
+    successRedirect: "/try-now",
     failureRedirect: "/login",
     failureFlash: true
 }));
 
-router.post("/signup", function (req, res, next) {
+router.post("/signup", async function (req, res, next) {
     let username = req.body.username,
         email = req.body.email,
         password = req.body.password;
 
-    User.findOne({ email: email }, function (err, user) {
-        if (err) { return next(err); }
-        if (user) {
-            req.flash('error', "There's already an account with that email");
-            return res.redirect('/signup');
-        }
+    let user = await User.findOne({ email: email });
 
+    if (!user || user == null) {
         let newUser = new User({
             username: username,
             password: password,
             email: email
         });
+    }
 
-        newUser.save(next);
-    });
+    if (user) {
+        req.flash('error', "There's already an account with that email");
+        return res.redirect('/signup');
+    }
+
+    newUser.save(next);
 },
     passport.authenticate('login', {
         successRedirect: "/",
@@ -85,6 +80,8 @@ router.post("/signup", function (req, res, next) {
 
 router.post('/start', function (req, res) {
     startTikTok(req.body.username)
+    req.started = true;
+    res.get("/api")
     res.redirect('/app');
 })
 

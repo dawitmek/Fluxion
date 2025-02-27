@@ -20,13 +20,13 @@
                 <li class="nav-item">
                     <a class="nav-link" href="/features">Features</a>
                 </li>
-                <%# if(!currentUser) { %> 
+                <% if(!currentUser) { %> 
                 <li class="nav-item">
                     <a class="nav-link btn btn-primary rounded-pill mx-5" id="nav-try-btn" href="/try-now">
                         Try it now
                     </a>
                 </li>
-                <%# } %>
+                <% } %>
                 
             </ul>
 
@@ -34,7 +34,6 @@
 
                 <% if(currentUser !=null) { %>
                     <li class="nav-item"><a class="nav-link">Welcome <%= currentUser.username %>!</a></li>
-                    <li class="nav-item"><a href="/posts" class="nav-link">Posts</a></li>
                     <li class="nav-item"><a href="/logout" class="nav-link" id="login-btn">Logout</a></li>
                     <% } %>
 

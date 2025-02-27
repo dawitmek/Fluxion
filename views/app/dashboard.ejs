@@ -1,0 +1,816 @@
+<%- include ("../_sections/_header.ejs"); %>
+
+    <body></body>
+    
+    <style>
+        :root {
+            --primary-color: #7857fe;
+            --secondary-color: #5344d7;
+            --accent-color: #ff5e7d;
+            --dark-color: #1e2136;
+            --darker-color: #15162d;
+            --light-color: #f5f5f5;
+            --text-color: #e9e9e9;
+            --card-bg: #272a45;
+            --hover-color: #323761;
+            --sidebar-width: 250px;
+        }
+
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+
+        body {
+            font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+            background-color: var(--darker-color);
+            color: var(--text-color);
+        }
+
+        a {
+            text-decoration: none;
+            color: inherit;
+        }
+
+        .dashboard-container {
+            display: flex;
+            min-height: 100vh;
+        }
+
+        /* Sidebar styles */
+        .sidebar {
+            width: var(--sidebar-width);
+            background-color: var(--dark-color);
+            color: var(--text-color);
+            padding: 20px 0;
+            position: fixed;
+            height: 100vh;
+            overflow-y: auto;
+            transition: all 0.3s;
+        }
+
+        .sidebar-header {
+            padding: 0 20px 20px;
+            border-bottom: 1px solid rgba(255, 255, 255, 0.1);
+        }
+
+        .sidebar-header h2 {
+            display: flex;
+            align-items: center;
+            gap: 10px;
+            font-size: 1.5rem;
+        }
+
+        .sidebar-nav {
+            padding: 20px 0;
+        }
+
+        .nav-item {
+            padding: 12px 20px;
+            display: flex;
+            align-items: center;
+            gap: 15px;
+            color: rgba(255, 255, 255, 0.7);
+            text-decoration: none;
+            transition: all 0.3s;
+            cursor: pointer;
+        }
+
+        .nav-item:hover,
+        .nav-item.active {
+            background-color: rgba(255, 255, 255, 0.1);
+            color: white;
+            border-left: 4px solid var(--accent-color);
+        }
+
+        /* Main content area */
+        .main-content {
+            flex: 1;
+            margin-left: var(--sidebar-width);
+            padding: 20px;
+        }
+
+        .page-header {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            margin-bottom: 25px;
+            padding-bottom: 10px;
+            border-bottom: 1px solid rgba(255, 255, 255, 0.1);
+        }
+
+        .page-title {
+            font-size: 1.8rem;
+            font-weight: 600;
+        }
+
+        .user-profile {
+            display: flex;
+            align-items: center;
+            gap: 15px;
+        }
+
+        .user-image {
+            width: 40px;
+            height: 40px;
+            border-radius: 50%;
+            background-color: var(--primary-color);
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            color: white;
+            font-weight: bold;
+        }
+
+        .notification-bell {
+            position: relative;
+            font-size: 1.2rem;
+            cursor: pointer;
+        }
+
+        .notification-indicator {
+            position: absolute;
+            top: -5px;
+            right: -5px;
+            width: 12px;
+            height: 12px;
+            background-color: var(--accent-color);
+            border-radius: 50%;
+        }
+
+        /* Card Grid */
+        .card-grid {
+            display: grid;
+            grid-template-columns: repeat(2, 1fr);
+            gap: 25px;
+        }
+
+        .dashboard-card {
+            background-color: var(--card-bg);
+            border-radius: 12px;
+            padding: 20px;
+            box-shadow: 0 4px 15px rgba(0, 0, 0, 0.1);
+            overflow: hidden;
+            transition: transform 0.3s ease, box-shadow 0.3s ease;
+            cursor: pointer;
+            position: relative;
+            min-height: 350px;
+            display: flex;
+            flex-direction: column;
+        }
+
+        .dashboard-card:hover {
+            transform: translateY(-5px);
+            box-shadow: 0 10px 20px rgba(0, 0, 0, 0.15);
+            background-color: var(--hover-color);
+        }
+
+        .card-header {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            margin-bottom: 20px;
+            padding-bottom: 10px;
+            border-bottom: 1px solid rgba(255, 255, 255, 0.1);
+        }
+
+        .card-title {
+            font-size: 1.2rem;
+            font-weight: 600;
+            display: flex;
+            align-items: center;
+            gap: 10px;
+        }
+
+        .card-icon {
+            color: var(--accent-color);
+        }
+
+        .card-content {
+            flex: 1;
+            overflow-y: auto;
+            max-height: 250px;
+            scrollbar-width: thin;
+            scrollbar-color: var(--primary-color) var(--card-bg);
+        }
+
+        .card-content::-webkit-scrollbar {
+            width: 8px;
+        }
+
+        .card-content::-webkit-scrollbar-track {
+            background: var(--card-bg);
+        }
+
+        .card-content::-webkit-scrollbar-thumb {
+            background-color: var(--primary-color);
+            border-radius: 20px;
+        }
+
+        .card-footer {
+            margin-top: 15px;
+            text-align: right;
+        }
+
+        .view-all-btn {
+            background-color: var(--primary-color);
+            color: white;
+            border: none;
+            padding: 8px 15px;
+            border-radius: 6px;
+            cursor: pointer;
+            font-weight: 500;
+            transition: background-color 0.2s;
+        }
+
+        .view-all-btn:hover {
+            background-color: var(--secondary-color);
+        }
+
+        /* Chat logs card specific */
+        .chat-logs .chat-item {
+            padding: 12px 0;
+            border-bottom: 1px solid rgba(255, 255, 255, 0.1);
+        }
+
+        .chat-item:last-child {
+            border-bottom: none;
+        }
+
+        .chat-header {
+            display: flex;
+            justify-content: space-between;
+            margin-bottom: 5px;
+        }
+
+        .chat-user {
+            font-weight: 600;
+            color: var(--primary-color);
+        }
+
+        .chat-time {
+            font-size: 0.8rem;
+            color: rgba(255, 255, 255, 0.5);
+        }
+
+        .chat-message {
+            line-height: 1.4;
+        }
+
+        /* Leaderboard card specific */
+        .leaderboard-item {
+            display: flex;
+            align-items: center;
+            padding: 10px 0;
+            border-bottom: 1px solid rgba(255, 255, 255, 0.1);
+        }
+
+        .leaderboard-rank {
+            width: 30px;
+            height: 30px;
+            background-color: var(--primary-color);
+            color: white;
+            border-radius: 50%;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            font-weight: bold;
+            margin-right: 15px;
+        }
+
+        .rank-1 {
+            background-color: gold;
+            color: black;
+        }
+
+        .rank-2 {
+            background-color: silver;
+            color: black;
+        }
+
+        .rank-3 {
+            background-color: #cd7f32;
+            /* bronze */
+            color: white;
+        }
+
+        .leaderboard-user {
+            flex: 1;
+            display: flex;
+            align-items: center;
+        }
+
+        .user-avatar {
+            width: 35px;
+            height: 35px;
+            border-radius: 50%;
+            background-color: var(--secondary-color);
+            margin-right: 10px;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+        }
+
+        .leaderboard-score {
+            font-weight: bold;
+            color: var(--accent-color);
+        }
+
+        /* Games card specific */
+        .games-container {
+            display: grid;
+            grid-template-columns: repeat(2, 1fr);
+            gap: 15px;
+        }
+
+        .game-item {
+            position: relative;
+            border-radius: 8px;
+            overflow: hidden;
+            height: 120px;
+        }
+
+        .game-image {
+            width: 100%;
+            height: 100%;
+            object-fit: cover;
+            transition: transform 0.3s ease;
+        }
+
+        .game-item:hover .game-image {
+            transform: scale(1.05);
+        }
+
+        .game-overlay {
+            position: absolute;
+            bottom: 0;
+            left: 0;
+            right: 0;
+            background: linear-gradient(to top, rgba(0, 0, 0, 0.8) 0%, rgba(0, 0, 0, 0) 100%);
+            padding: 10px;
+        }
+
+        .game-title {
+            font-weight: 600;
+            font-size: 0.9rem;
+        }
+
+        /* Toggle features card specific */
+        .toggle-container {
+            display: flex;
+            flex-direction: column;
+            gap: 15px;
+        }
+
+        .toggle-item {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            padding: 10px 0;
+            border-bottom: 1px solid rgba(255, 255, 255, 0.1);
+        }
+
+        .toggle-label {
+            display: flex;
+            align-items: center;
+            gap: 10px;
+        }
+
+        .toggle-icon {
+            color: var(--primary-color);
+        }
+
+        /* Toggle Switch */
+        .switch {
+            position: relative;
+            display: inline-block;
+            width: 50px;
+            height: 24px;
+        }
+
+        .switch input {
+            opacity: 0;
+            width: 0;
+            height: 0;
+        }
+
+        .slider {
+            position: absolute;
+            cursor: pointer;
+            top: 0;
+            left: 0;
+            right: 0;
+            bottom: 0;
+            background-color: rgba(255, 255, 255, 0.2);
+            transition: .4s;
+            border-radius: 34px;
+        }
+
+        .slider:before {
+            position: absolute;
+            content: "";
+            height: 20px;
+            width: 20px;
+            left: 2px;
+            bottom: 2px;
+            background-color: white;
+            transition: .4s;
+            border-radius: 50%;
+        }
+
+        input:checked+.slider {
+            background-color: var(--primary-color);
+        }
+
+        input:checked+.slider:before {
+            transform: translateX(26px);
+        }
+
+        /* Toggle button for sidebar */
+        .sidebar-toggle {
+            display: none;
+            position: fixed;
+            top: 20px;
+            left: 20px;
+            background-color: var(--primary-color);
+            color: white;
+            border: none;
+            width: 40px;
+            height: 40px;
+            border-radius: 5px;
+            cursor: pointer;
+            z-index: 1000;
+            align-items: center;
+            justify-content: center;
+        }
+
+        /* Responsive styles */
+        @media (max-width: 992px) {
+            .card-grid {
+                grid-template-columns: 1fr;
+            }
+        }
+
+        @media (max-width: 768px) {
+            .sidebar {
+                transform: translateX(-100%);
+                z-index: 100;
+            }
+
+            .sidebar.active {
+                transform: translateX(0);
+            }
+
+            .main-content {
+                margin-left: 0;
+            }
+
+            .sidebar-toggle {
+                display: flex;
+            }
+
+            .games-container {
+                grid-template-columns: 1fr;
+            }
+        }
+    </style>
+
+
+    <div class="dashboard-container">
+        <!-- Sidebar toggle button for mobile -->
+        <button class="sidebar-toggle" id="sidebarToggle">
+            <i class="fas fa-bars"></i>
+        </button>
+
+        <!-- Sidebar -->
+        <div class="sidebar" id="sidebar">
+            <div class="sidebar-header">
+                <h2><i class="fas fa-gamepad"></i> GameHub</h2>
+            </div>
+            <div class="sidebar-nav">
+                <a href="index.html" class="nav-item active">
+                    <i class="fas fa-home"></i>
+                    <span>Dashboard</span>
+                </a>
+                <a href="games.html" class="nav-item">
+                    <i class="fas fa-dice"></i>
+                    <span>Games</span>
+                </a>
+                <a href="leaderboards.html" class="nav-item">
+                    <i class="fas fa-trophy"></i>
+                    <span>Leaderboards</span>
+                </a>
+                <a href="chat.html" class="nav-item">
+                    <i class="fas fa-comments"></i>
+                    <span>Chat</span>
+                </a>
+                <a href="friends.html" class="nav-item">
+                    <i class="fas fa-user-friends"></i>
+                    <span>Friends</span>
+                </a>
+                <a href="settings.html" class="nav-item">
+                    <i class="fas fa-cog"></i>
+                    <span>Settings</span>
+                </a>
+                <a href="help.html" class="nav-item">
+                    <i class="fas fa-question-circle"></i>
+                    <span>Help</span>
+                </a>
+            </div>
+        </div>
+
+        <!-- Main Content -->
+        <div class="main-content">
+            <div class="page-header">
+                <h1 class="page-title">Dashboard</h1>
+                <div class="user-profile">
+                    <div class="notification-bell">
+                        <i class="fas fa-bell"></i>
+                        <div class="notification-indicator"></div>
+                    </div>
+                    <div class="user-image">
+                        P
+                    </div>
+                </div>
+            </div>
+
+            <!-- Card Grid -->
+            <div class="card-grid">
+                <!-- Chat Logs Card -->
+                <a href="chat.html" class="dashboard-card">
+                    <div class="card-header">
+                        <div class="card-title">
+                            <i class="fas fa-comments card-icon"></i>
+                            <span>Recent Chat Logs</span>
+                        </div>
+                    </div>
+                    <div class="card-content chat-logs">
+                        <div class="chat-item">
+                            <div class="chat-header">
+                                <div class="chat-user">DragonSlayer92</div>
+                                <div class="chat-time">10:45 AM</div>
+                            </div>
+                            <div class="chat-message">
+                                Just beat the final boss on Mythic difficulty! Anyone want to team up for the new raid?
+                            </div>
+                        </div>
+                        <div class="chat-item">
+                            <div class="chat-header">
+                                <div class="chat-user">ShadowNinja</div>
+                                <div class="chat-time">10:47 AM</div>
+                            </div>
+                            <div class="chat-message">
+                                Nice! I'm down for the raid. Need to gear up a bit first though.
+                            </div>
+                        </div>
+                        <div class="chat-item">
+                            <div class="chat-header">
+                                <div class="chat-user">PixelQueen</div>
+                                <div class="chat-time">11:02 AM</div>
+                            </div>
+                            <div class="chat-message">
+                                Hey everyone! Did you see the new cosmetic items in the shop? The legendary cape looks
+                                amazing!
+                            </div>
+                        </div>
+                        <div class="chat-item">
+                            <div class="chat-header">
+                                <div class="chat-user">MechWarrior</div>
+                                <div class="chat-time">11:15 AM</div>
+                            </div>
+                            <div class="chat-message">
+                                Anyone experienced with the new crafting system? I can't figure out how to make the
+                                advanced potions.
+                            </div>
+                        </div>
+                        <div class="chat-item">
+                            <div class="chat-header">
+                                <div class="chat-user">CosmicExplorer</div>
+                                <div class="chat-time">11:23 AM</div>
+                            </div>
+                            <div class="chat-message">
+                                @MechWarrior You need to combine the blue herbs with crystal dust at the alchemist
+                                table. Took me forever to figure that out!
+                            </div>
+                        </div>
+                    </div>
+                    <div class="card-footer">
+                        <button class="view-all-btn">View All Chats</button>
+                    </div>
+                </a>
+
+                <!-- Leaderboard Card -->
+                <a href="leaderboards.html" class="dashboard-card">
+                    <div class="card-header">
+                        <div class="card-title">
+                            <i class="fas fa-trophy card-icon"></i>
+                            <span>Leaderboards</span>
+                        </div>
+                    </div>
+                    <div class="card-content">
+                        <div class="leaderboard-item">
+                            <div class="leaderboard-rank rank-1">1</div>
+                            <div class="leaderboard-user">
+                                <div class="user-avatar">N</div>
+                                <div class="user-name">NightWolf</div>
+                            </div>
+                            <div class="leaderboard-score">12,458</div>
+                        </div>
+                        <div class="leaderboard-item">
+                            <div class="leaderboard-rank rank-2">2</div>
+                            <div class="leaderboard-user">
+                                <div class="user-avatar">S</div>
+                                <div class="user-name">StarGazer</div>
+                            </div>
+                            <div class="leaderboard-score">11,892</div>
+                        </div>
+                        <div class="leaderboard-item">
+                            <div class="leaderboard-rank rank-3">3</div>
+                            <div class="leaderboard-user">
+                                <div class="user-avatar">V</div>
+                                <div class="user-name">VoidRunner</div>
+                            </div>
+                            <div class="leaderboard-score">11,567</div>
+                        </div>
+                        <div class="leaderboard-item">
+                            <div class="leaderboard-rank">4</div>
+                            <div class="leaderboard-user">
+                                <div class="user-avatar">P</div>
+                                <div class="user-name">PixelHunter</div>
+                            </div>
+                            <div class="leaderboard-score">10,982</div>
+                        </div>
+                        <div class="leaderboard-item">
+                            <div class="leaderboard-rank">5</div>
+                            <div class="leaderboard-user">
+                                <div class="user-avatar">T</div>
+                                <div class="user-name">TechMage</div>
+                            </div>
+                            <div class="leaderboard-score">10,347</div>
+                        </div>
+                    </div>
+                    <div class="card-footer">
+                        <button class="view-all-btn">View Full Leaderboard</button>
+                    </div>
+                </a>
+
+                <!-- Games Card -->
+                <a href="games.html" class="dashboard-card">
+                    <div class="card-header">
+                        <div class="card-title">
+                            <i class="fas fa-gamepad card-icon"></i>
+                            <span>Popular Games</span>
+                        </div>
+                    </div>
+                    <div class="card-content">
+                        <div class="games-container">
+                            <div class="game-item">
+                                <img src="/api/placeholder/260/120" alt="Cosmic Conquest" class="game-image">
+                                <div class="game-overlay">
+                                    <div class="game-title">Cosmic Conquest</div>
+                                </div>
+                            </div>
+                            <div class="game-item">
+                                <img src="/api/placeholder/260/120" alt="Dragon's Realm" class="game-image">
+                                <div class="game-overlay">
+                                    <div class="game-title">Dragon's Realm</div>
+                                </div>
+                            </div>
+                            <div class="game-item">
+                                <img src="/api/placeholder/260/120" alt="Neon Racer" class="game-image">
+                                <div class="game-overlay">
+                                    <div class="game-title">Neon Racer</div>
+                                </div>
+                            </div>
+                            <div class="game-item">
+                                <img src="/api/placeholder/260/120" alt="Mystic Legends" class="game-image">
+                                <div class="game-overlay">
+                                    <div class="game-title">Mystic Legends</div>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                    <div class="card-footer">
+                        <button class="view-all-btn">Browse All Games</button>
+                    </div>
+                </a>
+
+                <!-- Features Toggle Card -->
+                <a href="settings.html" class="dashboard-card">
+                    <div class="card-header">
+                        <div class="card-title">
+                            <i class="fas fa-sliders-h card-icon"></i>
+                            <span>Quick Settings</span>
+                        </div>
+                    </div>
+                    <div class="card-content">
+                        <div class="toggle-container">
+                            <div class="toggle-item">
+                                <div class="toggle-label">
+                                    <i class="fas fa-bell toggle-icon"></i>
+                                    <span>Notifications</span>
+                                </div>
+                                <label class="switch">
+                                    <input type="checkbox" checked>
+                                    <span class="slider"></span>
+                                </label>
+                            </div>
+                            <div class="toggle-item">
+                                <div class="toggle-label">
+                                    <i class="fas fa-volume-up toggle-icon"></i>
+                                    <span>Sound Effects</span>
+                                </div>
+                                <label class="switch">
+                                    <input type="checkbox" checked>
+                                    <span class="slider"></span>
+                                </label>
+                            </div>
+                            <div class="toggle-item">
+                                <div class="toggle-label">
+                                    <i class="fas fa-moon toggle-icon"></i>
+                                    <span>Dark Mode</span>
+                                </div>
+                                <label class="switch">
+                                    <input type="checkbox" checked>
+                                    <span class="slider"></span>
+                                </label>
+                            </div>
+                            <div class="toggle-item">
+                                <div class="toggle-label">
+                                    <i class="fas fa-user-shield toggle-icon"></i>
+                                    <span>Privacy Mode</span>
+                                </div>
+                                <label class="switch">
+                                    <input type="checkbox">
+                                    <span class="slider"></span>
+                                </label>
+                            </div>
+                            <div class="toggle-item">
+                                <div class="toggle-label">
+                                    <i class="fas fa-chart-line toggle-icon"></i>
+                                    <span>Performance Mode</span>
+                                </div>
+                                <label class="switch">
+                                    <input type="checkbox">
+                                    <span class="slider"></span>
+                                </label>
+                            </div>
+                        </div>
+                    </div>
+                    <div class="card-footer">
+                        <button class="view-all-btn">All Settings</button>
+                    </div>
+                </a>
+            </div>
+        </div>
+    </div>
+
+    <script>
+        // Toggle sidebar on mobile
+        document.getElementById('sidebarToggle').addEventListener('click', function () {
+            document.getElementById('sidebar').classList.toggle('active');
+        });
+
+        // Make toggle switches work even though the cards are links
+        document.querySelectorAll('.switch').forEach(switchElem => {
+            switchElem.addEventListener('click', function (e) {
+                e.stopPropagation();
+            });
+        });
+
+        // Prevent default link behavior when clicking on toggle switches
+        document.querySelectorAll('.toggle-item').forEach(item => {
+            item.addEventListener('click', function (e) {
+                e.stopPropagation();
+            });
+        });
+
+        // Toggle switch functionality
+        document.querySelectorAll('.switch input').forEach(toggle => {
+            toggle.addEventListener('change', function (e) {
+                e.stopPropagation();
+                const featureName = this.parentElement.previousElementSibling.querySelector('span').textContent;
+                console.log(`${featureName} is now ${this.checked ? 'enabled' : 'disabled'}`);
+
+                // Here you would typically update user preferences via an API
+            });
+        });
+
+        // For demo: When "View All" buttons are clicked
+        document.querySelectorAll('.view-all-btn').forEach(btn => {
+            btn.addEventListener('click', function (e) {
+                e.stopPropagation(); // Don't trigger the parent card's link
+                const cardType = this.closest('.dashboard-card').querySelector('.card-title span').textContent;
+                console.log(`View all clicked for: ${cardType}`);
+
+                // Manually navigate to the appropriate page
+                const href = this.closest('.dashboard-card').getAttribute('href');
+                window.location.href = href;
+            });
+        });
+    </script>
+    </body>
+
+
+    <%- include ("../_sections/_footer.ejs"); %>

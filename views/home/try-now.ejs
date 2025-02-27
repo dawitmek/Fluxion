@@ -1,69 +1,262 @@
 <%- include ("../_sections/_header.ejs"); %>
     <section class="big-section">
+        <style>
+            :root {
+                --primary: #2563EB;
+                --primary-hover: #1D4ED8;
+                --bg-dark: #0F172A;
+                --bg-card: #1E293B;
+                --text: #F8FAFC;
+                --text-secondary: #94A3B8;
+                --border: #334155;
+            }
 
-        <h1 class="text-white header my-5">Fill out information:</h1>
+            body {
+                background-color: black;
+                height: auto;
+            }
 
-        <form action="/start" method="POST" class="text-white">
-            <label for="username">Enter TikTok username</label>
-            <input type="text" name="username" id="username" class="form-control" />
+            * {
+                margin: 0;
+                padding: 0;
+                box-sizing: border-box;
+                font-family: 'Inter', -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Oxygen, Ubuntu, Cantarell, sans-serif;
+            }
 
-            <div class="select-div d-flex align-items-center my-3 py-5">
-                <label class="" for="main-feature">Select main feature</label>
-                <select name="main-feature" class="form-select" id="main-feature">
-                    <option value="select-option"></option>
-                    <option value="online-game">Online Game Connect</option>
-                    <option value="direct">Direct Connect</option>
-                    <option value="other">Other Features</option>
-                </select>
-            </div>
-            <div class="feature-options" style="width: 50%">
-                <div class="small-option my-4">
-                    <label class="switch">
-                        <input type="checkbox" name="chat-logs" id="chat-logs" />
-                        <span class="slider rounded-pill"></span>
-                    </label>
-                    <label for="chat-logs">Access to chat logs</label>
+            .navbar {
+                display: flex;
+                justify-content: space-between;
+                align-items: center;
+                padding: 1rem 2rem;
+                border-bottom: 1px solid var(--border);
+            }
+
+            main {
+                max-width: 800px;
+                margin: 0 auto;
+                padding: 2rem;
+            }
+
+            h1 {
+                font-size: 2.5rem;
+                margin-bottom: 2rem;
+                font-weight: 700;
+            }
+
+            .form-container {
+                background-color: var(--bg-card);
+                border-radius: 1rem;
+                padding: 2rem;
+                box-shadow: 0 4px 6px -1px rgba(0, 0, 0, 0.1), 0 2px 4px -1px rgba(0, 0, 0, 0.06);
+            }
+
+            .form-group {
+                margin-bottom: 1.5rem;
+            }
+
+            label {
+                display: block;
+                margin-bottom: 0.5rem;
+                font-weight: 500;
+            }
+
+            input[type="text"],
+            select {
+                width: 100%;
+                padding: 0.75rem 1rem;
+                background-color: var(--bg-dark);
+                border: 1px solid var(--border);
+                border-radius: 0.5rem;
+                color: var(--text);
+                font-size: 1rem;
+                transition: border-color 0.2s;
+            }
+
+            input[type="text"]:focus,
+            select:focus {
+                outline: none;
+                border-color: var(--primary);
+            }
+
+            .toggle-container {
+                display: flex;
+                justify-content: space-between;
+                align-items: center;
+                padding: 0.75rem 0;
+                border-bottom: 1px solid var(--border);
+            }
+
+            .toggle-container:last-child {
+                border-bottom: none;
+            }
+
+            .toggle-label {
+                font-weight: 500;
+            }
+
+            .toggle {
+                position: relative;
+                display: inline-block;
+                width: 50px;
+                height: 26px;
+            }
+
+            .toggle input {
+                opacity: 0;
+                width: 0;
+                height: 0;
+            }
+
+            .slider {
+                position: absolute;
+                cursor: pointer;
+                top: 0;
+                left: 0;
+                right: 0;
+                bottom: 0;
+                background-color: var(--bg-dark);
+                transition: .4s;
+                border-radius: 34px;
+            }
+
+            .slider:before {
+                position: absolute;
+                content: "";
+                height: 18px;
+                width: 18px;
+                left: 4px;
+                bottom: 4px;
+                background-color: var(--text-secondary);
+                transition: .4s;
+                border-radius: 50%;
+            }
+
+            input:checked+.slider {
+                background-color: var(--primary);
+            }
+
+            input:checked+.slider:before {
+                transform: translateX(24px);
+                background-color: white;
+            }
+
+            .toggle-section {
+                margin-top: 2rem;
+                background-color: var(--bg-card);
+                border-radius: 1rem;
+                padding: 1.5rem;
+            }
+
+            .toggle-title {
+                font-size: 1.2rem;
+                margin-bottom: 1rem;
+                font-weight: 600;
+            }
+
+            .submit-button {
+                background-color: var(--primary);
+                color: white;
+                border: none;
+                padding: 0.75rem 1.5rem;
+                border-radius: 0.5rem;
+                font-weight: 600;
+                font-size: 1rem;
+                cursor: pointer;
+                transition: background-color 0.2s;
+                margin-top: 2rem;
+            }
+
+            .submit-button:hover {
+                background-color: var(--primary-hover);
+            }
+        </style>
+        <main>
+            <h1>Get started</h1>
+            <form action="/start" method="POST">
+                <div class="form-container">
+                    <div class="form-group">
+                        <label for="tiktok-username">Enter TikTok username</label>
+                        <input type="text" name="username" id="username" placeholder="@username">
+                    </div>
+
+                    <div class="form-group">
+                        <label for="main-feature">Select main feature</label>
+                        <select id="main-feature">
+                            <option value="" selected disabled>Choose a feature</option>
+                            <option value="online-game">Online Game Connect</option>
+                            <option value="direct">Direct Connect</option>
+                            <option value="other">Other Features</option>
+                        </select>
+                    </div>
                 </div>
-            </div>
-            <div class="small-option my-4">
-                <label class="switch">
-                    <input type="checkbox" name="chat-points" id="chat-points" />
-                    <span class="slider rounded-pill"></span>
-                </label>
-                <label for="chat-points">Users can accumulate points by chatting</label>
-            </div>
-            <div class="small-option my-4">
-                <label class="switch">
-                    <input type="checkbox" name="leaderboards" id="leaderboards" />
-                    <span class="slider rounded-pill"></span>
-                </label>
-                <label for="leaderboards">Leaderboards</label>
-            </div>
-            <div class="small-option my-4">
-                <label class="switch">
-                    <input type="checkbox" name="chat-games" id="chat-games" />
-                    <span class="slider rounded-pill"></span>
-                </label>
-                <label for="chat-games">Small chat games</label>
-            </div>
-            <div class="small-option my-4">
-                <label class="switch">
-                    <input type="checkbox" name="positive-input" id="positive-input" />
-                    <span class="slider rounded-pill"></span>
-                </label>
-                <label for="positive-input">Like/Gift/Follow notifications/interactions</label>
-            </div>
-            <button type="submit" class="btn btn-primary">Go Live</button>
-        </form>
+                <div class="toggle-section">
+                    <h2 class="toggle-title">Configure Features</h2>
+
+                    <div class="toggle-container">
+                        <span class="toggle-label">Access to chat logs</span>
+                        <label class="toggle">
+                            <input type="checkbox">
+                            <span class="slider"></span>
+                        </label>
+                    </div>
+
+                    <div class="toggle-container">
+                        <span class="toggle-label">Users can accumulate points by chatting</span>
+                        <label class="toggle">
+                            <input type="checkbox">
+                            <span class="slider"></span>
+                        </label>
+                    </div>
+
+                    <div class="toggle-container">
+                        <span class="toggle-label">Leaderboards</span>
+                        <label class="toggle">
+                            <input type="checkbox">
+                            <span class="slider"></span>
+                        </label>
+                    </div>
+
+                    <div class="toggle-container">
+                        <span class="toggle-label">Small chat games</span>
+                        <label class="toggle">
+                            <input type="checkbox">
+                            <span class="slider"></span>
+                        </label>
+                    </div>
+
+                    <div class="toggle-container">
+                        <span class="toggle-label">Like/Gift/Follow notifications/interactions</span>
+                        <label class="toggle">
+                            <input type="checkbox">
+                            <span class="slider"></span>
+                        </label>
+                    </div>
+                </div>
+
+                <button type="submit" class="submit-button">Go Live</button>
+            </form>
+
+        </main>
+
+        </div>
+
+        <script>
+            // Toggle functionality
+            const toggles = document.querySelectorAll('.toggle input');
+            toggles.forEach(toggle => {
+                toggle.addEventListener('change', function () {
+                    // You can add functionality here
+                });
+            });
+
+            // Back to top functionality
+            const backToTop = document.querySelector('.back-to-top');
+            backToTop.addEventListener('click', function () {
+                window.scrollTo({
+                    top: 0,
+                    behavior: 'smooth'
+                });
+            });
+        </script>
     </section>
-    <style>
-        body {
-            background-color: black;
-        }
-
-        .small-option {
-            display: flex;
-        }
-    </style>
-
     <%- include ("../_sections/_footer.ejs"); %>

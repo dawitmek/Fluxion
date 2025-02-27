@@ -23,6 +23,7 @@
 
 .all-content {
   height: 100vh;
+  overflow: auto;
   width: 100vw;
 }
 

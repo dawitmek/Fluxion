@@ -15,11 +15,13 @@ router.use(ensureAuthenticated);
 let Score = userData();
 
 router.get('/', function (req, res) {
+    console.log("this is from the web app")
     res.redirect('/app/dashboard');
 })
 
 router.get('/dashboard', function (req, res) {
-    res.render('./home/dashboard');
+    router.get('../api/')
+    res.render('./app/dashboard');
 })
 
 router.get('/:username/:userID/leaderboard', async function (req, res) {

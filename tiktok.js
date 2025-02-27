@@ -62,6 +62,8 @@ module.exports = function startTikTok(username) {
     try {
         tiktok_client.connect().then(state => {
             console.log(`Connected to ${state.roomId}`);
+        }).catch(err => {
+            console.error('Error connecting to room: ', err);
         })
     } catch (error) {
         console.error('Can\'t connect to room', error);

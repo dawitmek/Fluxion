@@ -20,7 +20,7 @@ io.on('connection', (socket) => {
     console.log(socket.id);
 })
 
-mongoose.connect('mongodb+srv://elmonggo:lL0wTwklA4B0Gjo2@cluster0.iincsqp.mongodb.net/?retryWrites=true&w=majority&appName=Cluster0');
+mongoose.connect(process.env.MongoClient);
 setUpPassport();
 
 app.set('port', process.env.PORT || 3000)
@@ -51,5 +51,5 @@ app.listen(app.get('port'), function () {
 })
 
 server.listen(3001, () => {
-    console.log("server running");
+    console.log("socket server running on port 3001");
 })
