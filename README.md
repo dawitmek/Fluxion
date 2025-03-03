@@ -3,4 +3,4 @@
 ___**Currently in development**___
 
 
-Will allow TikTok Live users to interact with streamers
+Will allow TikTok Live viewers to interact with TikTok streamers
