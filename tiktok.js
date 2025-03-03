@@ -110,6 +110,26 @@ function startTikTok(username) {
                 state: 'error',
                 error: err.message || 'Connection error'
             });
+
+            // Set an interval to attempt reconnection
+            const reconnectInterval = setInterval(() => {
+                tiktok_client.connect().then(state => {
+                    console.log(`Reconnected to Room ID: ${state.roomId}`);
+
+                    // Emit reconnected event
+                    streamEvents.emit('streamState', {
+                        username: tiktokUsername,
+                        state: 'reconnected',
+                        roomId: state.roomId
+                    });
+
+                    // Clear the interval once reconnected
+                    clearInterval(reconnectInterval);
+                }).catch(err => {
+                    console.error('Reconnection attempt failed: ', err);
+                });
+            }, 5000); // Attempt reconnection every 5 seconds
+
         })
     } catch (error) {
         console.error('Can\'t connect to room', error);

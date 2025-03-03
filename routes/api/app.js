@@ -213,96 +213,21 @@ async function checkForNewMessages(userName, knownMessageIds) {
     }
 }
 
-// Get flash messages from the session
-// Update your flash-messages API endpoint (in routes/api.js)
 
 // Enhanced flash messages API endpoint with debugging
 router.get("/flash-messages", function (req, res) {
-    console.log('Flash messages API endpoint called');
-    console.log('Session ID:', req.session?.id);
-    console.log('Flash in session:', req.session.flash);
+    // console.log('Flash messages endpoint called');
+    // console.log('Session ID:', req.session?.id);
+    // console.log('Session created at:', req.session?.created ? new Date(req.session.created) : 'unknown');
+    // console.log('Flash function exists:', typeof req.flash === 'function');
 
-    const flashMessages = [];
-
-    // Get flash messages directly from the session if req.flash is not working
-    let sessionFlash = req.session.flash || {};
-
-    // Read flash messages using req.flash() if available
-    if (typeof req.flash === 'function') {
-        console.log('Using req.flash() function');
-        // Process each type of flash message
-        const types = ['success', 'info', 'warning', 'error'];
-
-        types.forEach(type => {
-            console.log(`Checking for ${type} messages`);
-            const messages = req.flash(type);
-            console.log(`Found ${messages?.length || 0} ${type} messages:`, messages);
-
-            if (messages && messages.length > 0) {
-                messages.forEach(message => {
-                    flashMessages.push({
-                        type,
-                        message,
-                        id: Date.now() + Math.random().toString(36).substr(2, 9)
-                    });
-                });
-            }
-        });
-    } else {
-        console.error('req.flash is not a function!');
-
-        // Fall back to directly getting flash from session
-        console.log('Falling back to direct session access');
-        Object.keys(sessionFlash).forEach(type => {
-            const messages = Array.isArray(sessionFlash[type]) ?
-                sessionFlash[type] : [sessionFlash[type]];
-
-            messages.forEach(message => {
-                if (message) {
-                    flashMessages.push({
-                        type,
-                        message,
-                        id: Date.now() + Math.random().toString(36).substr(2, 9)
-                    });
-
-                    // Remove from session after reading
-                    if (Array.isArray(sessionFlash[type])) {
-                        sessionFlash[type] = sessionFlash[type]
-                            .filter(msg => msg !== message);
-                    } else {
-                        delete sessionFlash[type];
-                    }
-                }
-            });
-        });
-
-        // Save session after clearing read messages
-        req.session.flash = sessionFlash;
-        req.session.save();
-    }
-
-    console.log('Returning flash messages:', flashMessages);
-
-    // Return the flash messages as JSON
-    res.json({
-        messages: flashMessages
-    });
-});
-
-// Enhanced flash messages API endpoint with debugging
-router.get("/flash-messages", function (req, res) {
-    console.log('Flash messages endpoint called');
-    console.log('Session ID:', req.session?.id);
-    console.log('Session created at:', req.session?.created ? new Date(req.session.created) : 'unknown');
-    console.log('Flash function exists:', typeof req.flash === 'function');
-
-    // Debug session data
-    if (req.session) {
-        console.log('Session data keys:', Object.keys(req.session));
-        console.log('Flash data in session:', req.session.flash);
-    } else {
-        console.log('No session object found on request!');
-    }
+    // // Debug session data
+    // if (req.session) {
+    //     console.log('Session data keys:', Object.keys(req.session));
+    //     console.log('Flash data in session:', req.session.flash);
+    // } else {
+    //     console.log('No session object found on request!');
+    // }
 
     const flashMessages = [];
 
@@ -312,9 +237,9 @@ router.get("/flash-messages", function (req, res) {
         const types = ['success', 'info', 'warning', 'error'];
 
         types.forEach(type => {
-            console.log(`Checking for ${type} messages`);
+            // console.log(`Checking for ${type} messages`);
             const messages = req.flash(type);
-            console.log(`Found ${messages?.length || 0} ${type} messages`);
+            // console.log(`Found ${messages?.length || 0} ${type} messages`);
 
             if (messages && messages.length > 0) {
                 messages.forEach(message => {
