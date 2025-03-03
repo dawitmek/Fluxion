@@ -21,7 +21,7 @@ $('#positive-input').change(function () {
     }
 })
 
-$('#signup-pass').focusout((e) => {
+$('#signup-pass').keyup((e) => {
     let require = ['uppercase', 'lowercase', 'number', 'special', 'length']
     let difference = $(require).not(checkPass(e.currentTarget.value)).get()
     if (difference.length > 0) {
@@ -83,51 +83,34 @@ $('#signup-pass').focusout((e) => {
     }
 
     function checkPass(val) {
-        let arr = val.split('');
+        const results = [];
 
-        let result = arr.map((elem) => {
-            let uppercase = false,
-                lowercase = false,
-                number = false,
-                special = false,
-                length = false;
-            if (elem.charCodeAt(0) >= 33 && elem.charCodeAt(0) <= 47) {
-                special = true;
-            }
+        // Check for uppercase letters
+        if (/[A-Z]/.test(val)) {
+            results.push('uppercase');
+        }
 
-            if (elem.charCodeAt(0) >= 48 && elem.charCodeAt(0) <= 57) {
-                number = true;
-            }
+        // Check for lowercase letters
+        if (/[a-z]/.test(val)) {
+            results.push('lowercase');
+        }
 
-            if (elem.charCodeAt(0) >= 65 && elem.charCodeAt(0) <= 90) {
-                uppercase = true;
-            }
+        // Check for numbers
+        if (/[0-9]/.test(val)) {
+            results.push('number');
+        }
 
-            if (elem.charCodeAt(0) >= 97 && elem.charCodeAt(0) <= 122) {
-                lowercase = true;
-            }
-            if (val.length >= 8 && val.length <= 20) {
-                console.log('it got inside and true');
-                length = true;
-            }
+        // Check for special characters
+        if (/[!@#$%^&*()_+\-=\[\]{};':"\\|,.<>\/?]/.test(val)) {
+            results.push('special');
+        }
 
-            if (uppercase == true) {
-                return 'uppercase'
-            }
-            if (lowercase == true) {
-                return 'lowercase'
-            }
-            if (number == true) {
-                return 'number'
-            }
-            if (special == true) {
-                return 'special'
-            }
-            if (length == true) {
-                return 'length'
-            }
-        })
-        return result;
+        // Check length between 8-18 characters
+        if (val.length >= 8 && val.length <= 18) {
+            results.push('length');
+        }
+
+        return results;
     }
 })
 
@@ -165,7 +148,7 @@ $('.form-signin').change((e) => {
 
 
 $('#arrow-btn').on('click', () => {
-    $(window).animate({scrollTop: 0}, 1000);
+    $(window).animate({ scrollTop: 0 }, 1000);
 });
 
 let lastScrollTop = 0;

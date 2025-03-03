@@ -332,7 +332,7 @@ async function checkIfLive(req, res, next) {
             const streamStatus = await checkTikTokStreamStatus(req.tiktokName || req.body.username);
 
             if (!streamStatus.isLive) {
-                req.flash('error', `@${req.tiktokName} is not currently live streaming on TikTok: ${streamStatus.reason}`);
+                req.flash('error', `@${req.tiktokName || req.body.username} is not currently live streaming on TikTok: ${streamStatus.reason}`);
                 return req.session.save(() => {
                     res.redirect('/try-now');
                 });
@@ -341,10 +341,22 @@ async function checkIfLive(req, res, next) {
             next();
         } catch (error) {
             console.error('Error checking stream status:', error);
-            req.flash('error', `Unable to connect to @${req.tiktokName}'s TikTok stream: ${error.message || 'Unknown error'}`);
-            return req.session.save(() => {
-                res.redirect('/try-now');
-            });
+            switch (error.message) {
+                case "Connection failed":
+                    req.flash('error', `Unable to connect to @${req.tiktokName || req.body.username}'s TikTok stream: User does not exist or Connection failed.`);
+                    return req.session.save(() => {
+                        res.redirect('/try-now');
+                    });
+                    break;
+
+                default:
+                    req.flash('error', `Unable to connect to @${req.tiktokName || req.body.username}'s TikTok stream: ${error.message || 'Unknown error'}`);
+                    return req.session.save(() => {
+                        res.redirect('/try-now');
+                    });
+                    break;
+            }
+
         }
     }
 }
