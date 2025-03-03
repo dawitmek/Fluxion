@@ -1,10 +1,17 @@
 const { WebcastPushConnection } = require('tiktok-live-connector');
 const mongoose = require('mongoose');
+const EventEmitter = require('events');
+const User = require('./models/user');
 
-let ScoreFile = require('./models/comments.js')
+// Create an event emitter to broadcast stream state changes
+const streamEvents = new EventEmitter();
 
-module.exports = function startTikTok(username) {
+let ScoreFile = require('./models/comments.js');
+
+function startTikTok(username) {
     let tiktokUsername = username;
+    let isActive = false;
+    let activityTimeout = null;
 
     // ********************************  DATABASE *******************************************
 
@@ -33,7 +40,6 @@ module.exports = function startTikTok(username) {
 
     async function logComment(id, profileImgUrl, comment, date) {
         try {
-
             await Score.create({
                 id: id,
                 profileImgUrl: profileImgUrl,
@@ -45,53 +51,196 @@ module.exports = function startTikTok(username) {
             })
         } catch (err) {
             console.error('Adding comment error: ', err)
+        }
+    }
 
+    // Function to verify if a stream is active
+    function checkStreamActivity() {
+        // If we haven't received any activity since connection, 
+        // the stream might be ended already
+        if (!isActive) {
+            console.log('No stream activity detected, stream appears to be ended');
+
+            // Emit stream end event
+            streamEvents.emit('streamState', {
+                username: tiktokUsername,
+                state: 'ended'
+            });
+
+            // Disconnect since there's no active stream
+            if (tiktok_client && typeof tiktok_client.disconnect === 'function') {
+                tiktok_client.disconnect();
+            }
         }
     }
 
     // **************************  TIKTOK  *************************************************
 
-    // let tiktok_connect = async function () {
-    //     return new WebcastPushConnection(tiktokUsername);
-    // }
-
-    // let tiktok_client = ;
     let tiktok_client = new WebcastPushConnection(tiktokUsername);
 
-    
     try {
         tiktok_client.connect().then(state => {
-            console.log(`Connected to ${state.roomId}`);
+            console.log(`Connected to Room ID: ${state.roomId}`);
+
+            // Emit connected event
+            streamEvents.emit('streamState', {
+                username: tiktokUsername,
+                state: 'connected',
+                roomId: state.roomId
+            });
+
+            // Check the roomInfo to see if it contains valid data
+            if (!state.roomInfo || Object.keys(state.roomInfo).length === 0 ||
+                (state.roomInfo.prompts && state.roomInfo.prompts === '')) {
+                console.log('Connected to room, but roomInfo indicates stream may be ended');
+
+                // Set a timeout to check for activity
+                activityTimeout = setTimeout(checkStreamActivity, 5000);
+            } else {
+                // Mark as active if roomInfo appears valid
+                isActive = true;
+            }
+
         }).catch(err => {
             console.error('Error connecting to room: ', err);
+
+            // Emit error event
+            streamEvents.emit('streamState', {
+                username: tiktokUsername,
+                state: 'error',
+                error: err.message || 'Connection error'
+            });
         })
     } catch (error) {
         console.error('Can\'t connect to room', error);
+
+        // Emit error event
+        streamEvents.emit('streamState', {
+            username: tiktokUsername,
+            state: 'error',
+            error: error.message || 'Connection failed'
+        });
     }
 
+    // Any event indicates activity
+    const markActivity = () => {
+        isActive = true;
+        if (activityTimeout) {
+            clearTimeout(activityTimeout);
+            activityTimeout = null;
+        }
+    };
 
     tiktok_client.on('chat', (data => {
         try {
+            markActivity();
             comment(data.uniqueId, data.profilePictureUrl, data.comment, new Date(Date.now()).toLocaleString());
         } catch (error) {
             console.error('Chatting error: ', error);
         }
-    }))
+    }));
+
+    // Track other event types as activity too
+    tiktok_client.on('gift', () => markActivity());
+    tiktok_client.on('like', () => markActivity());
+    tiktok_client.on('follow', () => markActivity());
+    tiktok_client.on('share', () => markActivity());
 
     tiktok_client.on('disconnected', () => {
-        setTimeout(() => {
-            tiktok_client.connect();
-        }, 2000);
-    })
+        console.log('Connection lost, reconnecting...');
+        console.log("Get state: ", tiktok_client.getState());
+
+        // Reset activity flag when disconnected
+        isActive = false;
+
+        tiktok_client.getRoomInfo().then(info => {
+            console.log("Room info: ", info);
+
+            // Check if roomInfo indicates an ended stream
+            if (!info || Object.keys(info).length === 0 ||
+                (info.prompts && info.prompts === '')) {
+                // This likely means the stream has ended
+                streamEvents.emit('streamState', {
+                    username: tiktokUsername,
+                    state: 'ended'
+                });
+                return; // Don't reconnect
+            }
+
+            // Emit disconnected event
+            streamEvents.emit('streamState', {
+                username: tiktokUsername,
+                state: 'disconnected'
+            });
+
+            setTimeout(() => {
+                tiktok_client.connect();
+
+                // Set a new activity timeout after reconnection
+                activityTimeout = setTimeout(checkStreamActivity, 5000);
+            }, 2000);
+        }).catch(err => {
+            console.error('Error getting room info:', err);
+
+            // If we can't get room info, assume stream ended
+            streamEvents.emit('streamState', {
+                username: tiktokUsername,
+                state: 'ended'
+            });
+        });
+    });
+
+    const reconnectInterval = setInterval(() => {
+        if (!tiktok_client.getState().isConnected) {
+            console.log("Connection appears down, clearing interval");
+            clearInterval(reconnectInterval);
+            return;
+        }
+
+        tiktok_client.getRoomInfo().then(info => {
+            // Check if roomInfo indicates an ended stream
+            if (!info || Object.keys(info).length === 0 ||
+                (info.prompts && info.prompts === '')) {
+                console.log('Room info indicates stream has ended');
+
+                // Emit stream end event
+                streamEvents.emit('streamState', {
+                    username: tiktokUsername,
+                    state: 'ended'
+                });
+
+                // Disconnect since there's no active stream
+                tiktok_client.disconnect();
+                clearInterval(reconnectInterval);
+            }
+        }).catch(err => {
+            console.error('Error getting room info:', err);
+        });
+    }, 10000); // Check every 10 seconds instead of 2
 
     tiktok_client.on('streamEnd', () => {
-        console.log('Stream and Database connection closed');
-    })
+        console.log('LIVE ENDED: Stream connection closed');
+
+        // Emit stream end event - this will trigger flash messages
+        streamEvents.emit('streamState', {
+            username: tiktokUsername,
+            state: 'ended'
+        });
+
+        // Clear the reconnect interval
+        clearInterval(reconnectInterval);
+    });
 
     tiktok_client.on('error', err => {
         console.error('Tiktok error: ', err);
-    })
 
+        // Emit error event
+        streamEvents.emit('streamState', {
+            username: tiktokUsername,
+            state: 'error',
+            error: err.message || 'Stream error'
+        });
+    });
 
     async function comment(id, pictureUrl, comment, date) {
         // Returns true if user is found
@@ -101,10 +250,21 @@ module.exports = function startTikTok(username) {
         }
     }
 
-    // ******************************************************************************
-
-
-
+    return {
+        client: tiktok_client,
+        disconnect: () => {
+            // Clear intervals and timeouts
+            if (reconnectInterval) {
+                clearInterval(reconnectInterval);
+            }
+            if (activityTimeout) {
+                clearTimeout(activityTimeout);
+            }
+            tiktok_client.disconnect();
+        }
+    };
 }
 
-// Username of someone who is currently live
+// Export the function and the event emitter
+module.exports = startTikTok;
+module.exports.streamEvents = streamEvents;

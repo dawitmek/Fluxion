@@ -11,49 +11,113 @@
     <script src="https://cdn.socket.io/socket.io-3.0.1.min.js"></script>
     <link rel="stylesheet" text="text/css" href="/../assets/style.css">
     <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
-
+    <link rel="icon" type="image/png" href="/../assets/icon.png">
+    <!-- Add this before your React script -->
+    <script>
+        // Create a global object to pass EJS variables to React
+        window.serverData = {
+            tiktokName: "<%= typeof tiktokName !== 'undefined' ? tiktokName : '' %>",
+            // Add any other server variables you need here
+        };
+        console.log(window.serverData);
+    </script>
 </head>
 
 <body>
-
-    <!-- <style>
-        .form-div {
-            max-height: 0;
-            overflow: hidden;
-            transition: all 0.5s ease-in-out;
-        }
-
-        form.login-form {
-            height: 100%;
-            width: 100%;
-        }
-    </style>
-    <script>
-        let formBtn = document.querySelector('#login-btn'),
-            formDiv = document.querySelector('.form-div');
-
-        formBtn.addEventListener('click', (e) => {
-            console.log('cicked');
-            formDiv.style = 'max-height: 500px;';
-        })
-    </script> -->
     <div class="main-container d-flex">
-        <% if(currentUser != null) { %>
+        <% if(typeof currentUser !== 'undefined' && currentUser !== null) { %>
             <%- include('../_snippets/sidebar.ejs') %>
         <% } %>
-    <div class="all-content">
-        <%# if(!URL.split('/').includes('app')) { %> 
-            <%- include('../_snippets/navbar.ejs') %>
-        <%# } %>
-        <div class="container">
-        <% if(error && error.length> 0) { %>
-            <div class="alert alert-danger m-3" role="alert">
-                <%= error %>
-        </div>
-        <% } %>
+        <div class="all-content">
+            <% if (typeof URL !== 'undefined' && !URL.split('/').includes('app')) { %>
+                <%- include('../_snippets/navbar.ejs') %>
+                <div class="container">
+            <% } %>
+            
+            <!-- Flash Messages Section -->
+            <div id="flash-messages-container">
+                <!-- Error Messages -->
+                <% if(typeof flashMessages !== 'undefined' && flashMessages.error && flashMessages.error.length > 0) { %>
+                    <% flashMessages.error.forEach(function(message) { %>
+                        <div class="alert alert-danger alert-dismissible fade show m-3" role="alert">
+                            <%= message %>
+                            <button type="button" class="btn-close" data-bs-dismiss="alert" aria-label="Close"></button>
+                        </div>
+                    <% }); %>
+                <% } %>
+                
+                <!-- Info Messages -->
+                <% if(typeof flashMessages !== 'undefined' && flashMessages.info && flashMessages.info.length > 0) { %>
+                    <% flashMessages.info.forEach(function(message) { %>
+                        <div class="alert alert-info alert-dismissible fade show m-3" role="alert">
+                            <%= message %>
+                            <button type="button" class="btn-close" data-bs-dismiss="alert" aria-label="Close"></button>
+                        </div>
+                    <% }); %>
+                <% } %>
+                
+                <!-- Success Messages -->
+                <% if(typeof flashMessages !== 'undefined' && flashMessages.success && flashMessages.success.length > 0) { %>
+                    <% flashMessages.success.forEach(function(message) { %>
+                        <div class="alert alert-success alert-dismissible fade show m-3" role="alert">
+                            <%= message %>
+                            <button type="button" class="btn-close" data-bs-dismiss="alert" aria-label="Close"></button>
+                        </div>
+                    <% }); %>
+                <% } %>
+                
+                <!-- Warning Messages -->
+                <% if(typeof flashMessages !== 'undefined' && flashMessages.warning && flashMessages.warning.length > 0) { %>
+                    <% flashMessages.warning.forEach(function(message) { %>
+                        <div class="alert alert-warning alert-dismissible fade show m-3" role="alert">
+                            <%= message %>
+                            <button type="button" class="btn-close" data-bs-dismiss="alert" aria-label="Close"></button>
+                        </div>
+                    <% }); %>
+                <% } %>
+                
+                <!-- For backward compatibility -->
+                <% if(typeof error !== 'undefined' && error && error.length > 0) { %>
+                    <div class="alert alert-danger alert-dismissible fade show m-3" role="alert">
+                        <%= error %>
+                        <button type="button" class="btn-close" data-bs-dismiss="alert" aria-label="Close"></button>
+                    </div>
+                <% } %>
 
-        <% if(info && info.length> 0) { %>
-            <div class="alert alert-info m-3" role="alert">
-                <%= info %>
+                <% if(typeof info !== 'undefined' && info && info.length > 0) { %>
+                    <div class="alert alert-info alert-dismissible fade show m-3" role="alert">
+                        <%= info %>
+                        <button type="button" class="btn-close" data-bs-dismiss="alert" aria-label="Close"></button>
+                    </div>
+                <% } %>
             </div>
-        <% } %>
+            
+            <script>
+                // Check for flash messages from the API on page load
+                document.addEventListener('DOMContentLoaded', function() {
+                    // Only fetch from API if no server-rendered flash messages
+                    const container = document.getElementById('flash-messages-container');
+                    if (container && container.children.length === 0) {
+                        fetch('/api/flash-messages')
+                            .then(response => response.json())
+                            .then(data => {
+                                if (data.messages && data.messages.length > 0) {
+                                    data.messages.forEach(msg => {
+                                        const alertDiv = document.createElement('div');
+                                        alertDiv.className = `alert alert-${msg.type} alert-dismissible fade show m-3`;
+                                        alertDiv.setAttribute('role', 'alert');
+                                        alertDiv.innerHTML = `
+                                            ${msg.message}
+                                            <button type="button" class="btn-close" data-bs-dismiss="alert" aria-label="Close"></button>
+                                        `;
+                                        container.appendChild(alertDiv);
+                                    });
+                                }
+                            })
+                            .catch(error => console.error('Error fetching flash messages:', error));
+                    }
+                });
+            </script>
+
+
+            

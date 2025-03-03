@@ -1,0 +1,46 @@
+<!DOCTYPE html>
+<html>
+<head>
+    <title>Flash Test</title>
+</head>
+<body>
+    <h1>Flash Message Test</h1>
+    
+    <div style="background: #f0f0f0; padding: 10px; margin: 10px 0;">
+        <h3>Active Flash Messages:</h3>
+        <% if (messages.error && messages.error.length > 0) { %>
+            <div style="color: red; margin: 5px 0;">
+                <strong>Error:</strong> <%= messages.error %>
+            </div>
+        <% } %>
+        
+        <% if (messages.info && messages.info.length > 0) { %>
+            <div style="color: blue; margin: 5px 0;">
+                <strong>Info:</strong> <%= messages.info %>
+            </div>
+        <% } %>
+        
+        <% if (messages.success && messages.success.length > 0) { %>
+            <div style="color: green; margin: 5px 0;">
+                <strong>Success:</strong> <%= messages.success %>
+            </div>
+        <% } %>
+    </div>
+    
+    <div style="margin-top: 20px;">
+        <h3>Create Test Flash Messages:</h3>
+        <ul>
+            <li><a href="/flash-test/set/error/Error%20Message">Set Error Flash</a></li>
+            <li><a href="/flash-test/set/info/Info%20Message">Set Info Flash</a></li>
+            <li><a href="/flash-test/set/success/Success%20Message">Set Success Flash</a></li>
+        </ul>
+    </div>
+    
+    <div style="background: #ffe; padding: 10px; margin-top: 20px;">
+        <h3>Session Diagnostics:</h3>
+        <p>Session ID: <%= sessionId %></p>
+        <p>Session Cookie Time Left: <%= cookieExpires %></p>
+        <pre><%= JSON.stringify(sessionData, null, 2) %></pre>
+    </div>
+</body>
+</html>

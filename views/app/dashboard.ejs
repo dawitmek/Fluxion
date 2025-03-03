@@ -1,816 +1,851 @@
+<!-- dashboard.ejs -->
+ 
 <%- include ("../_sections/_header.ejs"); %>
 
-    <body></body>
-    
+
+    <!-- React root element -->
+    <div id="root"></div>
+
+    <!-- Include React libraries -->
+    <script crossorigin src="https://unpkg.com/react@18/umd/react.development.js"></script>
+    <script crossorigin src="https://unpkg.com/react-dom@18/umd/react-dom.development.js"></script>
+
+    <!-- For using JSX in the browser -->
+    <script src="https://unpkg.com/@babel/standalone/babel.min.js"></script>
+
+    <!-- Font Awesome for icons -->
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+
+    <!-- Tailwind CSS -->
+    <script src="https://cdn.tailwindcss.com"></script>
+
+    <!-- Your React Component Script -->
+    <script type="text/babel">
+        // Main Dashboard Component
+        // Main Dashboard Component with Flash Messages at the top
+        // Main Dashboard Component with Flash Messages at the top
+        const Dashboard = () => {
+            const [sidebarActive, setSidebarActive] = React.useState(false);
+            const [flashMessages, setFlashMessages] = React.useState([]);
+            const socketRef = React.useRef(null);
+
+            // You can use this hook to fetch initial flash messages when the dashboard loads
+            // and set up Socket.io connection
+            React.useEffect(() => {
+                // Fetch initial flash messages
+                fetchFlashMessages();
+
+                // Set up Socket.io connection
+                const socket = io(); // Connect to the same host
+                socketRef.current = socket;
+
+                // Listen for stream end events
+                socket.on('streamEnd', (data) => {
+                    console.log('Stream end event received:', data);
+                    addFlashMessage({
+                        type: 'info',
+                        message: data.message,
+                        id: Date.now()
+                    });
+                });
+
+                // Clean up socket connection on unmount
+                return () => {
+                    if (socketRef.current) {
+                        socketRef.current.disconnect();
+                    }
+                };
+            }, []);
+
+            // Function to fetch flash messages from the server
+            const fetchFlashMessages = async () => {
+                try {
+                    const response = await fetch('/api/flash-messages');
+                    if (response.ok) {
+                        const data = await response.json();
+                        if (data && Array.isArray(data.messages) && data.messages.length > 0) {
+                            setFlashMessages(data.messages);
+                        }
+                    }
+                } catch (error) {
+                    console.error('Error fetching flash messages:', error);
+                }
+            };
+
+            // Function to add a new flash message
+            const addFlashMessage = (message) => {
+                setFlashMessages(prevMessages => [...prevMessages, message]);
+
+                // Auto-remove the message after 10 seconds
+                setTimeout(() => {
+                    removeFlashMessage(message.id);
+                }, 10000);
+            };
+
+            // Function to remove a flash message
+            const removeFlashMessage = (id) => {
+                setFlashMessages(prevMessages =>
+                    prevMessages.filter(msg => msg.id !== id)
+                );
+            };
+
+            const toggleSidebar = () => {
+                setSidebarActive(!sidebarActive);
+            };
+
+            return (
+                <div className="flex min-h-screen bg-[#15162d] text-[#e9e9e9] font-sans">
+                    {/* Sidebar toggle button for mobile */}
+                    <button
+                        className="fixed top-5 left-5 z-50 flex items-center justify-center w-10 h-10 bg-[#7857fe] text-white rounded md:hidden"
+                        onClick={toggleSidebar}
+                    >
+                        <i className="fas fa-bars"></i>
+                    </button>
+
+                    {/* Sidebar */}
+                    <Sidebar active={sidebarActive} />
+
+                    {/* Main Content */}
+                    <div className="flex-1 ml-0 p-5 md:ml-64 flex flex-col">
+                        <PageHeader />
+
+                        {/* Flash Messages Component */}
+                        <FlashMessages
+                            messages={flashMessages}
+                            onDismiss={removeFlashMessage}
+                        />
+
+                        <CardGrid />
+                    </div>
+                </div>
+            );
+        };
+
+        // Flash Messages Component
+        const FlashMessages = ({ messages, onDismiss }) => {
+            if (!messages || messages.length === 0) return null;
+
+            return (
+                <div className="mb-6 space-y-2">
+                    {messages.map(message => (
+                        <FlashMessage
+                            key={message.id}
+                            message={message}
+                            onDismiss={() => onDismiss(message.id)}
+                        />
+                    ))}
+                </div>
+            );
+        };
+
+        // Individual Flash Message Component
+        const FlashMessage = ({ message, onDismiss }) => {
+            // Generate appropriate classes based on message type
+            const getTypeClasses = () => {
+                switch (message.type) {
+                    case 'success':
+                        return 'bg-green-500/20 text-green-400 border-green-500/50';
+                    case 'error':
+                        return 'bg-red-500/20 text-red-400 border-red-500/50';
+                    case 'warning':
+                        return 'bg-yellow-500/20 text-yellow-400 border-yellow-500/50';
+                    case 'info':
+                    default:
+                        return 'bg-blue-500/20 text-blue-400 border-blue-500/50';
+                }
+            };
+
+            // Get icon based on message type
+            const getIcon = () => {
+                switch (message.type) {
+                    case 'success':
+                        return <i className="fas fa-check-circle"></i>;
+                    case 'error':
+                        return <i className="fas fa-exclamation-circle"></i>;
+                    case 'warning':
+                        return <i className="fas fa-exclamation-triangle"></i>;
+                    case 'info':
+                    default:
+                        return <i className="fas fa-info-circle"></i>;
+                }
+            };
+
+            return (
+                <div className={`p-4 rounded-lg border flex items-center justify-between animate-slideDown ${getTypeClasses()}`}>
+                    <div className="flex items-center">
+                        <span className="mr-3 text-xl">{getIcon()}</span>
+                        <span>{message.message}</span>
+                    </div>
+                    <button
+                        onClick={onDismiss}
+                        className="ml-4 text-white/50 hover:text-white transition-colors"
+                    >
+                        <i className="fas fa-times"></i>
+                    </button>
+                </div>
+            );
+        };
+        // Sidebar Component
+        const Sidebar = ({ active }) => {
+            return (
+                <div className={`fixed h-full w-64 bg-[#1e2136] p-0 transition-transform duration-300 z-40 
+                  ${active ? 'translate-x-0' : '-translate-x-full'} md:translate-x-0`}>
+                    <div className="p-5 border-b border-white/10">
+                        <h2 className="flex items-center gap-2.5 text-2xl font-bold">
+                            <img src="/assets/icon.png" alt="Fluxion Logo" className="w-25 h-25 mr-2" /> Fluxion
+                        </h2>
+                    </div>
+                    <nav className="py-5">
+                        <NavItem href="index.html" icon={<i className="fas fa-home"></i>} text="Dashboard" active={true} />
+                        <NavItem href="games.html" icon={<i className="fas fa-dice"></i>} text="Games" />
+                        <NavItem href="leaderboards.html" icon={<i className="fas fa-trophy"></i>} text="Leaderboards" />
+                        <NavItem href="chat.html" icon={<i className="fas fa-comments"></i>} text="Chat" />
+                        <NavItem href="friends.html" icon={<i className="fas fa-user-friends"></i>} text="Friends" />
+                        <NavItem href="settings.html" icon={<i className="fas fa-cog"></i>} text="Settings" />
+                        <NavItem href="help.html" icon={<i className="fas fa-question-circle"></i>} text="Help" />
+                    </nav>
+                </div>
+            );
+        };
+
+        // Navigation Item Component
+        const NavItem = ({ href, icon, text, active = false }) => {
+            return (
+                <a
+                    href={href}
+                    className={`flex items-center gap-4 px-5 py-3 text-white/70 hover:bg-white/10 hover:text-white hover:border-l-4 hover:border-[#ff5e7d] transition-all
+                        ${active ? 'bg-white/10 text-white border-l-4 border-[#ff5e7d]' : ''}`}
+                >
+                    {icon}
+                    <span>{text}</span>
+                </a>
+            );
+        };
+
+        // Page Header Component
+        const PageHeader = () => {
+            return (
+                <div className="flex justify-between items-center mb-6 pb-2.5 border-b border-white/10">
+                    <h1 className="text-3xl font-semibold">Dashboard</h1>
+                    <div className="flex items-center">
+                        <div className="relative mr-4">
+                            <i className="fas fa-bell text-xl"></i>
+                            <div className="absolute -top-1 -right-1 w-3 h-3 bg-[#ff5e7d] rounded-full"></div>
+                        </div>
+                        <div className="w-10 h-10 rounded-full bg-[#7857fe] flex items-center justify-center text-white font-bold">
+                            P
+                        </div>
+                    </div>
+                </div>
+            );
+        };
+
+        // Card Grid Component
+        const CardGrid = () => {
+            return (
+                <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
+                    <ChatCard />
+                    <LeaderboardCard />
+                    <GamesCard />
+                    <SettingsCard />
+                </div>
+            );
+        };
+
+        // Chat Card Component - Using API data
+        // Chat Card Component - Using EJS variable
+        const ChatCard = () => {
+            const [chatLogs, setChatLogs] = React.useState([]);
+            const [loading, setLoading] = React.useState(true);
+            const [error, setError] = React.useState(null);
+            const [isConnected, setIsConnected] = React.useState(false);
+            const [streamState, setStreamState] = React.useState(null);
+            const socketRef = React.useRef(null);
+            const chatContainerRef = React.useRef(null);
+            const shouldScrollRef = React.useRef(true);
+
+            // Get the tiktokName from the window.serverData
+            const tiktokName = window.serverData?.tiktokName || "Guest";
+
+            // Function to scroll to bottom of chat
+            const scrollToBottom = () => {
+                if (chatContainerRef.current && shouldScrollRef.current) {
+                    chatContainerRef.current.scrollTop = chatContainerRef.current.scrollHeight;
+                }
+            };
+
+            // Auto-scroll when chat logs change
+            React.useEffect(() => {
+                scrollToBottom();
+            }, [chatLogs]);
+
+            // Handle scroll events to detect if user has manually scrolled up
+            const handleScroll = () => {
+                if (chatContainerRef.current) {
+                    const { scrollTop, scrollHeight, clientHeight } = chatContainerRef.current;
+                    // If user is scrolled near bottom, enable auto-scroll on new messages
+                    // If user has scrolled up, disable auto-scroll until they scroll down again
+                    const isNearBottom = scrollTop + clientHeight >= scrollHeight - 50;
+                    shouldScrollRef.current = isNearBottom;
+                }
+            };
+
+            React.useEffect(() => {
+                // Don't establish connection for guest users
+                if (tiktokName === "Guest") {
+                    setLoading(false);
+                    return;
+                }
+
+                // Fetch initial chat data and set up Socket.io
+                const initChat = async () => {
+                    try {
+                        // First, get the initial chat data
+                        setLoading(true);
+                        const response = await fetch(`/api/chat/${tiktokName}`);
+
+                        if (!response.ok) {
+                            throw new Error(`API returned status: ${response.status}`);
+                        }
+
+                        const initialData = await response.json();
+
+                        // Make sure we're setting an array, even if empty
+                        setChatLogs(Array.isArray(initialData) ? initialData : []);
+                        setLoading(false);
+
+                        // Set up Socket.io for real-time updates
+                        setupSocketConnection();
+                    } catch (error) {
+                        console.error("Error initializing chat:", error);
+                        setError("Failed to load chat data");
+                        setLoading(false);
+                    }
+                };
+
+                const setupSocketConnection = () => {
+                    // Create Socket.io connection
+                    const socket = io();
+                    socketRef.current = socket;
+
+                    // Set connection status
+                    socket.on('connect', () => {
+                        console.log('Socket.io connected');
+                        setIsConnected(true);
+
+                        // Subscribe to chat updates for this username
+                        socket.emit('subscribeToChatUpdates', { username: tiktokName });
+                    });
+
+                    // Handle disconnection
+                    socket.on('disconnect', () => {
+                        console.log('Socket.io disconnected');
+                        setIsConnected(false);
+                    });
+
+                    // Listen for chat updates
+                    socket.on('tiktokComment', (data) => {
+                        // Make sure this is for the TikTok user we're tracking
+                        if (data.username === tiktokName && data.commentData) {
+                            console.log('New comment received:', data.commentData);
+
+                            setChatLogs(prevLogs => {
+                                // Create a new message object
+                                const newMessage = {
+                                    user: data.commentData.user,
+                                    message: data.commentData.message,
+                                    time: data.commentData.time || new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }),
+                                    timestamp: data.commentData.timestamp || Date.now()
+                                };
+
+                                // Check if this is a duplicate message
+                                const isDuplicate = prevLogs.some(existingMsg =>
+                                    existingMsg.user === newMessage.user &&
+                                    existingMsg.message === newMessage.message
+                                );
+
+                                // If it's a duplicate, don't add it
+                                if (isDuplicate) return prevLogs;
+
+                                // Add the new message to the array
+                                const updatedLogs = [...prevLogs, newMessage];
+
+                                // Sort by timestamp if available
+                                updatedLogs.sort((a, b) => {
+                                    if (a.timestamp && b.timestamp) {
+                                        return a.timestamp - b.timestamp;
+                                    }
+                                    return 0;
+                                });
+
+                                // Keep only the last 20 messages
+                                return updatedLogs.slice(-20);
+                            });
+                        }
+                    });
+
+                    // Listen for chatUpdate events (for backward compatibility)
+                    socket.on('chatUpdate', (data) => {
+                        if (data.username === tiktokName && Array.isArray(data.messages)) {
+                            console.log('Chat update received:', data.messages.length, 'messages');
+
+                            setChatLogs(prevLogs => {
+                                // Filter out duplicates
+                                const newMessages = data.messages.filter(newMsg =>
+                                    !prevLogs.some(existingMsg =>
+                                        existingMsg.user === newMsg.user &&
+                                        existingMsg.message === newMsg.message
+                                    )
+                                );
+
+                                if (newMessages.length === 0) return prevLogs;
+
+                                // Combine existing and new messages
+                                const combinedLogs = [...prevLogs, ...newMessages];
+
+                                // Sort by timestamp
+                                combinedLogs.sort((a, b) => {
+                                    if (a.timestamp && b.timestamp) {
+                                        return a.timestamp - b.timestamp;
+                                    }
+                                    return 0;
+                                });
+
+                                // Keep only the last 20 messages
+                                return combinedLogs.slice(-20);
+                            });
+                        }
+                    });
+
+                    // Listen for stream state changes
+                    socket.on('streamState', (data) => {
+                        if (data.username === tiktokName) {
+                            console.log('Stream state change:', data.state);
+                            setStreamState(data.state);
+
+                            if (data.state === 'ended') {
+                                setIsConnected(false);
+                            }
+                        }
+                    });
+
+                    // Listen for streamEnd events (for backward compatibility)
+                    socket.on('streamEnd', (data) => {
+                        if (data.username === tiktokName) {
+                            console.log('Stream ended');
+                            setStreamState('ended');
+                            setIsConnected(false);
+                        }
+                    });
+                };
+
+                initChat();
+
+                // Clean up on unmount
+                return () => {
+                    if (socketRef.current) {
+                        console.log("Closing Socket.io connection");
+                        socketRef.current.disconnect();
+                    }
+                };
+            }, [tiktokName]);
+
+            // Set up polling for chat updates as a backup
+            React.useEffect(() => {
+                if (tiktokName === "Guest" || !isConnected) return;
+
+                const pollInterval = setInterval(async () => {
+                    try {
+                        const response = await fetch(`/api/chat/${tiktokName}?t=${Date.now()}`);
+                        if (response.ok) {
+                            const data = await response.json();
+                            if (Array.isArray(data) && data.length > 0) {
+                                setChatLogs(prevLogs => {
+                                    // Only update if we have new data
+                                    if (prevLogs.length === 0) {
+                                        return data;
+                                    }
+
+                                    // Find new messages
+                                    const newMessages = data.filter(newMsg =>
+                                        !prevLogs.some(existingMsg =>
+                                            existingMsg.user === newMsg.user &&
+                                            existingMsg.message === newMsg.message
+                                        )
+                                    );
+
+                                    if (newMessages.length === 0) return prevLogs;
+
+                                    // Combine existing and new messages
+                                    const combinedLogs = [...prevLogs, ...newMessages];
+
+                                    // Sort by timestamp
+                                    combinedLogs.sort((a, b) => {
+                                        if (a.timestamp && b.timestamp) {
+                                            return a.timestamp - b.timestamp;
+                                        }
+                                        return 0;
+                                    });
+
+                                    // Keep only the last 20 messages
+                                    return combinedLogs.slice(-20);
+                                });
+                            }
+                        }
+                    } catch (error) {
+                        console.error("Error polling chat data:", error);
+                    }
+                }, 10000); // Poll every 10 seconds as a backup
+
+                return () => clearInterval(pollInterval);
+            }, [tiktokName, isConnected]);
+
+            // Dynamic classes for message animation
+            const getMessageClasses = (index) => {
+                const baseClasses = "py-3 border-b border-white/10 last:border-b-0";
+                // Add animation only to the last message if it's new
+                return index === chatLogs.length - 1 && chatLogs.length > 0
+                    ? `${baseClasses} animate-fadeIn`
+                    : baseClasses;
+            };
+
+            return (
+                <DashboardCard
+                    title={`Chat Logs ${tiktokName !== "Guest" ? `for ${tiktokName}` : ""}`}
+                    icon={<i className="fas fa-comments"></i>}
+                    linkTo="chat.html"
+                    buttonText="View All Chats"
+                >
+                    {loading ? (
+                        <div className="flex justify-center items-center h-32">
+                            <div className="text-center">
+                                <i className="fas fa-spinner fa-spin text-2xl text-[#7857fe] mb-2"></i>
+                                <p>Loading chat data...</p>
+                            </div>
+                        </div>
+                    ) : error ? (
+                        <div className="flex justify-center items-center h-32">
+                            <div className="text-center text-[#ff5e7d]">
+                                <i className="fas fa-exclamation-circle text-2xl mb-2"></i>
+                                <p>{error}</p>
+                            </div>
+                        </div>
+                    ) : tiktokName === "Guest" ? (
+                        <div className="flex justify-center items-center h-32">
+                            <div className="text-center text-white/70">
+                                <i className="fas fa-user-circle text-2xl mb-2"></i>
+                                <p>Please log in to view your chat history</p>
+                            </div>
+                        </div>
+                    ) : (
+                        <>
+                            {/* Stream ended overlay */}
+                            {streamState === 'ended' && (
+                                <div className="relative">
+                                    <div className="absolute inset-0 bg-black/40 z-10 flex items-center justify-center rounded-md">
+                                        <div className="text-center bg-[#272a45]/80 p-4 rounded-md">
+                                            <i className="fas fa-tv text-2xl text-[#ff5e7d] mb-2"></i>
+                                            <p className="text-white font-medium">This live stream has ended</p>
+                                            <p className="text-white/70 text-sm mt-1">Chat history is displayed below</p>
+                                        </div>
+                                    </div>
+                                </div>
+                            )}
+
+                            <div
+                                ref={chatContainerRef}
+                                className="space-y-0 overflow-y-auto max-h-56 pb-2"
+                                onScroll={handleScroll}
+                            >
+                                {chatLogs.length === 0 ? (
+                                    <div className="py-6 text-center text-white/50">
+                                        <i className="fas fa-comment-slash text-2xl mb-2"></i>
+                                        <p>No chat messages found</p>
+                                    </div>
+                                ) : (
+                                    chatLogs.map((chat, index) => (
+                                        <div key={index} className={getMessageClasses(index)}>
+                                            <div className="flex justify-between mb-1">
+                                                <div className="font-semibold text-[#7857fe]">{chat.user}</div>
+                                                <div className="text-sm text-white/50">{chat.time}</div>
+                                            </div>
+                                            <div className="leading-relaxed">{chat.message}</div>
+                                        </div>
+                                    ))
+                                )}
+                            </div>
+
+                            <div className="flex justify-between items-center text-xs text-white/50 mt-2">
+                                <button
+                                    onClick={scrollToBottom}
+                                    className="bg-white/10 hover:bg-white/20 rounded px-2 py-1 flex items-center"
+                                    style={{ visibility: shouldScrollRef.current ? 'hidden' : 'visible' }}
+                                >
+                                    <i className="fas fa-arrow-down mr-1"></i>
+                                    Latest
+                                </button>
+
+                                <div className="ml-auto flex items-center">
+                                    {streamState === 'ended' ? (
+                                        <span className="text-[#ff5e7d]">
+                                            <i className="fas fa-circle text-xs mr-1"></i>
+                                            Stream Ended
+                                        </span>
+                                    ) : isConnected ? (
+                                        <span className="text-green-400">
+                                            <i className="fas fa-circle text-xs mr-1"></i>
+                                            Live Updates
+                                        </span>
+                                    ) : (
+                                        <span className="text-yellow-400">
+                                            <i className="fas fa-circle text-xs mr-1"></i>
+                                            Connecting...
+                                        </span>
+                                    )}
+                                </div>
+                            </div>
+                        </>
+                    )}
+                </DashboardCard>
+            );
+        };
+        // Add this CSS to your styles section
+        const cssToAdd = `
+        @keyframes fadeIn {
+          from {
+            opacity: 0;
+            transform: translateY(10px);
+          }
+          to {
+            opacity: 1;
+            transform: translateY(0);
+          }
+        }
+        
+        .animate-fadeIn {
+          animation: fadeIn 0.3s ease-out;
+        }
+        
+        @keyframes slideDown {
+          from {
+            opacity: 0;
+            transform: translateY(-10px);
+          }
+          to {
+            opacity: 1;
+            transform: translateY(0);
+          }
+        }
+        
+        .animate-slideDown {
+          animation: slideDown 0.3s ease-out;
+        }
+        `;
+
+        // Leaderboard Card Component
+        const LeaderboardCard = () => {
+            const leaderboard = [
+                { rank: 1, avatar: "N", name: "NightWolf", score: "12,458" },
+                { rank: 2, avatar: "S", name: "StarGazer", score: "11,892" },
+                { rank: 3, avatar: "V", name: "VoidRunner", score: "11,567" },
+                { rank: 4, avatar: "P", name: "PixelHunter", score: "10,982" },
+                { rank: 5, avatar: "T", name: "TechMage", score: "10,347" },
+            ];
+
+            const getRankClass = (rank) => {
+                switch (rank) {
+                    case 1: return "bg-yellow-400 text-black";
+                    case 2: return "bg-gray-300 text-black";
+                    case 3: return "bg-amber-700 text-white";
+                    default: return "bg-[#7857fe] text-white";
+                }
+            };
+
+            return (
+                <DashboardCard
+                    title="Leaderboards"
+                    icon={<i className="fas fa-trophy"></i>}
+                    linkTo="leaderboards.html"
+                    buttonText="View Full Leaderboard"
+                >
+                    <div className="space-y-0">
+                        {leaderboard.map((player) => (
+                            <div key={player.rank} className="flex items-center py-2.5 border-b border-white/10 last:border-b-0">
+                                <div className={`w-8 h-8 rounded-full ${getRankClass(player.rank)} flex items-center justify-center font-bold mr-4`}>
+                                    {player.rank}
+                                </div>
+                                <div className="flex items-center flex-1">
+                                    <div className="w-9 h-9 rounded-full bg-[#5344d7] mr-2.5 flex items-center justify-center">
+                                        {player.avatar}
+                                    </div>
+                                    <div className="user-name">{player.name}</div>
+                                </div>
+                                <div className="font-bold text-[#ff5e7d]">{player.score}</div>
+                            </div>
+                        ))}
+                    </div>
+                </DashboardCard>
+            );
+        };
+
+        // Games Card Component
+        const GamesCard = () => {
+            const games = [
+                //{ title: "Cosmic Conquest", image: "/api/placeholder/260/120" },
+                //{ title: "Dragon's Realm", image: "/api/placeholder/260/120" },
+                //{ title: "Neon Racer", image: "/api/placeholder/260/120" },
+                //{ title: "Mystic Legends", image: "/api/placeholder/260/120" },
+            ];
+
+            return (
+                <DashboardCard
+                    title="Popular Games"
+                    icon={<i className="fas fa-gamepad"></i>}
+                    linkTo="games.html"
+                    buttonText="Browse All Games"
+                >
+                    <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+                        {games.map((game, index) => (
+                            <div key={index} className="relative rounded-lg overflow-hidden h-32">
+                                <img
+                                    src={game.image}
+                                    alt={game.title}
+                                    className="w-full h-full object-cover transition-transform duration-300 hover:scale-105"
+                                />
+                                <div className="absolute bottom-0 left-0 right-0 bg-gradient-to-t from-black/80 to-transparent p-2.5">
+                                    <div className="font-semibold text-sm">{game.title}</div>
+                                </div>
+                            </div>
+                        ))}
+                    </div>
+                </DashboardCard>
+            );
+        };
+
+        // Settings Card Component
+        const SettingsCard = () => {
+            const [settings, setSettings] = React.useState({
+                notifications: true,
+                sound: true,
+                darkMode: true,
+                privacy: false,
+                performance: false
+            });
+
+            const handleToggle = (setting) => {
+                setSettings({
+                    ...settings,
+                    [setting]: !settings[setting]
+                });
+                console.log(`${setting} is now ${!settings[setting] ? 'enabled' : 'disabled'}`);
+            };
+
+            const toggles = [
+                { name: "notifications", label: "Notifications", icon: <i className="fas fa-bell"></i> },
+                { name: "sound", label: "Sound Effects", icon: <i className="fas fa-volume-up"></i> },
+                { name: "darkMode", label: "Dark Mode", icon: <i className="fas fa-moon"></i> },
+                { name: "privacy", label: "Privacy Mode", icon: <i className="fas fa-user-shield"></i> },
+                { name: "performance", label: "Performance Mode", icon: <i className="fas fa-chart-line"></i> }
+            ];
+
+            return (
+                <DashboardCard
+                    title="Quick Settings"
+                    icon={<i className="fas fa-sliders-h"></i>}
+                    linkTo="settings.html"
+                    buttonText="All Settings"
+                >
+                    <div className="flex flex-col space-y-4">
+                        {toggles.map((toggle) => (
+                            <div key={toggle.name} className="flex justify-between items-center py-2.5 border-b border-white/10 last:border-b-0" onClick={(e) => e.stopPropagation()}>
+                                <div className="flex items-center gap-2.5">
+                                    <span className="text-[#7857fe]">{toggle.icon}</span>
+                                    <span>{toggle.label}</span>
+                                </div>
+                                <ToggleSwitch
+                                    checked={settings[toggle.name]}
+                                    onChange={() => handleToggle(toggle.name)}
+                                />
+                            </div>
+                        ))}
+                    </div>
+                </DashboardCard>
+            );
+        };
+
+        // Toggle Switch Component
+        const ToggleSwitch = ({ checked, onChange }) => {
+            return (
+                <label className="relative inline-block w-12 h-6" onClick={(e) => e.stopPropagation()}>
+                    <input
+                        type="checkbox"
+                        className="opacity-0 w-0 h-0"
+                        checked={checked}
+                        onChange={onChange}
+                    />
+                    <span className={`absolute cursor-pointer inset-0 transition-all duration-300 rounded-full ${checked ? 'bg-[#7857fe]' : 'bg-white/20'}`}>
+                        <span
+                            className={`absolute h-5 w-5 bg-white rounded-full left-0.5 bottom-0.5 transition-all duration-300 ${checked ? 'translate-x-6' : ''}`}
+                        ></span>
+                    </span>
+                </label>
+            );
+        };
+
+        // Dashboard Card Component (reusable wrapper)
+        const DashboardCard = ({ title, icon, children, linkTo, buttonText }) => {
+            return (
+                <div className="bg-[#272a45] rounded-xl p-5 shadow-lg overflow-hidden transition-all duration-300 cursor-pointer hover:translate-y-[-5px] hover:shadow-xl hover:bg-[#323761] min-h-[350px] flex flex-col">
+                    <div className="flex justify-between items-center mb-5 pb-2.5 border-b border-white/10">
+                        <div className="text-xl font-semibold flex items-center gap-2.5">
+                            <span className="text-[#ff5e7d]">{icon}</span>
+                            <span>{title}</span>
+                        </div>
+                    </div>
+                    <div className="flex-1 overflow-y-auto max-h-64">
+                        {children}
+                    </div>
+                    <div className="mt-4 text-right">
+                        <a
+                            href={linkTo}
+                            className="inline-block bg-[#7857fe] text-white font-medium px-4 py-2 rounded-md hover:bg-[#5344d7] transition-colors"
+                            onClick={(e) => e.stopPropagation()}
+                        >
+                            {buttonText}
+                        </a>
+                    </div>
+                </div>
+            );
+        };
+
+        // Render the Dashboard to the root div
+        const root = ReactDOM.createRoot(document.getElementById('root'));
+        root.render(<Dashboard />);
+    </script>
+
+    <!-- Custom CSS for additional styles -->
     <style>
-        :root {
-            --primary-color: #7857fe;
-            --secondary-color: #5344d7;
-            --accent-color: #ff5e7d;
-            --dark-color: #1e2136;
-            --darker-color: #15162d;
-            --light-color: #f5f5f5;
-            --text-color: #e9e9e9;
-            --card-bg: #272a45;
-            --hover-color: #323761;
-            --sidebar-width: 250px;
-        }
-
-        * {
-            margin: 0;
-            padding: 0;
-            box-sizing: border-box;
-        }
-
-        body {
-            font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
-            background-color: var(--darker-color);
-            color: var(--text-color);
-        }
-
-        a {
-            text-decoration: none;
-            color: inherit;
-        }
-
-        .dashboard-container {
-            display: flex;
-            min-height: 100vh;
-        }
-
-        /* Sidebar styles */
-        .sidebar {
-            width: var(--sidebar-width);
-            background-color: var(--dark-color);
-            color: var(--text-color);
-            padding: 20px 0;
-            position: fixed;
-            height: 100vh;
-            overflow-y: auto;
-            transition: all 0.3s;
-        }
-
-        .sidebar-header {
-            padding: 0 20px 20px;
-            border-bottom: 1px solid rgba(255, 255, 255, 0.1);
-        }
-
-        .sidebar-header h2 {
-            display: flex;
-            align-items: center;
-            gap: 10px;
-            font-size: 1.5rem;
-        }
-
-        .sidebar-nav {
-            padding: 20px 0;
-        }
-
-        .nav-item {
-            padding: 12px 20px;
-            display: flex;
-            align-items: center;
-            gap: 15px;
-            color: rgba(255, 255, 255, 0.7);
-            text-decoration: none;
-            transition: all 0.3s;
-            cursor: pointer;
-        }
-
-        .nav-item:hover,
-        .nav-item.active {
-            background-color: rgba(255, 255, 255, 0.1);
-            color: white;
-            border-left: 4px solid var(--accent-color);
-        }
-
-        /* Main content area */
-        .main-content {
-            flex: 1;
-            margin-left: var(--sidebar-width);
-            padding: 20px;
-        }
-
-        .page-header {
-            display: flex;
-            justify-content: space-between;
-            align-items: center;
-            margin-bottom: 25px;
-            padding-bottom: 10px;
-            border-bottom: 1px solid rgba(255, 255, 255, 0.1);
-        }
-
-        .page-title {
-            font-size: 1.8rem;
-            font-weight: 600;
-        }
-
-        .user-profile {
-            display: flex;
-            align-items: center;
-            gap: 15px;
-        }
-
-        .user-image {
-            width: 40px;
-            height: 40px;
-            border-radius: 50%;
-            background-color: var(--primary-color);
-            display: flex;
-            align-items: center;
-            justify-content: center;
-            color: white;
-            font-weight: bold;
-        }
-
-        .notification-bell {
-            position: relative;
-            font-size: 1.2rem;
-            cursor: pointer;
-        }
-
-        .notification-indicator {
-            position: absolute;
-            top: -5px;
-            right: -5px;
-            width: 12px;
-            height: 12px;
-            background-color: var(--accent-color);
-            border-radius: 50%;
-        }
-
-        /* Card Grid */
-        .card-grid {
-            display: grid;
-            grid-template-columns: repeat(2, 1fr);
-            gap: 25px;
-        }
-
-        .dashboard-card {
-            background-color: var(--card-bg);
-            border-radius: 12px;
-            padding: 20px;
-            box-shadow: 0 4px 15px rgba(0, 0, 0, 0.1);
-            overflow: hidden;
-            transition: transform 0.3s ease, box-shadow 0.3s ease;
-            cursor: pointer;
-            position: relative;
-            min-height: 350px;
-            display: flex;
-            flex-direction: column;
-        }
-
-        .dashboard-card:hover {
-            transform: translateY(-5px);
-            box-shadow: 0 10px 20px rgba(0, 0, 0, 0.15);
-            background-color: var(--hover-color);
-        }
-
-        .card-header {
-            display: flex;
-            justify-content: space-between;
-            align-items: center;
-            margin-bottom: 20px;
-            padding-bottom: 10px;
-            border-bottom: 1px solid rgba(255, 255, 255, 0.1);
-        }
-
-        .card-title {
-            font-size: 1.2rem;
-            font-weight: 600;
-            display: flex;
-            align-items: center;
-            gap: 10px;
-        }
-
-        .card-icon {
-            color: var(--accent-color);
-        }
-
-        .card-content {
-            flex: 1;
-            overflow-y: auto;
-            max-height: 250px;
-            scrollbar-width: thin;
-            scrollbar-color: var(--primary-color) var(--card-bg);
-        }
-
-        .card-content::-webkit-scrollbar {
+        /* Custom scrollbar styles */
+        .overflow-y-auto::-webkit-scrollbar {
             width: 8px;
         }
 
-        .card-content::-webkit-scrollbar-track {
-            background: var(--card-bg);
+        .overflow-y-auto::-webkit-scrollbar-track {
+            background: #272a45;
         }
 
-        .card-content::-webkit-scrollbar-thumb {
-            background-color: var(--primary-color);
+        .overflow-y-auto::-webkit-scrollbar-thumb {
+            background-color: #7857fe;
             border-radius: 20px;
         }
 
-        .card-footer {
-            margin-top: 15px;
-            text-align: right;
-        }
-
-        .view-all-btn {
-            background-color: var(--primary-color);
-            color: white;
-            border: none;
-            padding: 8px 15px;
-            border-radius: 6px;
-            cursor: pointer;
-            font-weight: 500;
-            transition: background-color 0.2s;
-        }
-
-        .view-all-btn:hover {
-            background-color: var(--secondary-color);
-        }
-
-        /* Chat logs card specific */
-        .chat-logs .chat-item {
-            padding: 12px 0;
-            border-bottom: 1px solid rgba(255, 255, 255, 0.1);
-        }
-
-        .chat-item:last-child {
-            border-bottom: none;
-        }
-
-        .chat-header {
-            display: flex;
-            justify-content: space-between;
-            margin-bottom: 5px;
-        }
-
-        .chat-user {
-            font-weight: 600;
-            color: var(--primary-color);
-        }
-
-        .chat-time {
-            font-size: 0.8rem;
-            color: rgba(255, 255, 255, 0.5);
-        }
-
-        .chat-message {
-            line-height: 1.4;
-        }
-
-        /* Leaderboard card specific */
-        .leaderboard-item {
-            display: flex;
-            align-items: center;
-            padding: 10px 0;
-            border-bottom: 1px solid rgba(255, 255, 255, 0.1);
-        }
-
-        .leaderboard-rank {
-            width: 30px;
-            height: 30px;
-            background-color: var(--primary-color);
-            color: white;
-            border-radius: 50%;
-            display: flex;
-            align-items: center;
-            justify-content: center;
-            font-weight: bold;
-            margin-right: 15px;
-        }
-
-        .rank-1 {
-            background-color: gold;
-            color: black;
-        }
-
-        .rank-2 {
-            background-color: silver;
-            color: black;
-        }
-
-        .rank-3 {
-            background-color: #cd7f32;
-            /* bronze */
-            color: white;
-        }
-
-        .leaderboard-user {
-            flex: 1;
-            display: flex;
-            align-items: center;
-        }
-
-        .user-avatar {
-            width: 35px;
-            height: 35px;
-            border-radius: 50%;
-            background-color: var(--secondary-color);
-            margin-right: 10px;
-            display: flex;
-            align-items: center;
-            justify-content: center;
-        }
-
-        .leaderboard-score {
-            font-weight: bold;
-            color: var(--accent-color);
-        }
-
-        /* Games card specific */
-        .games-container {
-            display: grid;
-            grid-template-columns: repeat(2, 1fr);
-            gap: 15px;
-        }
-
-        .game-item {
-            position: relative;
-            border-radius: 8px;
-            overflow: hidden;
-            height: 120px;
-        }
-
-        .game-image {
-            width: 100%;
-            height: 100%;
-            object-fit: cover;
-            transition: transform 0.3s ease;
-        }
-
-        .game-item:hover .game-image {
-            transform: scale(1.05);
-        }
-
-        .game-overlay {
-            position: absolute;
-            bottom: 0;
-            left: 0;
-            right: 0;
-            background: linear-gradient(to top, rgba(0, 0, 0, 0.8) 0%, rgba(0, 0, 0, 0) 100%);
-            padding: 10px;
-        }
-
-        .game-title {
-            font-weight: 600;
-            font-size: 0.9rem;
-        }
-
-        /* Toggle features card specific */
-        .toggle-container {
-            display: flex;
-            flex-direction: column;
-            gap: 15px;
-        }
-
-        .toggle-item {
-            display: flex;
-            justify-content: space-between;
-            align-items: center;
-            padding: 10px 0;
-            border-bottom: 1px solid rgba(255, 255, 255, 0.1);
-        }
-
-        .toggle-label {
-            display: flex;
-            align-items: center;
-            gap: 10px;
-        }
-
-        .toggle-icon {
-            color: var(--primary-color);
-        }
-
-        /* Toggle Switch */
-        .switch {
-            position: relative;
-            display: inline-block;
-            width: 50px;
-            height: 24px;
-        }
-
-        .switch input {
-            opacity: 0;
-            width: 0;
-            height: 0;
-        }
-
-        .slider {
-            position: absolute;
-            cursor: pointer;
-            top: 0;
-            left: 0;
-            right: 0;
-            bottom: 0;
-            background-color: rgba(255, 255, 255, 0.2);
-            transition: .4s;
-            border-radius: 34px;
-        }
-
-        .slider:before {
-            position: absolute;
-            content: "";
-            height: 20px;
-            width: 20px;
-            left: 2px;
-            bottom: 2px;
-            background-color: white;
-            transition: .4s;
-            border-radius: 50%;
-        }
-
-        input:checked+.slider {
-            background-color: var(--primary-color);
-        }
-
-        input:checked+.slider:before {
-            transform: translateX(26px);
-        }
-
-        /* Toggle button for sidebar */
-        .sidebar-toggle {
-            display: none;
-            position: fixed;
-            top: 20px;
-            left: 20px;
-            background-color: var(--primary-color);
-            color: white;
-            border: none;
-            width: 40px;
-            height: 40px;
-            border-radius: 5px;
-            cursor: pointer;
-            z-index: 1000;
-            align-items: center;
-            justify-content: center;
-        }
-
-        /* Responsive styles */
-        @media (max-width: 992px) {
-            .card-grid {
-                grid-template-columns: 1fr;
-            }
-        }
-
-        @media (max-width: 768px) {
-            .sidebar {
-                transform: translateX(-100%);
-                z-index: 100;
-            }
-
-            .sidebar.active {
-                transform: translateX(0);
-            }
-
-            .main-content {
-                margin-left: 0;
-            }
-
-            .sidebar-toggle {
-                display: flex;
-            }
-
-            .games-container {
-                grid-template-columns: 1fr;
-            }
+        /* Firefox scrollbar */
+        .overflow-y-auto {
+            scrollbar-width: thin;
+            scrollbar-color: #7857fe #272a45;
         }
     </style>
-
-
-    <div class="dashboard-container">
-        <!-- Sidebar toggle button for mobile -->
-        <button class="sidebar-toggle" id="sidebarToggle">
-            <i class="fas fa-bars"></i>
-        </button>
-
-        <!-- Sidebar -->
-        <div class="sidebar" id="sidebar">
-            <div class="sidebar-header">
-                <h2><i class="fas fa-gamepad"></i> GameHub</h2>
-            </div>
-            <div class="sidebar-nav">
-                <a href="index.html" class="nav-item active">
-                    <i class="fas fa-home"></i>
-                    <span>Dashboard</span>
-                </a>
-                <a href="games.html" class="nav-item">
-                    <i class="fas fa-dice"></i>
-                    <span>Games</span>
-                </a>
-                <a href="leaderboards.html" class="nav-item">
-                    <i class="fas fa-trophy"></i>
-                    <span>Leaderboards</span>
-                </a>
-                <a href="chat.html" class="nav-item">
-                    <i class="fas fa-comments"></i>
-                    <span>Chat</span>
-                </a>
-                <a href="friends.html" class="nav-item">
-                    <i class="fas fa-user-friends"></i>
-                    <span>Friends</span>
-                </a>
-                <a href="settings.html" class="nav-item">
-                    <i class="fas fa-cog"></i>
-                    <span>Settings</span>
-                </a>
-                <a href="help.html" class="nav-item">
-                    <i class="fas fa-question-circle"></i>
-                    <span>Help</span>
-                </a>
-            </div>
-        </div>
-
-        <!-- Main Content -->
-        <div class="main-content">
-            <div class="page-header">
-                <h1 class="page-title">Dashboard</h1>
-                <div class="user-profile">
-                    <div class="notification-bell">
-                        <i class="fas fa-bell"></i>
-                        <div class="notification-indicator"></div>
-                    </div>
-                    <div class="user-image">
-                        P
-                    </div>
-                </div>
-            </div>
-
-            <!-- Card Grid -->
-            <div class="card-grid">
-                <!-- Chat Logs Card -->
-                <a href="chat.html" class="dashboard-card">
-                    <div class="card-header">
-                        <div class="card-title">
-                            <i class="fas fa-comments card-icon"></i>
-                            <span>Recent Chat Logs</span>
-                        </div>
-                    </div>
-                    <div class="card-content chat-logs">
-                        <div class="chat-item">
-                            <div class="chat-header">
-                                <div class="chat-user">DragonSlayer92</div>
-                                <div class="chat-time">10:45 AM</div>
-                            </div>
-                            <div class="chat-message">
-                                Just beat the final boss on Mythic difficulty! Anyone want to team up for the new raid?
-                            </div>
-                        </div>
-                        <div class="chat-item">
-                            <div class="chat-header">
-                                <div class="chat-user">ShadowNinja</div>
-                                <div class="chat-time">10:47 AM</div>
-                            </div>
-                            <div class="chat-message">
-                                Nice! I'm down for the raid. Need to gear up a bit first though.
-                            </div>
-                        </div>
-                        <div class="chat-item">
-                            <div class="chat-header">
-                                <div class="chat-user">PixelQueen</div>
-                                <div class="chat-time">11:02 AM</div>
-                            </div>
-                            <div class="chat-message">
-                                Hey everyone! Did you see the new cosmetic items in the shop? The legendary cape looks
-                                amazing!
-                            </div>
-                        </div>
-                        <div class="chat-item">
-                            <div class="chat-header">
-                                <div class="chat-user">MechWarrior</div>
-                                <div class="chat-time">11:15 AM</div>
-                            </div>
-                            <div class="chat-message">
-                                Anyone experienced with the new crafting system? I can't figure out how to make the
-                                advanced potions.
-                            </div>
-                        </div>
-                        <div class="chat-item">
-                            <div class="chat-header">
-                                <div class="chat-user">CosmicExplorer</div>
-                                <div class="chat-time">11:23 AM</div>
-                            </div>
-                            <div class="chat-message">
-                                @MechWarrior You need to combine the blue herbs with crystal dust at the alchemist
-                                table. Took me forever to figure that out!
-                            </div>
-                        </div>
-                    </div>
-                    <div class="card-footer">
-                        <button class="view-all-btn">View All Chats</button>
-                    </div>
-                </a>
-
-                <!-- Leaderboard Card -->
-                <a href="leaderboards.html" class="dashboard-card">
-                    <div class="card-header">
-                        <div class="card-title">
-                            <i class="fas fa-trophy card-icon"></i>
-                            <span>Leaderboards</span>
-                        </div>
-                    </div>
-                    <div class="card-content">
-                        <div class="leaderboard-item">
-                            <div class="leaderboard-rank rank-1">1</div>
-                            <div class="leaderboard-user">
-                                <div class="user-avatar">N</div>
-                                <div class="user-name">NightWolf</div>
-                            </div>
-                            <div class="leaderboard-score">12,458</div>
-                        </div>
-                        <div class="leaderboard-item">
-                            <div class="leaderboard-rank rank-2">2</div>
-                            <div class="leaderboard-user">
-                                <div class="user-avatar">S</div>
-                                <div class="user-name">StarGazer</div>
-                            </div>
-                            <div class="leaderboard-score">11,892</div>
-                        </div>
-                        <div class="leaderboard-item">
-                            <div class="leaderboard-rank rank-3">3</div>
-                            <div class="leaderboard-user">
-                                <div class="user-avatar">V</div>
-                                <div class="user-name">VoidRunner</div>
-                            </div>
-                            <div class="leaderboard-score">11,567</div>
-                        </div>
-                        <div class="leaderboard-item">
-                            <div class="leaderboard-rank">4</div>
-                            <div class="leaderboard-user">
-                                <div class="user-avatar">P</div>
-                                <div class="user-name">PixelHunter</div>
-                            </div>
-                            <div class="leaderboard-score">10,982</div>
-                        </div>
-                        <div class="leaderboard-item">
-                            <div class="leaderboard-rank">5</div>
-                            <div class="leaderboard-user">
-                                <div class="user-avatar">T</div>
-                                <div class="user-name">TechMage</div>
-                            </div>
-                            <div class="leaderboard-score">10,347</div>
-                        </div>
-                    </div>
-                    <div class="card-footer">
-                        <button class="view-all-btn">View Full Leaderboard</button>
-                    </div>
-                </a>
-
-                <!-- Games Card -->
-                <a href="games.html" class="dashboard-card">
-                    <div class="card-header">
-                        <div class="card-title">
-                            <i class="fas fa-gamepad card-icon"></i>
-                            <span>Popular Games</span>
-                        </div>
-                    </div>
-                    <div class="card-content">
-                        <div class="games-container">
-                            <div class="game-item">
-                                <img src="/api/placeholder/260/120" alt="Cosmic Conquest" class="game-image">
-                                <div class="game-overlay">
-                                    <div class="game-title">Cosmic Conquest</div>
-                                </div>
-                            </div>
-                            <div class="game-item">
-                                <img src="/api/placeholder/260/120" alt="Dragon's Realm" class="game-image">
-                                <div class="game-overlay">
-                                    <div class="game-title">Dragon's Realm</div>
-                                </div>
-                            </div>
-                            <div class="game-item">
-                                <img src="/api/placeholder/260/120" alt="Neon Racer" class="game-image">
-                                <div class="game-overlay">
-                                    <div class="game-title">Neon Racer</div>
-                                </div>
-                            </div>
-                            <div class="game-item">
-                                <img src="/api/placeholder/260/120" alt="Mystic Legends" class="game-image">
-                                <div class="game-overlay">
-                                    <div class="game-title">Mystic Legends</div>
-                                </div>
-                            </div>
-                        </div>
-                    </div>
-                    <div class="card-footer">
-                        <button class="view-all-btn">Browse All Games</button>
-                    </div>
-                </a>
-
-                <!-- Features Toggle Card -->
-                <a href="settings.html" class="dashboard-card">
-                    <div class="card-header">
-                        <div class="card-title">
-                            <i class="fas fa-sliders-h card-icon"></i>
-                            <span>Quick Settings</span>
-                        </div>
-                    </div>
-                    <div class="card-content">
-                        <div class="toggle-container">
-                            <div class="toggle-item">
-                                <div class="toggle-label">
-                                    <i class="fas fa-bell toggle-icon"></i>
-                                    <span>Notifications</span>
-                                </div>
-                                <label class="switch">
-                                    <input type="checkbox" checked>
-                                    <span class="slider"></span>
-                                </label>
-                            </div>
-                            <div class="toggle-item">
-                                <div class="toggle-label">
-                                    <i class="fas fa-volume-up toggle-icon"></i>
-                                    <span>Sound Effects</span>
-                                </div>
-                                <label class="switch">
-                                    <input type="checkbox" checked>
-                                    <span class="slider"></span>
-                                </label>
-                            </div>
-                            <div class="toggle-item">
-                                <div class="toggle-label">
-                                    <i class="fas fa-moon toggle-icon"></i>
-                                    <span>Dark Mode</span>
-                                </div>
-                                <label class="switch">
-                                    <input type="checkbox" checked>
-                                    <span class="slider"></span>
-                                </label>
-                            </div>
-                            <div class="toggle-item">
-                                <div class="toggle-label">
-                                    <i class="fas fa-user-shield toggle-icon"></i>
-                                    <span>Privacy Mode</span>
-                                </div>
-                                <label class="switch">
-                                    <input type="checkbox">
-                                    <span class="slider"></span>
-                                </label>
-                            </div>
-                            <div class="toggle-item">
-                                <div class="toggle-label">
-                                    <i class="fas fa-chart-line toggle-icon"></i>
-                                    <span>Performance Mode</span>
-                                </div>
-                                <label class="switch">
-                                    <input type="checkbox">
-                                    <span class="slider"></span>
-                                </label>
-                            </div>
-                        </div>
-                    </div>
-                    <div class="card-footer">
-                        <button class="view-all-btn">All Settings</button>
-                    </div>
-                </a>
-            </div>
-        </div>
-    </div>
-
-    <script>
-        // Toggle sidebar on mobile
-        document.getElementById('sidebarToggle').addEventListener('click', function () {
-            document.getElementById('sidebar').classList.toggle('active');
-        });
-
-        // Make toggle switches work even though the cards are links
-        document.querySelectorAll('.switch').forEach(switchElem => {
-            switchElem.addEventListener('click', function (e) {
-                e.stopPropagation();
-            });
-        });
-
-        // Prevent default link behavior when clicking on toggle switches
-        document.querySelectorAll('.toggle-item').forEach(item => {
-            item.addEventListener('click', function (e) {
-                e.stopPropagation();
-            });
-        });
-
-        // Toggle switch functionality
-        document.querySelectorAll('.switch input').forEach(toggle => {
-            toggle.addEventListener('change', function (e) {
-                e.stopPropagation();
-                const featureName = this.parentElement.previousElementSibling.querySelector('span').textContent;
-                console.log(`${featureName} is now ${this.checked ? 'enabled' : 'disabled'}`);
-
-                // Here you would typically update user preferences via an API
-            });
-        });
-
-        // For demo: When "View All" buttons are clicked
-        document.querySelectorAll('.view-all-btn').forEach(btn => {
-            btn.addEventListener('click', function (e) {
-                e.stopPropagation(); // Don't trigger the parent card's link
-                const cardType = this.closest('.dashboard-card').querySelector('.card-title span').textContent;
-                console.log(`View all clicked for: ${cardType}`);
-
-                // Manually navigate to the appropriate page
-                const href = this.closest('.dashboard-card').getAttribute('href');
-                window.location.href = href;
-            });
-        });
-    </script>
-    </body>
 
 
     <%- include ("../_sections/_footer.ejs"); %>

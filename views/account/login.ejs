@@ -1,5 +1,61 @@
 <%- include ("../_sections/_header.ejs"); %>
+<!-- Add this at the beginning of your login.ejs file, before any content -->
 
+<!-- Flash Message Debug Section -->
+<div class="mt-3">
+  <!-- Direct flash message display with debugging info -->
+  <% if (typeof flashMessages !== 'undefined') { %>
+      <!-- Error Messages -->
+      <% if (flashMessages.error && flashMessages.error.length > 0) { %>
+          <% flashMessages.error.forEach(function(msg) { %>
+              <div class="alert alert-danger" role="alert">
+                  <%= msg %>
+              </div>
+          <% }); %>
+      <% } %>
+      
+      <!-- Info Messages -->
+      <% if (flashMessages.info && flashMessages.info.length > 0) { %>
+          <% flashMessages.info.forEach(function(msg) { %>
+              <div class="alert alert-info" role="alert">
+                  <%= msg %>
+              </div>
+          <% }); %>
+      <% } %>
+      
+      <!-- Use legacy format as fallback -->
+      <% } else if (typeof error !== 'undefined' && error) { %>
+          <div class="alert alert-danger" role="alert">
+              <%= error %>
+          </div>
+      <% } else if (typeof info !== 'undefined' && info) { %>
+          <div class="alert alert-info" role="alert">
+              <%= info %>
+          </div>
+  <% } %>
+  
+  <!-- Query parameter debug - shows visually if auth check redirected here -->
+  <% if (typeof URL !== 'undefined' && URL.includes('auth=required')) { %>
+      <div class="alert alert-warning" role="alert">
+          You were redirected from a protected page. Please login to continue.
+      </div>
+  <% } %>
+</div>
+
+<!-- IMPORTANT: You can remove this debug display in production -->
+<% if (process.env.NODE_ENV !== 'production') { %>
+  <div class="" style="margin-bottom: 20px; display: none;">
+      <div style="background-color: #f8f9fa; padding: 10px; border-radius: 5px; font-family: monospace; font-size: 12px;">
+          <strong>DEBUG INFO:</strong><br>
+          URL: <%= typeof URL !== 'undefined' ? URL : 'undefined' %><br>
+          Has flashMessages object: <%= typeof flashMessages !== 'undefined' %><br>
+          Has error variable: <%= typeof error !== 'undefined' && error ? 'Yes: ' + error : 'No' %><br>
+          Has info variable: <%= typeof info !== 'undefined' && info ? 'Yes: ' + info : 'No' %><br>
+      </div>
+  </div>
+<% } %>
+
+<!-- Continue with the rest of your login template -->
 <!-- TODO: Allow remember me to save login credentials in local storage  -->
   <div class="d-flex justify-content-center align-items-center h-100">
     <div class="panel panel-default login-panel bg-light rounded shadow-lg">
