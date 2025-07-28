@@ -21,8 +21,6 @@
 
     <!-- Your React Component Script -->
     <script type="text/babel">
-        // Main Dashboard Component
-        // Main Dashboard Component with Flash Messages at the top
         // Main Dashboard Component with Flash Messages at the top
         const Dashboard = () => {
             const [sidebarActive, setSidebarActive] = React.useState(false);
@@ -41,6 +39,16 @@
 
                 // Listen for stream end events
                 socket.on('streamEnd', (data) => {
+                    console.log('Stream end event received:', data);
+                    addFlashMessage({
+                        type: 'info',
+                        message: data.message,
+                        id: Date.now()
+                    });
+                });
+                
+                // Listen for stream end events
+                socket.on('ended', (data) => {
                     console.log('Stream end event received:', data);
                     addFlashMessage({
                         type: 'info',
@@ -496,7 +504,7 @@
                     } catch (error) {
                         console.error("Error polling chat data:", error);
                     }
-                }, 10000); // Poll every 10 seconds as a backup
+                }, 5000); // Poll every 10 seconds as a backup
 
                 return () => clearInterval(pollInterval);
             }, [tiktokName, isConnected]);

@@ -2,7 +2,8 @@
 
 let express = require("express");
 let Score = require("../../models/comments");
-const { streamEvents } = require('../../tiktok');
+const { streamEvents, getTikTokClient } = require('../../tiktok');
+const { io } = require('../../app');
 
 let router = express.Router();
 
@@ -13,7 +14,7 @@ router.get("/", function (req, res) {
     res.json("This is a json status code for the app api");
 });
 
-router.get("/chat/:userName", async function (req, res) {
+router.get("/chat/:userName", checkStreamUp, async function (req, res) {
     console.log('received in the api/chat/:username');
 
     Score(req.params.userName).find({}).then((data) => {
@@ -51,6 +52,42 @@ router.get("/chat/:userName", async function (req, res) {
     });
 });
 
+console.log("Current Stream Events: ", streamEvents._events);
+// Listen for stream state changes and notify clients
+const streamStateHandler = (data) => {
+    console.log("Current Stream State: ", data);
+    // Only send updates for the specific username this client is connected to
+
+    try {
+        // res.write(`data: ${JSON.stringify({
+        //     type: 'stream_state',
+        //     state: data.state,
+        //     message: getStateMessage(data)
+        // })}\n\n`);
+
+
+    } catch (error) {
+        console.error("Error sending stream state update:", error);
+    }
+};
+
+// Subscribe to stream state events
+streamEvents.on('streamState', streamStateHandler);
+
+streamEvents.on('streamEnd', data => {
+    console.log('From API -  LIVE ENDED: Stream connection closed');
+
+});
+
+
+// io.on('streamEnd', data => {
+//     console.log("From API socket data", data);
+
+// })
+
+console.log(io);
+
+
 // SSE endpoint using message tracking
 router.get("/chat/:userName/stream", async function (req, res) {
     const userName = req.params.userName;
@@ -79,6 +116,8 @@ router.get("/chat/:userName/stream", async function (req, res) {
                 // Create a unique ID for each message (user ID + comment date)
                 const messageId = `${user.id}-${new Date(comment.date).getTime()}`;
                 knownMessageIds.add(messageId);
+                console.log(knownMessageIds);
+
             });
         });
     } catch (error) {
@@ -95,6 +134,7 @@ router.get("/chat/:userName/stream", async function (req, res) {
 
     // Listen for stream state changes and notify clients
     const streamStateHandler = (data) => {
+        console.log("Current Stream State: ", data);
         // Only send updates for the specific username this client is connected to
         if (data.username === userName) {
             try {
@@ -160,6 +200,11 @@ router.get("/chat/:userName/stream", async function (req, res) {
         streamEvents.removeListener('streamState', streamStateHandler);
     });
 });
+
+async function checkStreamUp(req, res, next) {
+    console.log("Current tiktok client:", getTikTokClient());
+    next();
+}
 
 // Function to get message for different stream states
 function getStateMessage(data) {

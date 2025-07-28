@@ -8,10 +8,14 @@ const streamEvents = new EventEmitter();
 
 let ScoreFile = require('./models/comments.js');
 
+// TikTok client instance container
+let tiktokClientInstance = null;
+
 function startTikTok(username) {
     let tiktokUsername = username;
     let isActive = false;
     let activityTimeout = null;
+    let reconnectInterval = null;
 
     // ********************************  DATABASE *******************************************
 
@@ -77,6 +81,9 @@ function startTikTok(username) {
     // **************************  TIKTOK  *************************************************
 
     let tiktok_client = new WebcastPushConnection(tiktokUsername);
+    
+    // Store the instance in the module-level variable
+    tiktokClientInstance = tiktok_client;
 
     try {
         tiktok_client.connect().then(state => {
@@ -112,7 +119,7 @@ function startTikTok(username) {
             });
 
             // Set an interval to attempt reconnection
-            const reconnectInterval = setInterval(() => {
+            reconnectInterval = setInterval(() => {
                 tiktok_client.connect().then(state => {
                     console.log(`Reconnected to Room ID: ${state.roomId}`);
 
@@ -210,7 +217,7 @@ function startTikTok(username) {
         });
     });
 
-    const reconnectInterval = setInterval(() => {
+    reconnectInterval = setInterval(() => {
         if (!tiktok_client.getState().isConnected) {
             console.log("Connection appears down, clearing interval");
             clearInterval(reconnectInterval);
@@ -244,12 +251,23 @@ function startTikTok(username) {
         // Emit stream end event - this will trigger flash messages
         streamEvents.emit('streamState', {
             username: tiktokUsername,
-            state: 'ended'
+            state: 'ended',
+            message: "Stream has ended."
         });
+
+        tiktok_client.disconnect();
 
         // Clear the reconnect interval
         clearInterval(reconnectInterval);
     });
+
+    tiktok_client.on('chat', data => {
+        streamEvents.emit('chat', {
+            username: tiktokUsername,
+            state: 'chat',
+            roomId: data.roomId
+        });
+    })
 
     tiktok_client.on('error', err => {
         console.error('Tiktok error: ', err);
@@ -288,3 +306,6 @@ function startTikTok(username) {
 // Export the function and the event emitter
 module.exports = startTikTok;
 module.exports.streamEvents = streamEvents;
+
+// Export the TikTok client instance getter
+module.exports.getTikTokClient = () => tiktokClientInstance;
