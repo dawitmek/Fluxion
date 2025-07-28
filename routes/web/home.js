@@ -446,8 +446,8 @@ async function checkTikTokStreamStatus(username) {
                             // Check that room info has content beyond just the empty prompts
                             Object.keys(roomInfo).length > 1 &&
                             // Stream should have a title
-                            roomInfo.title &&
-                            roomInfo.title.length > 0 &&
+                            // roomInfo.title &&
+                            // roomInfo.title.length > 0 &&
                             // Should have a stream ID
                             roomInfo.stream_id
                         );
