@@ -124,7 +124,7 @@ app.use((req, res, next) => {
 });
 
 
-mongoose.connect(process.env.MongoClient || 'mongodb://localhost/tiktok-app')
+mongoose.connect(process.env.MongoClient)
     .then(() => console.log('Connected to MongoDB'))
     .catch(err => console.error('MongoDB connection error:', err));
 
