@@ -156,3 +156,4 @@ app.use((err, req, res, next) => {
 }); */
 
 module.exports = server;
+module.exports = io;
