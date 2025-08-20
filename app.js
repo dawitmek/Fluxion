@@ -150,9 +150,9 @@ app.use((err, req, res, next) => {
 });
 
 
-/* server.listen(app.get('port'), () => {
+server.listen(app.get('port'), () => {
     console.log(`Server running on http://localhost:${app.get('port')}`);
 
-}); */
+});
 
-module.exports = {server, io};
+module.exports = {app, server, io};
