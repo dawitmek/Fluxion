@@ -21,14 +21,12 @@ router.get('/home', function (req, res) {
     res.redirect('./home/index');
 });
 
-// Protected route that requires authentication
-// In routes/web/home.js - modify the '/try-now' route
-router.get('/try-now', ensureAuthenticated, userPresent, function (req, res) {
-    // Check if we have a flash backup from auth redirect
+// Protected route for entering TikTok username (no userPresent middleware to prevent redirect loop)
+router.get('/try-now', ensureAuthenticated, function (req, res) {
+    // Check if we have flash messages backed up from auth redirect
     if (req.session && req.session._flashBackup) {
         console.log('Flash backup found for try-now page:', req.session._flashBackup);
 
-        // Restore flash messages from backup (same code as in login route)
         let restoredMessages = {
             error: [],
             info: [],
@@ -36,7 +34,7 @@ router.get('/try-now', ensureAuthenticated, userPresent, function (req, res) {
             warning: []
         };
 
-        // Process backup messages by type
+        // Restore flash messages from backup
         Object.keys(req.session._flashBackup).forEach(type => {
             if (restoredMessages[type]) {
                 const messages = req.session._flashBackup[type];
@@ -50,7 +48,6 @@ router.get('/try-now', ensureAuthenticated, userPresent, function (req, res) {
 
         console.log('Restored flash messages from backup:', restoredMessages);
 
-        // Render with restored flash messages
         res.render('./home/try-now', {
             flashMessages: restoredMessages,
             error: restoredMessages.error.length > 0 ? restoredMessages.error[0] : null,
@@ -59,15 +56,14 @@ router.get('/try-now', ensureAuthenticated, userPresent, function (req, res) {
             currentUser: req.user || null
         });
 
-        // Clear the backup after use
+        // Clear backup after use
         delete req.session._flashBackup;
         req.session.save();
 
-        return; // Skip the normal render
+        return;
     }
 
-    // Regular render if no backup found
-    // Standard rendering (when no backup)
+    // Standard rendering with fresh flash messages
     res.render('./home/try-now', {
         flashMessages: {
             error: req.flash('error'),
@@ -78,25 +74,15 @@ router.get('/try-now', ensureAuthenticated, userPresent, function (req, res) {
     });
 });
 
-
-
 // Documentation route
 router.get('/docs', function (req, res) {
     res.render('./info/about');
 });
 
-// Enhanced login route with direct flash handling
-// Replace your existing login route in home.js with this version
-
-// Enhanced login route with flash backup system
+// Login page with flash message backup system
 router.get('/login', function (req, res) {
-    // console.log('Login route accessed');
-
-    // Check if we have a flash backup from auth redirect
+    // Check for backed up flash messages
     if (req.session && req.session._flashBackup) {
-        // console.log('Flash backup found for login page:', req.session._flashBackup);
-
-        // Restore flash messages from backup
         let restoredMessages = {
             error: [],
             info: [],
@@ -116,9 +102,6 @@ router.get('/login', function (req, res) {
             }
         });
 
-        // console.log('Restored flash messages from backup:', restoredMessages);
-
-        // Render with restored flash messages
         res.render('./account/login', {
             flashMessages: restoredMessages,
             error: restoredMessages.error.length > 0 ? restoredMessages.error[0] : null,
@@ -128,14 +111,14 @@ router.get('/login', function (req, res) {
             currentUser: req.user || null
         });
 
-        // Clear the backup after use
+        // Clear backup after use
         delete req.session._flashBackup;
         req.session.save();
 
-        return; // Skip the normal flash processing
+        return;
     }
 
-    // Standard flash message handling (if no backup was found)
+    // Standard flash message handling
     const flashMessages = {
         error: req.flash('error'),
         info: req.flash('info'),
@@ -143,9 +126,6 @@ router.get('/login', function (req, res) {
         warning: req.flash('warning')
     };
 
-    // console.log('Flash messages found in login route:', flashMessages);
-
-    // Render with flash messages
     res.render('./account/login', {
         flashMessages: flashMessages,
         error: flashMessages.error.length > 0 ? flashMessages.error[0] : null,
@@ -213,7 +193,7 @@ router.post("/signup", async function (req, res, next) {
 
         await newUser.save();
 
-        // After successful save, proceed with authentication
+        // Auto-login after successful signup
         passport.authenticate('login', {
             successRedirect: "/",
             failureRedirect: "/login",
@@ -229,7 +209,7 @@ router.post("/signup", async function (req, res, next) {
     }
 });
 
-// Start route - check if live before starting
+// Start route - verify stream is live before proceeding
 router.get('/start', checkIfLive, async function (req, res) {
     res.locals.tiktokName = req.tiktokName;
     startTikTok(req.tiktokName);
@@ -237,17 +217,16 @@ router.get('/start', checkIfLive, async function (req, res) {
     res.redirect('/app/dashboard');
 });
 
-// Start form submission route
+// Start form submission route - process TikTok username from try-now form
 router.post('/start', checkIfLive, async function (req, res) {
-    // If the body is empty or username is null
     if (req.body == null || req.body.username == null) {
         req.flash('error', 'Please provide a valid TikTok username');
         return req.session.save(() => {
             res.redirect('/try-now');
         });
     } else {
-        // Check if the stream is active before proceeding
         try {
+            // Verify the stream is currently live
             const streamStatus = await checkTikTokStreamStatus(req.body.username);
 
             if (!streamStatus.isLive) {
@@ -257,15 +236,16 @@ router.post('/start', checkIfLive, async function (req, res) {
                 });
             }
 
-            // If they submitted the try-now form and stream is active
             res.locals.tiktokName = req.body.username;
 
+            // Save TikTok username to user's account
             let updated = await User.findOneAndUpdate({ _id: req.user._id }, {
                 $set: {
                     tiktokName: req.body.username
                 }
             });
 
+            // Start TikTok connection
             startTikTok(req.body.username);
             req.tiktokName = req.body.username;
             req.started = true;
@@ -327,7 +307,7 @@ async function checkIfLive(req, res, next) {
             });
         }
     } else {
-        // If tiktokName is already set, still verify the stream is active
+        // If tiktokName is already set, verify the stream is still active
         try {
             const streamStatus = await checkTikTokStreamStatus(req.tiktokName || req.body.username);
 
@@ -364,28 +344,24 @@ async function checkIfLive(req, res, next) {
 /**
  * Helper function to check if a TikTok stream is active
  * Works for both high-activity and low/no-activity streams
- * 
- * @param {string} username - TikTok username to check
- * @returns {Promise<{isLive: boolean, reason: string}>} - Resolves to status object
  */
 async function checkTikTokStreamStatus(username) {
     return new Promise((resolve, reject) => {
         const tiktok = new WebcastPushConnection(username);
         let resolved = false;
 
-        // Set a timeout to prevent hanging
+        // Set timeout to prevent hanging
         const timeout = setTimeout(() => {
             if (!resolved) {
                 resolved = true;
                 tiktok.disconnect();
                 reject(new Error('Connection timed out'));
             }
-        }, 10000); // 10 second timeout
+        }, 10000);
 
         tiktok.connect()
             .then(state => {
                 clearTimeout(timeout);
-                // console.log(`Connected to ${username}, checking state:`, state);
 
                 // Check if connection is properly established
                 if (!state.isConnected || !state.upgradedToWebsocket) {
@@ -400,7 +376,7 @@ async function checkTikTokStreamStatus(username) {
                     return;
                 }
 
-                // First check: If roomId is invalid or missing
+                // Check if roomId is valid
                 if (!state.roomId) {
                     tiktok.disconnect();
                     if (!resolved) {
@@ -413,15 +389,12 @@ async function checkTikTokStreamStatus(username) {
                     return;
                 }
 
-                // Get detailed room info
+                // Get detailed room info to verify stream status
                 tiktok.getRoomInfo()
                     .then(roomInfo => {
-                        // console.log(`Room info for ${username}:`, roomInfo);
-
-                        // Clean up regardless of result
                         tiktok.disconnect();
 
-                        // Special case: Empty room info with just "prompts" property is a definite indication of no stream
+                        // Empty room info indicates no active stream
                         if (roomInfo &&
                             Object.keys(roomInfo).length === 1 &&
                             'prompts' in roomInfo &&
@@ -439,20 +412,13 @@ async function checkTikTokStreamStatus(username) {
                             return;
                         }
 
-                        // IMPORTANT: These are the key indicators to check for a live stream
-                        // Primary check: Does the roomInfo have content and a valid title?
+                        // Check key indicators for live stream
                         const isLive = Boolean(
                             roomInfo &&
-                            // Check that room info has content beyond just the empty prompts
                             Object.keys(roomInfo).length > 1 &&
-                            // Stream should have a title
-                            // roomInfo.title &&
-                            // roomInfo.title.length > 0 &&
-                            // Should have a stream ID
                             roomInfo.stream_id
                         );
 
-                        // Log what we found
                         console.log(`Final determination for ${username}: ${isLive ? 'LIVE' : 'NOT LIVE'}`);
 
                         if (!resolved) {
@@ -461,7 +427,7 @@ async function checkTikTokStreamStatus(username) {
                             if (isLive) {
                                 resolve({ isLive: true, reason: 'Stream is active' });
                             } else {
-                                // Provide specific reason based on what we found
+                                // Provide specific reason based on findings
                                 let reason = 'Stream is not active';
 
                                 if (!roomInfo || Object.keys(roomInfo).length <= 1) {
@@ -493,7 +459,7 @@ async function checkTikTokStreamStatus(username) {
                 clearTimeout(timeout);
                 console.error(`Error connecting to ${username}'s TikTok room:`, err);
 
-                // Try to check if the error indicates a specific problem
+                // Categorize connection errors
                 let errorReason = 'Connection failed';
 
                 if (err.message && err.message.includes('not found')) {
