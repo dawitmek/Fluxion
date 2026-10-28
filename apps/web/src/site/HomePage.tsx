@@ -2,7 +2,7 @@ import { useRef, useState, type ReactNode } from 'react';
 import { Icon, type IconName } from '../icons';
 import { Link } from '../router';
 import { CompanionArt, GiftArt, LevelsArt, ModesArt, ProfilesArt, SafetyArt, Stage, VoiceArt } from './visuals';
-import { GITHUB_URL, SiteLayout } from './SiteLayout';
+import { SiteLayout } from './SiteLayout';
 
 const CARDS: { art: ReactNode; title: string; text: string }[] = [
   { art: <ModesArt />, title: 'Four crowd modes', text: 'Anarchy, democracy votes, a queue of players, or gift-only. Switch mid-stream.' },
@@ -339,11 +339,12 @@ export function HomePage() {
                 <Link href="/signup" className="s-btn s-btn-solid">
                   Get started
                 </Link>
-                <a href={GITHUB_URL} className="s-btn s-btn-line">
-                  View on GitHub
-                </a>
+                <Link href="/download" className="s-btn s-btn-line">
+                  <Icon name="download" size={18} />
+                  Download the companion
+                </Link>
               </div>
-              <small>No game mods or plugins needed</small>
+              <small>For Windows and macOS. No game mods or plugins needed.</small>
             </div>
           </div>
           <Stage />

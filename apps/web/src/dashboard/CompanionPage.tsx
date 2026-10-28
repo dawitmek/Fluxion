@@ -1,5 +1,6 @@
 import { useCallback, useEffect, useState } from 'react';
 import { api, type Companion } from '../api';
+import { Icon } from '../icons';
 import { Card, ErrorNotice, useError } from '../ui';
 import type { PageProps } from './Dashboard';
 
@@ -17,7 +18,8 @@ export function CompanionPage({ status }: PageProps) {
         title="Pair a companion"
         description="The companion app runs on your gaming PC and presses keys in your game. Create a code here, then enter it in the companion along with this server's address."
         actions={
-          <a className="btn btn-ghost" href="/download" target="_blank" rel="noreferrer">
+          <a className="btn" href="/download" target="_blank" rel="noreferrer">
+            <Icon name="download" size={16} />
             Download the app
           </a>
         }

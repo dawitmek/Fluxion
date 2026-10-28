@@ -12,8 +12,8 @@ const PAGES = [
   { href: '/how-it-works', label: 'How it works' },
   { href: '/self-hosting', label: 'Self-hosting' },
   { href: '/faq', label: 'FAQ' },
-  { href: '/download', label: 'Download' },
 ];
+const DOWNLOAD = { href: '/download', label: 'Download' };
 
 // Signed-in visitors get a way back into the app instead of Log in / Sign up.
 function useSignedIn() {
@@ -33,12 +33,22 @@ export function SiteLayout({ children }: { children: ReactNode }) {
   const [menuOpen, setMenuOpen] = useState(false);
   useEffect(() => setMenuOpen(false), [path]);
 
-  const actions = signedIn ? (
-    <Link href="/dashboard" className="s-btn s-btn-solid s-btn-sm">
-      Open dashboard
+  const download = (
+    <Link href={DOWNLOAD.href} className="s-btn s-btn-line s-btn-sm" aria-current={path === DOWNLOAD.href ? 'page' : undefined}>
+      <Icon name="download" size={16} />
+      {DOWNLOAD.label}
     </Link>
+  );
+  const actions = signedIn ? (
+    <>
+      {download}
+      <Link href="/dashboard" className="s-btn s-btn-solid s-btn-sm">
+        Open dashboard
+      </Link>
+    </>
   ) : (
     <>
+      {download}
       <Link href="/login" className="s-text-link">
         Log in
       </Link>
@@ -75,6 +85,10 @@ export function SiteLayout({ children }: { children: ReactNode }) {
               {p.label}
             </Link>
           ))}
+          <Link href={DOWNLOAD.href} className="s-btn s-btn-line">
+            <Icon name="download" size={18} />
+            Download the companion
+          </Link>
           {signedIn ? (
             <Link href="/dashboard" className="s-btn s-btn-solid">
               Open dashboard
@@ -114,7 +128,7 @@ export function SiteLayout({ children }: { children: ReactNode }) {
           <footer className="s-footer">
             <span>© 2026 Fluxion. Not affiliated with TikTok.</span>
             <nav aria-label="Footer">
-              {PAGES.map((p) => (
+              {[...PAGES, DOWNLOAD].map((p) => (
                 <Link key={p.href} href={p.href}>
                   {p.label}
                 </Link>
