@@ -105,3 +105,4 @@ td input:not([type='checkbox']) { margin: 0; }
 .overlay-level { display: inline-block; margin-right: 10px; padding: 1px 7px; border-radius: 6px; background: rgba(255, 209, 102, 0.25); color: #ffd166; font-size: 16px; font-weight: 700; vertical-align: 2px; }
 .overlay-levelup { background: linear-gradient(90deg, rgba(232, 23, 93, 0.85), rgba(255, 140, 0, 0.85)); }
 .overlay-levelup .overlay-keyword { color: #fff; }
+td input:not([type='checkbox']):not(.num) { min-width: 140px; }

@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useState, type FormEvent } from 'react';
+import { useCallback, useEffect, useRef, useState, type FormEvent } from 'react';
 import { ALLOWED_KEYS, levelForXp, MAX_LEVEL, MODES, QUEUE_JOIN, xpForLevel } from '@fluxion/shared';
 import {
   api,
@@ -25,12 +25,14 @@ const MODE_INFO: Record<Mode, { label: string; help: string }> = {
 
 export function Dashboard() {
   const [host, setHost] = useState<Host | null | undefined>(undefined);
-  const refresh = useCallback(() => {
-    api<Host>('GET', '/auth/me')
-      .then(setHost)
-      .catch(() => setHost(null));
-  }, []);
-  useEffect(refresh, [refresh]);
+  const refresh = useCallback(
+    () =>
+      api<Host>('GET', '/auth/me')
+        .then(setHost)
+        .catch(() => setHost(null)),
+    [],
+  );
+  useEffect(() => void refresh(), [refresh]);
 
   if (host === undefined) return null;
   if (host === null) return <AuthForm onDone={refresh} />;
@@ -89,7 +91,7 @@ function AuthForm({ onDone }: { onDone: () => void }) {
   );
 }
 
-function Main({ host, refreshHost, onLogout }: { host: Host; refreshHost: () => void; onLogout: () => void }) {
+function Main({ host, refreshHost, onLogout }: { host: Host; refreshHost: () => Promise<unknown>; onLogout: () => void }) {
   return (
     <main>
       <header className="topbar">
@@ -113,7 +115,7 @@ function Main({ host, refreshHost, onLogout }: { host: Host; refreshHost: () => 
   );
 }
 
-function LiveSection({ host, refreshHost }: { host: Host; refreshHost: () => void }) {
+function LiveSection({ host, refreshHost }: { host: Host; refreshHost: () => Promise<unknown> }) {
   const [status, setStatus] = useState<LiveStatus>({ live: false, companionsOnline: 0 });
   const [username, setUsername] = useState(host.tiktokUsername ?? '');
   const [rate, setRate] = useState(host.actionsPerSecond);
@@ -224,7 +226,7 @@ function LiveSection({ host, refreshHost }: { host: Host; refreshHost: () => voi
   );
 }
 
-function ModeSection({ host, refreshHost }: { host: Host; refreshHost: () => void }) {
+function ModeSection({ host, refreshHost }: { host: Host; refreshHost: () => Promise<unknown> }) {
   const { error, guard } = useError();
   const save = (patch: Partial<Host>) => guard(() => api('PATCH', '/settings', patch).then(refreshHost))();
 
@@ -268,7 +270,7 @@ function ModeSection({ host, refreshHost }: { host: Host; refreshHost: () => voi
   );
 }
 
-function ProfilesSection({ host, refreshHost }: { host: Host; refreshHost: () => void }) {
+function ProfilesSection({ host, refreshHost }: { host: Host; refreshHost: () => Promise<unknown> }) {
   const [profiles, setProfiles] = useState<Profile[]>([]);
   const [name, setName] = useState('');
   const [gameProcess, setGameProcess] = useState('');
@@ -347,7 +349,7 @@ function ProfilesSection({ host, refreshHost }: { host: Host; refreshHost: () =>
   );
 }
 
-function ProgressionSection({ host, refreshHost }: { host: Host; refreshHost: () => void }) {
+function ProgressionSection({ host, refreshHost }: { host: Host; refreshHost: () => Promise<unknown> }) {
   const { error, guard } = useError();
   const save = (patch: Partial<Host>) => guard(() => api('PATCH', '/settings', patch).then(refreshHost))();
   return (
@@ -588,13 +590,12 @@ function TextCell({
   required,
 }: {
   value: string;
-  onSave: (v: string) => void;
+  onSave: (v: string) => Promise<unknown> | void;
   label: string;
   placeholder?: string;
   required?: boolean;
 }) {
-  const [text, setText] = useState(value);
-  useEffect(() => setText(value), [value]);
+  const { text, setText, revert, save } = useSavedText(value);
   return (
     <input
       value={text}
@@ -603,8 +604,8 @@ function TextCell({
       onChange={(e) => setText(e.target.value)}
       onBlur={() => {
         const next = text.trim();
-        if (next === value || (required && !next)) return setText(value);
-        onSave(next);
+        if (next === value || (required && !next)) return revert();
+        void save(() => onSave(next));
       }}
     />
   );
@@ -623,9 +624,28 @@ function KeySelect({ value, onChange }: { value: string; onChange: (key: string)
 }
 
 // Saves on blur so typing doesn't send a request per keystroke.
-function NumberCell({ value, min, max, onSave }: { value: number; min: number; max: number; onSave: (n: number) => void }) {
-  const [text, setText] = useState(String(value));
-  useEffect(() => setText(String(value)), [value]);
+// After a save, shows whatever the parent reloaded: the new value, or the old one if the save failed.
+function useSavedText(value: string) {
+  const [text, setText] = useState(value);
+  const latest = useRef(value);
+  latest.current = value;
+  useEffect(() => setText(value), [value]);
+  const save = (onSave: () => Promise<unknown> | void) => Promise.resolve(onSave()).then(() => setText(latest.current));
+  return { text, setText, revert: () => setText(value), save };
+}
+
+function NumberCell({
+  value,
+  min,
+  max,
+  onSave,
+}: {
+  value: number;
+  min: number;
+  max: number;
+  onSave: (n: number) => Promise<unknown> | void;
+}) {
+  const { text, setText, revert, save } = useSavedText(String(value));
   return (
     <input
       className="num"
@@ -634,7 +654,12 @@ function NumberCell({ value, min, max, onSave }: { value: number; min: number; m
       max={max}
       value={text}
       onChange={(e) => setText(e.target.value)}
-      onBlur={() => Number(text) !== value && onSave(Number(text))}
+      onBlur={() => {
+        const n = Number(text);
+        if (n === value) return;
+        if (text.trim() === '' || !Number.isInteger(n) || n < min || n > max) return revert();
+        void save(() => onSave(n));
+      }}
     />
   );
 }

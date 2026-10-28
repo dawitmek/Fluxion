@@ -17,6 +17,7 @@ interface Snapshot {
   paused: boolean;
   targetProcess: string | null;
   profileName: string | null;
+  profileGame: string | null;
   allowedKeys: string[];
   allKeys: string[];
   log: LogEntry[];
@@ -133,6 +134,11 @@ function Paired({ state, run }: { state: Snapshot; run: (c: string, a?: Record<s
           <p className="hint">
             Dashboard profile: <strong>{state.profileName}</strong>. Switching profiles on the dashboard picks its game here
             when the profile names one.
+          </p>
+        )}
+        {state.profileGame && state.targetProcess !== state.profileGame && (
+          <p className="warning">
+            The {state.profileName} profile is for {state.profileGame}, but this PC is targeting {state.targetProcess ?? "nothing"}.
           </p>
         )}
         <div className="row">

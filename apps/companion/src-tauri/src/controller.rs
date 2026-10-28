@@ -32,6 +32,7 @@ pub struct Snapshot {
     paused: bool,
     target_process: Option<String>,
     profile_name: Option<String>,
+    profile_game: Option<String>,
     allowed_keys: Vec<String>,
     all_keys: Vec<String>,
     log: Vec<LogEntry>,
@@ -45,7 +46,7 @@ pub struct Controller {
     config: Mutex<Config>,
     paused: AtomicBool,
     connection: Mutex<String>,
-    profile_name: Mutex<Option<String>>,
+    profile: Mutex<(Option<String>, Option<String>)>, // active dashboard profile: (name, game process)
     log: Mutex<VecDeque<LogEntry>>,
     held: Mutex<HashMap<String, u32>>, // key -> number of actions currently holding it
     pub connection_task: Mutex<Option<tauri::async_runtime::JoinHandle<()>>>,
@@ -60,7 +61,7 @@ impl Controller {
             config: Mutex::new(config),
             paused: AtomicBool::new(false),
             connection: Mutex::new("disconnected".into()),
-            profile_name: Mutex::new(None),
+            profile: Mutex::new((None, None)),
             log: Mutex::new(VecDeque::new()),
             held: Mutex::new(HashMap::new()),
             connection_task: Mutex::new(None),
@@ -89,7 +90,8 @@ impl Controller {
             connection: self.connection.lock().unwrap().clone(),
             paused: self.paused.load(Ordering::SeqCst),
             target_process: config.target_process,
-            profile_name: self.profile_name.lock().unwrap().clone(),
+            profile_name: self.profile.lock().unwrap().0.clone(),
+            profile_game: self.profile.lock().unwrap().1.clone(),
             allowed_keys: allowed_keys(&config.allowed_keys),
             all_keys: ALL_KEYS.iter().map(|k| k.to_string()).collect(),
             log: self.log.lock().unwrap().iter().cloned().collect(),
@@ -117,9 +119,10 @@ impl Controller {
 
     /// Follows the dashboard's active profile. The host can still pick another game here until the next switch.
     pub fn apply_profile(&self, name: String, game_process: Option<String>) -> Result<(), String> {
-        *self.profile_name.lock().unwrap() = Some(name);
+        let game_process = game_process.map(|p| p.to_lowercase());
+        *self.profile.lock().unwrap() = (Some(name), game_process.clone());
         match game_process {
-            Some(process) => self.update_config(|c| c.target_process = Some(process.to_lowercase())),
+            Some(process) => self.update_config(|c| c.target_process = Some(process)),
             None => {
                 self.emit();
                 Ok(())
