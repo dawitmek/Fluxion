@@ -13,14 +13,25 @@ let app: Awaited<ReturnType<typeof buildApp>>;
 let baseWs: string;
 const sockets: WebSocket[] = [];
 
+// Stands in for cloud TTS providers: records requests and answers with fake MP3 bytes.
+const cloudRequests: { url: string; init: RequestInit }[] = [];
+const fakeFetch = (async (url: string | URL, init: RequestInit = {}) => {
+  cloudRequests.push({ url: String(url), init });
+  if (String(url).includes('bad-key')) return new Response('{"error":"API key not valid"}', { status: 403 });
+  const mp3 = new Uint8Array([0xff, 0xfb, 0x90, 0x00]);
+  // Google wraps audio in JSON; Azure and ElevenLabs return the bytes.
+  if (String(url).includes('googleapis')) return Response.json({ audioContent: Buffer.from(mp3).toString('base64') });
+  return new Response(mp3, { status: 200 });
+}) as typeof fetch;
+
 beforeAll(async () => {
   await runMigrations(databaseUrl);
   const fakeTikTok = (): PlatformAdapter => {
     throw new Error('TikTok must not be contacted in tests');
   };
   app = await buildApp(
-    { databaseUrl, port: 0, host: '127.0.0.1', eulerApiKey: undefined, production: false, secureCookies: false },
-    { logger: false, createTikTok: fakeTikTok },
+    { databaseUrl, port: 0, host: '127.0.0.1', eulerApiKey: undefined, production: false, secureCookies: false, piperBin: undefined, piperVoicesDir: undefined },
+    { logger: false, createTikTok: fakeTikTok, fetch: fakeFetch },
   );
   await app.listen({ port: 0, host: '127.0.0.1' });
   baseWs = `ws://127.0.0.1:${(app.server.address() as AddressInfo).port}`;
@@ -380,6 +391,9 @@ describe('viewer progression', () => {
 });
 
 describe('alerts and text-to-speech', () => {
+  // The 5 s stats flush can push a leaderboard at any moment; these tests don't care about it.
+  const withoutLeaderboard = (messages: any[]) => messages.filter((m) => m.type !== 'leaderboard');
+
   it('seeds starter alerts, tests them offline, and speaks prefixed chat while live', async () => {
     const { cookie } = await signUp();
     const me = (await api(cookie, 'GET', '/api/auth/me')).json();
@@ -392,7 +406,7 @@ describe('alerts and text-to-speech', () => {
     await overlay.opened;
     const follow = alerts.find((a: any) => a.event === 'follow');
     await api(cookie, 'POST', `/api/alerts/${follow.id}/test`);
-    expect(await overlay.next()).toEqual({ type: 'alert', text: 'test_viewer followed!', sound: 'chime', speak: false, voice: null });
+    expect(await overlay.next()).toEqual({ type: 'alert', text: 'test_viewer followed!', sound: 'chime', speech: null });
 
     // Validation: likes need a step; event-specific fields are cleared for other events.
     expect((await api(cookie, 'POST', '/api/alerts', { event: 'likes', template: 'x' })).statusCode).toBe(400);
@@ -408,33 +422,77 @@ describe('alerts and text-to-speech', () => {
     expect(lion.statusCode).toBe(201);
     expect(lion.json()).toMatchObject({ giftName: 'lion', likeStep: null });
 
-    await api(cookie, 'PATCH', '/api/settings', { ttsVoice: 'Microsoft Aria', ttsCooldownMs: 0 });
+    // The default engine is Piper; this test server has none, so speech falls back to in-overlay eSpeak.
+    await api(cookie, 'PATCH', '/api/settings', { ttsEspeakVoice: 'en-gb', ttsCooldownMs: 0 });
     await api(cookie, 'POST', '/api/live/start', { source: 'simulated' });
     await overlay.drain(100); // live + mode + leaderboard
     const sim = (payload: object) => api(cookie, 'POST', '/api/live/simulate', { viewer: 'alice', ...payload });
 
     await sim({ event: 'follow' });
-    expect(await overlay.next()).toMatchObject({ type: 'alert', text: 'alice followed!' });
+    const nextAlert = async () => {
+      for (;;) {
+        const m = await overlay.next();
+        if (m.type !== 'leaderboard') return m;
+      }
+    };
+    expect(await nextAlert()).toMatchObject({ type: 'alert', text: 'alice followed!' });
     await sim({ gift: 'Lion' });
-    expect(await overlay.next()).toEqual({ type: 'alert', text: 'ROAR alice', sound: 'fanfare', speak: true, voice: 'Microsoft Aria' });
+    expect(await nextAlert()).toEqual({ type: 'alert', text: 'ROAR alice', sound: 'fanfare', speech: { kind: 'espeak', text: 'ROAR alice', voice: 'en-gb' } });
     await sim({ event: 'like', count: 1000 });
-    expect(await overlay.next()).toMatchObject({ type: 'alert', text: '1000 likes! Thanks alice' });
+    expect(await nextAlert()).toMatchObject({ type: 'alert', text: '1000 likes! Thanks alice' });
 
     await sim({ text: '!tts hello chat' });
-    expect(await overlay.next()).toEqual({ type: 'tts', viewer: 'alice', text: 'hello chat', voice: 'Microsoft Aria' });
+    expect(await nextAlert()).toEqual({
+      type: 'tts',
+      viewer: 'alice',
+      text: 'hello chat',
+      speech: { kind: 'espeak', text: 'alice says hello chat', voice: 'en-gb' },
+    });
     await sim({ text: 'hello chat' });
-    expect(await overlay.drain()).toEqual([]);
+    expect(withoutLeaderboard(await overlay.drain())).toEqual([]);
 
     // Switching to "all" applies mid-stream; commands still aren't read.
     expect((await api(cookie, 'PATCH', '/api/settings', { ttsMode: 'all' })).statusCode).toBe(200);
     await sim({ text: 'hello chat' });
-    expect(await overlay.next()).toMatchObject({ type: 'tts', text: 'hello chat' });
+    expect(await nextAlert()).toMatchObject({ type: 'tts', text: 'hello chat' });
     await sim({ text: 'jump' });
     expect((await overlay.drain()).filter((m) => m.type === 'tts')).toEqual([]);
 
     expect((await api(cookie, 'DELETE', `/api/alerts/${follow.id}`)).statusCode).toBe(204);
     await sim({ event: 'follow' });
-    expect(await overlay.drain()).toEqual([]);
+    expect(withoutLeaderboard(await overlay.drain())).toEqual([]);
+  });
+
+  it('speaks through the chosen engine, keeps cloud keys secret, and reports cloud errors on preview', async () => {
+    const { cookie } = await signUp();
+    expect((await api(cookie, 'GET', '/api/tts/options')).json()).toMatchObject({ piperVoices: [], espeakVoices: expect.arrayContaining(['en-us']) });
+
+    await api(cookie, 'PATCH', '/api/settings', { ttsEngine: 'browser', ttsVoice: 'Microsoft Zira' });
+    expect((await api(cookie, 'POST', '/api/tts/preview', { text: 'hi' })).json()).toEqual({ kind: 'browser', text: 'hi', voice: 'Microsoft Zira' });
+
+    // Cloud without a key is an error on preview (live speech would fall back to eSpeak instead).
+    await api(cookie, 'PATCH', '/api/settings', { ttsEngine: 'cloud' });
+    expect((await api(cookie, 'POST', '/api/tts/preview')).statusCode).toBe(502);
+
+    const res = await api(cookie, 'PATCH', '/api/settings', { ttsCloudProvider: 'google', ttsCloudKey: 'secret-123', ttsCloudVoice: 'en-GB-Neural2-A' });
+    expect(res.statusCode).toBe(200);
+    const me = (await api(cookie, 'GET', '/api/auth/me')).json();
+    expect(me).toMatchObject({ ttsCloudProvider: 'google', ttsCloudKeySet: true });
+    expect(JSON.stringify(me)).not.toContain('secret-123');
+
+    cloudRequests.length = 0;
+    expect((await api(cookie, 'POST', '/api/tts/preview', { text: 'hi' })).json()).toEqual({ kind: 'audio', data: '//uQAA==', mime: 'audio/mpeg' });
+    expect(cloudRequests[0]!.url).toBe('https://texttospeech.googleapis.com/v1/text:synthesize?key=secret-123');
+    expect(JSON.parse(String(cloudRequests[0]!.init.body))).toMatchObject({ input: { text: 'hi' }, voice: { languageCode: 'en-GB', name: 'en-GB-Neural2-A' } });
+
+    await api(cookie, 'PATCH', '/api/settings', { ttsCloudKey: 'bad-key' });
+    const bad = await api(cookie, 'POST', '/api/tts/preview');
+    expect(bad.statusCode).toBe(502);
+    expect(bad.json().error).toContain('Google TTS failed (403)');
+
+    // Clearing the key works too.
+    await api(cookie, 'PATCH', '/api/settings', { ttsCloudKey: null });
+    expect((await api(cookie, 'GET', '/api/auth/me')).json().ttsCloudKeySet).toBe(false);
   });
 
   it("can't touch another host's alerts", async () => {

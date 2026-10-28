@@ -2,7 +2,8 @@ import { eq } from 'drizzle-orm';
 import { QUEUE_JOIN, XP_PER_COMMAND, type Mode, type ServerToOverlay, type ViewerEvent } from '@fluxion/shared';
 import type { Db } from '../db/client.js';
 import { alertRules, commands, giftTriggers, hosts } from '../db/schema.js';
-import { createAlerts, parseBlockedWords, type AlertContext } from '../alerts/engine.js';
+import { createAlerts, parseBlockedWords, type AlertContext, type AlertOutput } from '../alerts/engine.js';
+import { voiceConfig, type SpeechService, type VoiceConfig } from '../tts/speech.js';
 import { activeProfile } from '../profiles/active.js';
 import { createEngine, type Decision, type Engine, type EngineConfig, type EngineContext } from '../engine/index.js';
 import type { Hub } from '../gateway/hub.js';
@@ -24,6 +25,8 @@ interface LiveSession {
   engine: Engine;
   alertCtx: AlertContext;
   alerts: ReturnType<typeof createAlerts>;
+  voice: VoiceConfig;
+  outbox: Promise<void>; // alerts and speech go out in order, each after its audio is ready
   ticker: NodeJS.Timeout;
   delayed: Set<NodeJS.Timeout>; // pending repeats of gift-triggered presses
   lastState: string;
@@ -47,6 +50,7 @@ export class SessionManager {
     private db: Db,
     private hub: Hub,
     private stats: Stats,
+    private speech: SpeechService,
     private createTikTok: (username: string) => PlatformAdapter,
   ) {}
 
@@ -54,7 +58,7 @@ export class SessionManager {
     await this.stop(hostId);
     const loaded = await this.loadConfig(hostId);
     if (!loaded) throw new LiveError('Host not found', 404);
-    const { host, mode, config, alertConfig } = loaded;
+    const { host, mode, config, alertConfig, voice } = loaded;
 
     let adapter: PlatformAdapter;
     if (source === 'simulated') {
@@ -88,6 +92,8 @@ export class SessionManager {
       engine: createEngine(mode, ctx),
       alertCtx,
       alerts: createAlerts(alertCtx),
+      voice,
+      outbox: Promise.resolve(),
       ticker: setInterval(() => this.run(hostId, session, session.engine.tick()), TICK_MS),
       delayed: new Set(),
       lastState: '',
@@ -146,6 +152,7 @@ export class SessionManager {
     if (!loaded || this.sessions.get(hostId) !== session) return;
     session.ctx.config = loaded.config;
     session.alertCtx.config = loaded.alertConfig;
+    session.voice = loaded.voice;
     if (loaded.mode !== session.mode) {
       session.mode = loaded.mode;
       session.engine = createEngine(session.mode, session.ctx);
@@ -195,7 +202,21 @@ export class SessionManager {
       this.levelUp(hostId, session, event.viewerId, this.stats.record(hostId, event.viewerId, { gifts: event.count, xp }));
     }
     this.run(hostId, session, session.engine.handle(event));
-    for (const message of session.alerts.handle(event)) this.hub.sendToOverlays(hostId, message);
+    for (const output of session.alerts.handle(event)) {
+      // speak() never throws, but a broken chain would silence every later alert, so guard anyway.
+      session.outbox = session.outbox.then(() => this.deliver(hostId, session, output)).catch(() => {});
+    }
+  }
+
+  private async deliver(hostId: string, session: LiveSession, output: AlertOutput) {
+    if (this.sessions.get(hostId) !== session) return; // stopped while earlier speech was being made
+    if (output.type === 'alert') {
+      const speech = output.speak ? await this.speech.speak(session.voice, output.text) : null;
+      this.hub.sendToOverlays(hostId, { type: 'alert', text: output.text, sound: output.sound, speech });
+    } else {
+      const speech = await this.speech.speak(session.voice, `${output.viewer} says ${output.text}`);
+      this.hub.sendToOverlays(hostId, { type: 'tts', viewer: output.viewer, text: output.text, speech });
+    }
   }
 
   private run(hostId: string, session: LiveSession, decisions: Decision[]) {
@@ -277,9 +298,8 @@ export class SessionManager {
         cooldownMs: host.ttsCooldownMs,
         minLevel: host.ttsMinLevel,
         blockedWords: parseBlockedWords(host.ttsBlockedWords),
-        voice: host.ttsVoice,
       },
     };
-    return { host, mode: profile.mode, config, alertConfig };
+    return { host, mode: profile.mode, config, alertConfig, voice: voiceConfig(host) };
   }
 }

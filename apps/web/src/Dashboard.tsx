@@ -1,12 +1,16 @@
 import { useCallback, useEffect, useRef, useState, type FormEvent } from 'react';
-import { ALERT_EVENTS, ALERT_SOUNDS, ALLOWED_KEYS, levelForXp, MAX_LEVEL, MODES, QUEUE_JOIN, xpForLevel } from '@fluxion/shared';
+import { ALERT_EVENTS, ALERT_SOUNDS, ALLOWED_KEYS, CLOUD_PROVIDERS, levelForXp, MAX_LEVEL, MODES, QUEUE_JOIN, xpForLevel } from '@fluxion/shared';
 import { playSound } from './sounds';
+import { SpeechPlayer } from './speech-player';
 import {
   api,
   ApiError,
   type AlertEvent,
   type AlertRule,
   type AlertSound,
+  type CloudProvider,
+  type Speech,
+  type TtsEngine,
   type Command,
   type Companion,
   type GiftTrigger,
@@ -522,12 +526,12 @@ function AlertsSection() {
   );
 }
 
-// Voices come from this browser; the overlay uses the same name if its browser has that voice.
+// Installed voices only: cloud "Online" voices exist in one browser (Edge) and never in OBS.
 function useVoices() {
   const [voices, setVoices] = useState<SpeechSynthesisVoice[]>([]);
   useEffect(() => {
     if (!('speechSynthesis' in window)) return;
-    const load = () => setVoices(speechSynthesis.getVoices());
+    const load = () => setVoices(speechSynthesis.getVoices().filter((v) => v.localService));
     load();
     speechSynthesis.addEventListener('voiceschanged', load);
     return () => speechSynthesis.removeEventListener('voiceschanged', load);
@@ -535,23 +539,52 @@ function useVoices() {
   return voices;
 }
 
+const ENGINES: [TtsEngine, string, string][] = [
+  ['piper', 'Piper (server)', 'Natural offline voices made on the Fluxion server. Plays through OBS.'],
+  ['espeak', 'eSpeak (overlay)', 'Robotic voice made inside the overlay, many languages. Plays through OBS.'],
+  ['cloud', 'Your cloud key', 'Google, Azure or ElevenLabs with your own API key (you pay them). Plays through OBS.'],
+  ['browser', 'Browser voices', "The streaming PC's built-in voices. Plays outside OBS's mixer; capture Desktop Audio."],
+];
+const CLOUD_LABELS: Record<CloudProvider, string> = { google: 'Google Cloud', azure: 'Azure Speech', elevenlabs: 'ElevenLabs' };
+const CLOUD_VOICE_HINTS: Record<CloudProvider, string> = {
+  google: 'e.g. en-US-Neural2-F',
+  azure: 'e.g. en-US-AriaNeural',
+  elevenlabs: 'a voice ID, e.g. 21m00Tcm4TlvDq8ikWAM',
+};
+
+let previewPlayer: SpeechPlayer | null = null;
+
 function TtsSection({ host, refreshHost }: { host: Host; refreshHost: () => Promise<unknown> }) {
-  const { error, guard } = useError();
+  const { error, guard, setError } = useError();
   const voices = useVoices();
-  const save = (patch: Partial<Host>) => guard(() => api('PATCH', '/settings', patch).then(refreshHost))();
-  const preview = () => {
-    const utterance = new SpeechSynthesisUtterance('viewer says hello from Fluxion');
-    const voice = voices.find((v) => v.name === host.ttsVoice);
-    if (voice) utterance.voice = voice;
-    speechSynthesis.speak(utterance);
+  const [options, setOptions] = useState<{ piperVoices: string[]; espeakVoices: string[] }>({ piperVoices: [], espeakVoices: [] });
+  const [cloudKey, setCloudKey] = useState('');
+  const [previewing, setPreviewing] = useState(false);
+  useEffect(() => void api<typeof options>('GET', '/tts/options').then(setOptions), []);
+  const save = (patch: Partial<Host> | { ttsCloudKey: string | null }) =>
+    guard(() => api('PATCH', '/settings', patch).then(refreshHost))();
+  // Plays exactly what the overlay would get, so a bad cloud key or missing voice shows up here.
+  const preview = async () => {
+    setError(null);
+    setPreviewing(true);
+    try {
+      const speech = await api<Speech>('POST', '/tts/preview', { text: 'viewer says hello from Fluxion' });
+      previewPlayer ??= new SpeechPlayer(() => (previewAudio ??= new AudioContext()));
+      await previewPlayer.play(speech);
+    } catch (e) {
+      setError(e instanceof ApiError ? e.message : `Could not play the preview: ${String(e)}`);
+    } finally {
+      setPreviewing(false);
+    }
   };
+  const piperMissing = host.ttsEngine === 'piper' && options.piperVoices.length === 0;
 
   return (
     <section className="card">
       <h2>Text-to-speech</h2>
       <p className="muted">
-        Your overlay reads chat aloud as "viewer says …". Links are never read, and in "all chat" mode game commands are
-        skipped.
+        Your overlay reads chat aloud as "viewer says …", and speaks alerts marked "Read aloud". Links are never read,
+        and in "all chat" mode game commands are skipped.
       </p>
       {error && <p className="error">{error}</p>}
       <div className="modes" role="radiogroup" aria-label="Text-to-speech mode">
@@ -569,21 +602,130 @@ function TtsSection({ host, refreshHost }: { host: Host; refreshHost: () => Prom
           </label>
         ))}
       </div>
+
+      <h3>Voice engine</h3>
+      <div className="modes" role="radiogroup" aria-label="Voice engine">
+        {ENGINES.map(([engine, label, help]) => (
+          <label key={engine} className={`mode ${host.ttsEngine === engine ? 'selected' : ''}`}>
+            <input type="radio" name="ttsEngine" checked={host.ttsEngine === engine} onChange={() => save({ ttsEngine: engine })} />
+            <strong>{label}</strong>
+            <span className="muted">{help}</span>
+          </label>
+        ))}
+      </div>
+      {piperMissing && (
+        <p className="muted">This server has no Piper voices installed, so eSpeak is used instead. The Docker image includes Piper.</p>
+      )}
+      <div className="grid2">
+        {host.ttsEngine === 'piper' && options.piperVoices.length > 0 && (
+          <label>
+            Piper voice
+            <select value={host.ttsPiperVoice ?? ''} onChange={(e) => save({ ttsPiperVoice: e.target.value || null })}>
+              <option value="">Default ({options.piperVoices[0]})</option>
+              {options.piperVoices.map((v) => (
+                <option key={v} value={v}>
+                  {v}
+                </option>
+              ))}
+            </select>
+          </label>
+        )}
+        {(host.ttsEngine === 'espeak' || piperMissing || host.ttsEngine === 'cloud') && (
+          <label>
+            eSpeak language{host.ttsEngine !== 'espeak' && ' (fallback)'}
+            <select value={host.ttsEspeakVoice} onChange={(e) => save({ ttsEspeakVoice: e.target.value })}>
+              {options.espeakVoices.map((v) => (
+                <option key={v} value={v}>
+                  {v}
+                </option>
+              ))}
+            </select>
+          </label>
+        )}
+        {host.ttsEngine === 'browser' && (
+          <label>
+            Voice (installed on this PC)
+            <select value={host.ttsVoice ?? ''} onChange={(e) => save({ ttsVoice: e.target.value || null })}>
+              <option value="">Default voice</option>
+              {voices.map((v) => (
+                <option key={v.name} value={v.name}>
+                  {v.name} ({v.lang})
+                </option>
+              ))}
+            </select>
+          </label>
+        )}
+        {host.ttsEngine === 'cloud' && (
+          <>
+            <label>
+              Provider
+              <select
+                value={host.ttsCloudProvider ?? ''}
+                onChange={(e) => save({ ttsCloudProvider: (e.target.value || null) as CloudProvider | null })}
+              >
+                <option value="">Choose…</option>
+                {CLOUD_PROVIDERS.map((p) => (
+                  <option key={p} value={p}>
+                    {CLOUD_LABELS[p]}
+                  </option>
+                ))}
+              </select>
+            </label>
+            <label>
+              API key {host.ttsCloudKeySet && <span className="muted">(saved; enter a new one to replace it)</span>}
+              <span className="inline">
+                <input
+                  type="password"
+                  autoComplete="off"
+                  value={cloudKey}
+                  placeholder={host.ttsCloudKeySet ? '••••••••' : 'paste your key'}
+                  onChange={(e) => setCloudKey(e.target.value)}
+                  aria-label="Cloud API key"
+                />
+                <button disabled={!cloudKey.trim()} onClick={() => (save({ ttsCloudKey: cloudKey.trim() }), setCloudKey(''))}>
+                  Save key
+                </button>
+                {host.ttsCloudKeySet && (
+                  <button className="link" onClick={() => save({ ttsCloudKey: null })}>
+                    Remove
+                  </button>
+                )}
+              </span>
+            </label>
+            {host.ttsCloudProvider && (
+              <label>
+                Voice
+                <TextCell
+                  value={host.ttsCloudVoice ?? ''}
+                  placeholder={CLOUD_VOICE_HINTS[host.ttsCloudProvider]}
+                  label="Cloud voice"
+                  onSave={(v) => save({ ttsCloudVoice: v || null })}
+                />
+              </label>
+            )}
+            {host.ttsCloudProvider === 'azure' && (
+              <label>
+                Region
+                <TextCell
+                  value={host.ttsCloudRegion ?? ''}
+                  placeholder="e.g. eastus"
+                  label="Azure region"
+                  onSave={(v) => save({ ttsCloudRegion: v || null })}
+                />
+              </label>
+            )}
+          </>
+        )}
+      </div>
+      <button onClick={() => void preview()} disabled={previewing}>
+        {previewing ? 'Speaking…' : 'Preview voice'}
+      </button>
+
+      <h3>Chat filters</h3>
       <div className="grid2">
         <label>
           Prefix
           <TextCell value={host.ttsPrefix} required label="Prefix" onSave={(ttsPrefix) => save({ ttsPrefix })} />
-        </label>
-        <label>
-          Voice (from this browser)
-          <select value={host.ttsVoice ?? ''} onChange={(e) => save({ ttsVoice: e.target.value || null })}>
-            <option value="">Default voice</option>
-            {voices.map((v) => (
-              <option key={v.name} value={v.name}>
-                {v.name} ({v.lang})
-              </option>
-            ))}
-          </select>
         </label>
         <label>
           Max length (characters)
@@ -609,7 +751,6 @@ function TtsSection({ host, refreshHost }: { host: Host; refreshHost: () => Prom
         Blocked words (comma-separated; a comment containing one is not read)
         <TextCell value={host.ttsBlockedWords} label="Blocked words" onSave={(ttsBlockedWords) => save({ ttsBlockedWords })} />
       </label>
-      <button onClick={preview}>Preview voice here</button>
     </section>
   );
 }

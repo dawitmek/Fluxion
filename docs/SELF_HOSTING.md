@@ -36,6 +36,20 @@ WebSockets (`/ws/companion`, `/ws/overlay`) pass through Caddy with no extra con
 | `FLUXION_BIND` | `127.0.0.1` | Interface the port is published on; `0.0.0.0` exposes it on the LAN |
 | `FLUXION_PORT` | `3000` | Published port |
 
+## Text-to-speech
+
+The image includes [Piper](https://github.com/rhasspy/piper) and two English voices, so the "Piper" voice engine
+works out of the box. Each spoken line costs a little server CPU (about half a second for a short line).
+
+- Smaller image without Piper (about 170 MB less): add `args: { WITH_PIPER: "false" }` under `build:` in
+  `docker/compose.yml`. Hosts who pick Piper then get the in-overlay eSpeak voice instead.
+- More voices: mount a folder of Piper voices (`.onnx` + `.onnx.json` pairs) at `/opt/piper-voices`. Check each
+  voice's license first; see `THIRD_PARTY_NOTICES.md`.
+- Running without Docker: set `PIPER_BIN` (the `piper` executable) and `PIPER_VOICES_DIR` in `.env`.
+
+Hosts who choose the "cloud" engine store their own Google / Azure / ElevenLabs API key in the database. It is
+never sent back to the browser, but it is stored as plain text, so protect database access and backups.
+
 ## Backups
 
 ```sh

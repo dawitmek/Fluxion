@@ -6,6 +6,8 @@ import './styles.css';
 
 // Two pages, no router needed: the overlay (a browser source in the streaming app) and the dashboard.
 const overlayToken = location.pathname.match(/^\/overlay\/([^/]+)/)?.[1];
+// Set before the first paint so the overlay never flashes the dashboard background.
+if (overlayToken) document.documentElement.classList.add('overlay-page');
 
 createRoot(document.getElementById('root')!).render(
   <StrictMode>{overlayToken ? <Overlay token={decodeURIComponent(overlayToken)} /> : <Dashboard />}</StrictMode>,

@@ -11,7 +11,7 @@ const rule = (r: Partial<AlertRule> & Pick<AlertRule, 'event' | 'template'>): Al
   ...r,
 });
 
-const baseTts: TtsConfig = { mode: 'prefix', prefix: '!tts', maxLength: 150, cooldownMs: 0, minLevel: 1, blockedWords: [], voice: null };
+const baseTts: TtsConfig = { mode: 'prefix', prefix: '!tts', maxLength: 150, cooldownMs: 0, minLevel: 1, blockedWords: [] };
 
 function setup(rules: AlertRule[], tts: Partial<TtsConfig> = {}, levels: Record<string, number> = {}, progression = false) {
   let t = 0;
@@ -45,7 +45,7 @@ describe('alerts', () => {
       rule({ event: 'share', template: 'off', enabled: false }),
     ]);
     expect(alerts.handle({ kind: 'follow', viewerId: 'alice', at: 0 })).toEqual([
-      { type: 'alert', text: 'alice followed', sound: 'chime', speak: true, voice: null },
+      { type: 'alert', text: 'alice followed', sound: 'chime', speak: true },
     ]);
     expect(alerts.handle({ kind: 'share', viewerId: 'alice', at: 0 })).toEqual([]);
   });
@@ -73,7 +73,7 @@ describe('text-to-speech', () => {
     const { spoken, say } = setup([]);
     expect(spoken('alice', '!TTS hello there')).toBe('hello there');
     expect(spoken('alice', 'hello there')).toBeNull();
-    expect(say('alice', '!tts hi')).toEqual([{ type: 'tts', viewer: 'alice', text: 'hi', voice: null }]);
+    expect(say('alice', '!tts hi')).toEqual([{ type: 'tts', viewer: 'alice', text: 'hi' }]);
   });
 
   it('reads all chat except game commands in "all" mode, and nothing when off', () => {

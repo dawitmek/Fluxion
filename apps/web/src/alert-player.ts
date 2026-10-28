@@ -1,18 +1,18 @@
-import type { ServerToOverlay } from '@fluxion/shared';
+import type { ServerToOverlay, Speech } from '@fluxion/shared';
 import { playSound } from './sounds';
+import { SpeechPlayer } from './speech-player';
 
 type AlertMessage = Extract<ServerToOverlay, { type: 'alert' }>;
 
 const ALERT_MS = 5000;
 const MAX_QUEUED_ALERTS = 20; // a follow storm shouldn't keep alerts running for minutes
-const MAX_PENDING_SPEECH = 5; // busy chat: drop new lines rather than fall minutes behind
 
-// Shows alerts one at a time with their sound, and speaks alert and chat text with the browser's voices.
+// Shows alerts one at a time with their sound, and speaks alert and chat text.
 export class AlertPlayer {
   private queue: AlertMessage[] = [];
   private showing = false;
   private audio: AudioContext | null = null;
-  private pendingSpeech = 0;
+  private speech = new SpeechPlayer(() => this.context());
   private nextId = 0;
 
   constructor(
@@ -21,21 +21,19 @@ export class AlertPlayer {
     private onBlocked: (blocked: boolean) => void,
   ) {}
 
+  // Sets up audio on page load, so a browser that blocks it asks for a click before the first alert, not after.
+  start() {
+    this.context();
+  }
+
   enqueue(alert: AlertMessage) {
     if (this.queue.length >= MAX_QUEUED_ALERTS) this.queue.shift();
     this.queue.push(alert);
     this.next();
   }
 
-  speak(text: string, voiceName: string | null) {
-    if (!('speechSynthesis' in window) || this.pendingSpeech >= MAX_PENDING_SPEECH) return;
-    this.context(); // surfaces the click-to-enable hint when audio is blocked
-    const utterance = new SpeechSynthesisUtterance(text);
-    const voice = voiceName ? speechSynthesis.getVoices().find((v) => v.name === voiceName) : undefined;
-    if (voice) utterance.voice = voice;
-    this.pendingSpeech++;
-    utterance.onend = utterance.onerror = () => this.pendingSpeech--;
-    speechSynthesis.speak(utterance);
+  say(speech: Speech) {
+    this.speech.say(speech);
   }
 
   // Called from a click on the page.
@@ -45,7 +43,7 @@ export class AlertPlayer {
 
   stop() {
     this.queue = [];
-    if ('speechSynthesis' in window) speechSynthesis.cancel();
+    this.speech.stop();
     void this.audio?.close();
     this.audio = null;
   }
@@ -56,7 +54,7 @@ export class AlertPlayer {
     this.showing = true;
     this.onShow({ id: this.nextId++, text: alert.text });
     if (alert.sound) playSound(this.context(), alert.sound);
-    if (alert.speak) this.speak(alert.text, alert.voice);
+    if (alert.speech) this.say(alert.speech);
     setTimeout(() => {
       this.showing = false;
       this.onShow(null);

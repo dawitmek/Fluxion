@@ -1,4 +1,4 @@
-import type { AlertEvent, AlertSound, ServerToOverlay, TtsMode, ViewerEvent } from '@fluxion/shared';
+import type { AlertEvent, AlertSound, TtsMode, ViewerEvent } from '@fluxion/shared';
 
 export interface AlertRule {
   event: AlertEvent;
@@ -17,8 +17,12 @@ export interface TtsConfig {
   cooldownMs: number;
   minLevel: number;
   blockedWords: string[]; // lowercase
-  voice: string | null;
 }
+
+// What to show and say. The session manager turns `speak` and `tts` into audio with the host's TTS engine.
+export type AlertOutput =
+  | { type: 'alert'; text: string; sound: AlertSound | null; speak: boolean }
+  | { type: 'tts'; viewer: string; text: string };
 
 // Read on every call, so dashboard edits apply mid-stream.
 export interface AlertContext {
@@ -54,16 +58,15 @@ export function createAlerts(ctx: AlertContext) {
   let totalLikes = 0;
   const lastSpoke = new Map<string, number>(); // viewerId -> time
 
-  const alert = (rule: AlertRule, values: Record<string, string | number>): ServerToOverlay => ({
+  const alert = (rule: AlertRule, values: Record<string, string | number>): AlertOutput => ({
     type: 'alert',
     text: fillTemplate(rule.template, values),
     sound: rule.sound,
     speak: rule.speak,
-    voice: ctx.config.tts.voice,
   });
   const rulesFor = (event: AlertEvent) => ctx.config.rules.filter((r) => r.enabled && r.event === event);
 
-  function tts(event: Extract<ViewerEvent, { kind: 'comment' }>): ServerToOverlay | null {
+  function tts(event: Extract<ViewerEvent, { kind: 'comment' }>): AlertOutput | null {
     const cfg = ctx.config.tts;
     let text = event.text.trim();
     const prefixed = cfg.prefix !== '' && text.toLowerCase().startsWith(cfg.prefix.toLowerCase());
@@ -77,11 +80,11 @@ export function createAlerts(ctx: AlertContext) {
     const last = lastSpoke.get(event.viewerId);
     if (last !== undefined && ctx.now() - last < cfg.cooldownMs) return null;
     lastSpoke.set(event.viewerId, ctx.now());
-    return { type: 'tts', viewer: event.viewerId, text, voice: cfg.voice };
+    return { type: 'tts', viewer: event.viewerId, text };
   }
 
   return {
-    handle(event: ViewerEvent): ServerToOverlay[] {
+    handle(event: ViewerEvent): AlertOutput[] {
       switch (event.kind) {
         case 'comment': {
           const message = tts(event);

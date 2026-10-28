@@ -13,6 +13,23 @@ COPY apps/server apps/server
 COPY apps/web apps/web
 RUN npm run build
 
+# Piper (MIT, https://github.com/rhasspy/piper) for server-side text-to-speech, plus two CC BY 4.0 voices.
+# Build with --build-arg WITH_PIPER=false for a ~170 MB smaller image; TTS then falls back to eSpeak.
+FROM debian:bookworm-slim AS piper
+ARG TARGETARCH
+ARG WITH_PIPER=true
+ARG PIPER_RELEASE=2023.11.14-2
+ARG VOICES_URL=https://huggingface.co/rhasspy/piper-voices/resolve/v1.0.0/en
+RUN mkdir -p /opt/piper /opt/piper-voices && if [ "$WITH_PIPER" = "true" ]; then \
+      apt-get update && apt-get install -y --no-install-recommends ca-certificates curl && \
+      case "$TARGETARCH" in arm64) arch=aarch64 ;; *) arch=x86_64 ;; esac && \
+      curl -fsSL "https://github.com/rhasspy/piper/releases/download/$PIPER_RELEASE/piper_linux_$arch.tar.gz" | tar xz -C /opt && \
+      cd /opt/piper-voices && \
+      for v in en_GB/alba/medium/en_GB-alba-medium en_US/libritts_r/medium/en_US-libritts_r-medium; do \
+        curl -fsSLO "$VOICES_URL/$v.onnx" && curl -fsSLO "$VOICES_URL/$v.onnx.json"; \
+      done; \
+    fi
+
 FROM node:22-bookworm-slim AS deps
 WORKDIR /app
 COPY --from=build /app/package.json /app/package-lock.json ./
@@ -24,6 +41,10 @@ RUN npm ci --omit=dev -w packages/shared -w apps/server
 
 FROM node:22-bookworm-slim
 ENV NODE_ENV=production HOST=0.0.0.0 PORT=3000
+COPY --from=piper /opt/piper /opt/piper
+COPY --from=piper /opt/piper-voices /opt/piper-voices
+# With WITH_PIPER=false the voices folder is empty, so the server falls back to eSpeak.
+ENV PIPER_BIN=/opt/piper/piper PIPER_VOICES_DIR=/opt/piper-voices
 WORKDIR /app
 COPY --from=deps /app/node_modules node_modules
 COPY --from=build /app/packages/shared/package.json packages/shared/

@@ -25,11 +25,11 @@ export function Overlay({ token }: { token: string }) {
   const [player] = useState(() => new AlertPlayer(setAlert, setSoundBlocked));
 
   useEffect(() => {
-    document.body.classList.add('overlay-body');
     let socket: WebSocket;
     let retry: number | undefined;
     let nextId = 0;
     let closed = false;
+    player.start();
 
     const connect = () => {
       const protocol = location.protocol === 'https:' ? 'wss' : 'ws';
@@ -49,7 +49,7 @@ export function Overlay({ token }: { token: string }) {
         }
         if (message.type === 'levelUp') add({ id: nextId++, viewer: message.viewer, levelUp: message.level });
         if (message.type === 'alert') player.enqueue(message);
-        if (message.type === 'tts') player.speak(`${message.viewer} says ${message.text}`, message.voice);
+        if (message.type === 'tts') player.say(message.speech);
       };
       // A bad token is permanent (4001); anything else is worth retrying.
       socket.onclose = (event) => {
@@ -63,7 +63,6 @@ export function Overlay({ token }: { token: string }) {
       clearTimeout(retry);
       socket.close();
       player.stop();
-      document.body.classList.remove('overlay-body');
     };
   }, [token, player]);
 

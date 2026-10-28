@@ -1,5 +1,5 @@
 import { boolean, integer, pgTable, primaryKey, text, timestamp, unique, uuid, type AnyPgColumn } from 'drizzle-orm/pg-core';
-import type { AlertEvent, AlertSound, Mode, TtsMode } from '@fluxion/shared';
+import type { AlertEvent, AlertSound, CloudProvider, Mode, TtsEngine, TtsMode } from '@fluxion/shared';
 
 export const hosts = pgTable('hosts', {
   id: uuid('id').primaryKey().defaultRandom(),
@@ -19,7 +19,14 @@ export const hosts = pgTable('hosts', {
   ttsCooldownMs: integer('tts_cooldown_ms').notNull().default(15000), // per viewer
   ttsMinLevel: integer('tts_min_level').notNull().default(1), // only enforced with progression on
   ttsBlockedWords: text('tts_blocked_words').notNull().default(''), // comma-separated
-  ttsVoice: text('tts_voice'), // a browser voice name; null means the overlay's default
+  ttsEngine: text('tts_engine').$type<TtsEngine>().notNull().default('piper'),
+  ttsVoice: text('tts_voice'), // browser engine: a browser voice name; null means the overlay's default
+  ttsEspeakVoice: text('tts_espeak_voice').notNull().default('en-us'),
+  ttsPiperVoice: text('tts_piper_voice'), // a model name; null means the server's first voice
+  ttsCloudProvider: text('tts_cloud_provider').$type<CloudProvider>(),
+  ttsCloudKey: text('tts_cloud_key'), // the host's own API key; never sent back to the browser
+  ttsCloudRegion: text('tts_cloud_region'), // Azure only
+  ttsCloudVoice: text('tts_cloud_voice'),
   createdAt: timestamp('created_at', { withTimezone: true }).notNull().defaultNow(),
 });
 

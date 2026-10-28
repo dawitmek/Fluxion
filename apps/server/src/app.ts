@@ -22,6 +22,9 @@ import { giftTriggerRoutes } from './gift-triggers/routes.js';
 import { leaderboardRoutes } from './leaderboard/routes.js';
 import { profileRoutes } from './profiles/routes.js';
 import { alertRoutes } from './alerts/routes.js';
+import { ttsRoutes } from './tts/routes.js';
+import { Piper } from './tts/piper.js';
+import { SpeechService } from './tts/speech.js';
 import { gatewayRoutes } from './gateway/routes.js';
 
 declare module 'fastify' {
@@ -31,6 +34,8 @@ declare module 'fastify' {
     hub: Hub;
     live: SessionManager;
     stats: Stats;
+    speech: SpeechService;
+    piper: Piper;
   }
 }
 
@@ -38,6 +43,8 @@ interface Options {
   logger?: boolean;
   // Tests swap in a fake so they never contact TikTok.
   createTikTok?: (username: string) => PlatformAdapter;
+  // Tests swap in a fake so they never contact a cloud TTS provider.
+  fetch?: typeof fetch;
 }
 
 export async function buildApp(config: Config, options: Options = {}) {
@@ -50,8 +57,12 @@ export async function buildApp(config: Config, options: Options = {}) {
   app.decorate('db', db);
   app.decorate('hub', hub);
   const stats = new Stats(db);
+  const piper = new Piper(config.piperBin, config.piperVoicesDir);
+  const speech = new SpeechService(piper, (err) => app.log.warn({ err }, 'TTS failed; falling back to eSpeak'), options.fetch);
   app.decorate('stats', stats);
-  app.decorate('live', new SessionManager(db, hub, stats, createTikTok));
+  app.decorate('piper', piper);
+  app.decorate('speech', speech);
+  app.decorate('live', new SessionManager(db, hub, stats, speech, createTikTok));
   app.addHook('onClose', async () => {
     await app.live.close();
     await close();
@@ -71,6 +82,7 @@ export async function buildApp(config: Config, options: Options = {}) {
   await app.register(leaderboardRoutes, { prefix: '/api/leaderboard' });
   await app.register(profileRoutes, { prefix: '/api/profiles' });
   await app.register(alertRoutes, { prefix: '/api/alerts' });
+  await app.register(ttsRoutes, { prefix: '/api/tts' });
   await app.register(gatewayRoutes);
 
   // In production the server also serves the built web app, so everything lives on one address.

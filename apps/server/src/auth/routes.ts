@@ -1,5 +1,5 @@
 import type { FastifyInstance } from 'fastify';
-import { eq } from 'drizzle-orm';
+import { eq, sql } from 'drizzle-orm';
 import { hash, verify } from '@node-rs/argon2';
 import { alertRules, commands, hosts, profiles } from '../db/schema.js';
 import { DEFAULT_ALERTS } from '../alerts/defaults.js';
@@ -82,6 +82,14 @@ export async function authRoutes(app: FastifyInstance) {
         ttsMinLevel: hosts.ttsMinLevel,
         ttsBlockedWords: hosts.ttsBlockedWords,
         ttsVoice: hosts.ttsVoice,
+        ttsEngine: hosts.ttsEngine,
+        ttsEspeakVoice: hosts.ttsEspeakVoice,
+        ttsPiperVoice: hosts.ttsPiperVoice,
+        ttsCloudProvider: hosts.ttsCloudProvider,
+        ttsCloudRegion: hosts.ttsCloudRegion,
+        ttsCloudVoice: hosts.ttsCloudVoice,
+        // The key itself never leaves the server.
+        ttsCloudKeySet: sql<boolean>`${hosts.ttsCloudKey} is not null`,
         // Mode settings of the active profile.
         profileId: profiles.id,
         profileName: profiles.name,

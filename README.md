@@ -33,4 +33,4 @@ The companion pairs with whatever server address you give it (e.g. `http://127.0
 
 After changing `apps/server/src/db/schema.ts`, run `npm run db:generate -w apps/server` to create a migration.
 
-Production: `npm run build && npm start` serves everything from one address. To self-host with Docker, see `docs/SELF_HOSTING.md`.
+Production: `npm run build && npm start` serves everything from one address. To self-host with Docker, see `docs/SELF_HOSTING.md`. Third-party components and their licenses: `THIRD_PARTY_NOTICES.md`.

@@ -5,6 +5,8 @@ export interface Config {
   eulerApiKey: string | undefined;
   production: boolean;
   secureCookies: boolean;
+  piperBin: string | undefined;
+  piperVoicesDir: string | undefined;
 }
 
 export function loadConfig(env: NodeJS.ProcessEnv = process.env): Config {
@@ -18,5 +20,8 @@ export function loadConfig(env: NodeJS.ProcessEnv = process.env): Config {
     production: env.NODE_ENV === 'production',
     // Secure cookies need HTTPS. Defaults on in production; COOKIE_SECURE=false allows plain HTTP on a LAN.
     secureCookies: env.COOKIE_SECURE ? env.COOKIE_SECURE === 'true' : env.NODE_ENV === 'production',
+    // Optional server-side TTS. The Docker image sets both; without them the Piper engine falls back to eSpeak.
+    piperBin: env.PIPER_BIN || undefined,
+    piperVoicesDir: env.PIPER_VOICES_DIR || undefined,
   };
 }

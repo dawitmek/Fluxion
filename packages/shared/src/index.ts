@@ -76,6 +76,22 @@ export type AlertSound = (typeof ALERT_SOUNDS)[number];
 export const TTS_MODES = ['off', 'prefix', 'all'] as const;
 export type TtsMode = (typeof TTS_MODES)[number];
 
+// Where speech is made. Only browser voices bypass OBS's audio capture; the others play through Web Audio.
+//   piper:   natural voices generated on the server (falls back to espeak if the server has no Piper)
+//   espeak:  robotic voice synthesized inside the overlay (WebAssembly), many languages
+//   cloud:   the host's own Google / Azure / ElevenLabs key, called by the server
+//   browser: the browser's built-in voices (plays outside OBS's mixer)
+export const TTS_ENGINES = ['piper', 'espeak', 'cloud', 'browser'] as const;
+export type TtsEngine = (typeof TTS_ENGINES)[number];
+export const CLOUD_PROVIDERS = ['google', 'azure', 'elevenlabs'] as const;
+export type CloudProvider = (typeof CLOUD_PROVIDERS)[number];
+
+// How the overlay should say something.
+export type Speech =
+  | { kind: 'audio'; data: string; mime: string } // base64, from Piper or a cloud provider
+  | { kind: 'espeak'; text: string; voice: string }
+  | { kind: 'browser'; text: string; voice: string | null };
+
 // Server -> overlay, over /ws/overlay. Read-only.
 export type ServerToOverlay =
   | { type: 'command'; viewer: string; keyword: string; at: number; level?: number } // level: progression on
@@ -83,5 +99,5 @@ export type ServerToOverlay =
   | { type: 'mode'; state: ModeState; serverNow: number } // serverNow lets the overlay correct for clock skew
   | { type: 'leaderboard'; entries: LeaderboardEntry[]; progression: boolean }
   | { type: 'levelUp'; viewer: string; level: number }
-  | { type: 'alert'; text: string; sound: AlertSound | null; speak: boolean; voice: string | null }
-  | { type: 'tts'; viewer: string; text: string; voice: string | null };
+  | { type: 'alert'; text: string; sound: AlertSound | null; speech: Speech | null }
+  | { type: 'tts'; viewer: string; text: string; speech: Speech };

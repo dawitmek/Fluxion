@@ -4,6 +4,7 @@ import { ALERT_EVENTS, ALERT_SOUNDS, type AlertEvent, type AlertSound } from '@f
 import { alertRules, hosts } from '../db/schema.js';
 import { requireHost } from '../auth/session.js';
 import { fillTemplate } from './engine.js';
+import { voiceConfig } from '../tts/speech.js';
 
 type Body = {
   event: AlertEvent;
@@ -88,7 +89,7 @@ export async function alertRoutes(app: FastifyInstance) {
   // Shows an alert on the overlay with sample values, live or not, so hosts can check sound and voice.
   app.post<{ Params: { id: string } }>('/:id/test', { schema: { params: idParam } }, async (req, reply) => {
     const [rule] = await db
-      .select({ rule: alertRules, voice: hosts.ttsVoice })
+      .select({ rule: alertRules, host: hosts })
       .from(alertRules)
       .innerJoin(hosts, eq(hosts.id, alertRules.hostId))
       .where(and(eq(alertRules.id, req.params.id), eq(alertRules.hostId, req.hostId)));
@@ -99,7 +100,8 @@ export async function alertRoutes(app: FastifyInstance) {
       gift: rule.rule.giftName ?? 'Rose',
       total: rule.rule.likeStep ?? 1000,
     });
-    app.hub.sendToOverlays(req.hostId, { type: 'alert', text, sound: rule.rule.sound, speak: rule.rule.speak, voice: rule.voice });
+    const speech = rule.rule.speak ? await app.speech.speak(voiceConfig(rule.host), text) : null;
+    app.hub.sendToOverlays(req.hostId, { type: 'alert', text, sound: rule.rule.sound, speech });
     return { ok: true };
   });
 }

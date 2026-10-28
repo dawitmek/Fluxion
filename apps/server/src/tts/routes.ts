@@ -1,0 +1,30 @@
+import type { FastifyInstance } from 'fastify';
+import { eq } from 'drizzle-orm';
+import { hosts } from '../db/schema.js';
+import { requireHost } from '../auth/session.js';
+import { voiceConfig } from './speech.js';
+
+// eSpeak NG voices offered on the dashboard (it has more; these cover the common languages).
+export const ESPEAK_VOICES = [
+  'en-us', 'en', 'es', 'es-419', 'fr', 'de', 'it', 'pt-br', 'pt', 'nl', 'pl', 'ru', 'uk', 'tr', 'sv', 'cmn', 'ja', 'ko', 'hi', 'ar', 'id', 'vi',
+];
+
+export async function ttsRoutes(app: FastifyInstance) {
+  app.addHook('preHandler', requireHost);
+
+  // What this server can do, for the dashboard's engine and voice pickers.
+  app.get('/options', async () => ({ piperVoices: await app.piper.voices(), espeakVoices: ESPEAK_VOICES }));
+
+  // Speaks a sample with the host's saved settings and reports errors instead of falling back,
+  // so a wrong cloud key shows up on the dashboard.
+  // The body is optional ({ text }), so no JSON schema: an empty POST is fine.
+  app.post<{ Body: { text?: unknown } | undefined }>('/preview', async (req, reply) => {
+    const text = typeof req.body?.text === 'string' && req.body.text.trim() ? req.body.text.slice(0, 200) : 'viewer says hello from Fluxion';
+    const [host] = await app.db.select().from(hosts).where(eq(hosts.id, req.hostId));
+    try {
+      return await app.speech.speakStrict(voiceConfig(host!), text);
+    } catch (err) {
+      return reply.code(502).send({ error: (err as Error).message });
+    }
+  });
+}

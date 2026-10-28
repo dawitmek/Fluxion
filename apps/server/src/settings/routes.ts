@@ -1,7 +1,7 @@
 import type { FastifyInstance } from 'fastify';
 import { eq } from 'drizzle-orm';
 import { hosts, profiles } from '../db/schema.js';
-import { MODES, TTS_MODES, type Mode, type TtsMode } from '@fluxion/shared';
+import { CLOUD_PROVIDERS, MODES, TTS_ENGINES, TTS_MODES, type CloudProvider, type Mode, type TtsEngine, type TtsMode } from '@fluxion/shared';
 import { requireHost } from '../auth/session.js';
 import { activeProfile } from '../profiles/active.js';
 
@@ -21,6 +21,13 @@ type Body = {
   ttsMinLevel?: number;
   ttsBlockedWords?: string;
   ttsVoice?: string | null;
+  ttsEngine?: TtsEngine;
+  ttsEspeakVoice?: string;
+  ttsPiperVoice?: string | null;
+  ttsCloudProvider?: CloudProvider | null;
+  ttsCloudKey?: string | null;
+  ttsCloudRegion?: string | null;
+  ttsCloudVoice?: string | null;
 };
 
 // Mode settings belong to the active profile (they differ per game); the rest to the host.
@@ -52,6 +59,13 @@ export async function settingsRoutes(app: FastifyInstance) {
             ttsMinLevel: { type: 'integer', minimum: 1, maximum: 99 },
             ttsBlockedWords: { type: 'string', maxLength: 5000 },
             ttsVoice: { type: ['string', 'null'], maxLength: 200 },
+            ttsEngine: { enum: TTS_ENGINES },
+            ttsEspeakVoice: { type: 'string', pattern: '^[a-z]{2,3}(-[a-z0-9]{2,8})*$' },
+            ttsPiperVoice: { type: ['string', 'null'], pattern: '^[A-Za-z0-9_.-]{1,100}$' },
+            ttsCloudProvider: { enum: [...CLOUD_PROVIDERS, null] },
+            ttsCloudKey: { type: ['string', 'null'], maxLength: 300 },
+            ttsCloudRegion: { type: ['string', 'null'], pattern: '^[a-z0-9]{1,40}$' },
+            ttsCloudVoice: { type: ['string', 'null'], maxLength: 100 },
           },
         },
       },
