@@ -13,6 +13,7 @@ export interface LiveFeed {
   activity: Activity[];
   pressed: Record<string, number>; // presses per keyword since this page opened
   perSecond: number; // presses in the last second
+  lastPress: string | null; // keyword pressed in the last moment, for a brief highlight
   mode: { state: ModeState; clockOffset: number } | null;
   leaderboard: LeaderboardEntry[] | null; // null until the server sends one
 }
@@ -21,7 +22,7 @@ const MAX_ACTIVITY = 30;
 
 // The dashboard listens on the overlay's read-only socket, so it sees exactly what the stream sees.
 export function useLiveFeed(overlayToken: string): LiveFeed {
-  const [feed, setFeed] = useState<LiveFeed>({ activity: [], pressed: {}, perSecond: 0, mode: null, leaderboard: null });
+  const [feed, setFeed] = useState<LiveFeed>({ activity: [], pressed: {}, perSecond: 0, lastPress: null, mode: null, leaderboard: null });
 
   useEffect(() => {
     let socket: WebSocket;
@@ -29,6 +30,7 @@ export function useLiveFeed(overlayToken: string): LiveFeed {
     let closed = false;
     let nextId = 0;
     let presses: number[] = [];
+    let clearPress: number | undefined;
 
     const log = (kind: ActivityKind, text: string) =>
       setFeed((f) => ({ ...f, activity: [{ id: nextId++, kind, text, at: Date.now() }, ...f.activity].slice(0, MAX_ACTIVITY) }));
@@ -41,7 +43,13 @@ export function useLiveFeed(overlayToken: string): LiveFeed {
         switch (message.type) {
           case 'command':
             presses.push(Date.now());
-            setFeed((f) => ({ ...f, pressed: { ...f.pressed, [message.keyword]: (f.pressed[message.keyword] ?? 0) + 1 } }));
+            setFeed((f) => ({
+              ...f,
+              lastPress: message.keyword,
+              pressed: { ...f.pressed, [message.keyword]: (f.pressed[message.keyword] ?? 0) + 1 },
+            }));
+            clearTimeout(clearPress);
+            clearPress = window.setTimeout(() => setFeed((f) => ({ ...f, lastPress: null })), 400);
             log('Key', `${message.viewer} pressed ${message.keyword}`);
             break;
           case 'levelUp':
@@ -81,6 +89,7 @@ export function useLiveFeed(overlayToken: string): LiveFeed {
       closed = true;
       clearTimeout(retry);
       clearInterval(rate);
+      clearTimeout(clearPress);
       socket.close();
     };
   }, [overlayToken]);

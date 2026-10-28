@@ -173,7 +173,7 @@ function CommandsOverview({ host, refreshHost, feed }: PageProps) {
         {enabled.map((c) => {
           const pressed = feed.pressed[c.keyword] ?? 0;
           return (
-            <div key={c.id} className="command-card">
+            <div key={c.id} className={`command-card ${feed.lastPress === c.keyword ? 'fired' : ''}`}>
               <div className="command-top">
                 <span className="command-keyword">{c.keyword}</span>
                 <kbd className="kbd">{keyLabel(c.key)}</kbd>

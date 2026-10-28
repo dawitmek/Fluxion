@@ -23,6 +23,7 @@ export function Auth({ mode }: { mode: 'login' | 'signup' }) {
 
   return (
     <div className="auth">
+      <div className="content-glow" aria-hidden="true" />
       <Link href="/" className="brand">
         <Logo />
         Fluxion

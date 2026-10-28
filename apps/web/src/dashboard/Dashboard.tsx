@@ -22,22 +22,22 @@ export interface PageProps {
   feed: LiveFeed;
 }
 
-type Section = { path: string; label: string; icon: IconName; hue: string; page: (props: PageProps) => ReactNode };
+type Section = { path: string; label: string; blurb: string; icon: IconName; hue: string; page: (props: PageProps) => ReactNode };
 
 // Each section keeps its colour wherever it appears.
 const SECTIONS: Section[][] = [
   [
-    { path: '/dashboard', label: 'Live', icon: 'live', hue: 'red', page: LivePage },
-    { path: '/dashboard/commands', label: 'Commands', icon: 'commands', hue: 'indigo', page: CommandsPage },
-    { path: '/dashboard/gifts', label: 'Gifts and alerts', icon: 'gift', hue: 'pink', page: GiftsPage },
-    { path: '/dashboard/voice', label: 'Voice', icon: 'voice', hue: 'violet', page: VoicePage },
-    { path: '/dashboard/leaderboard', label: 'Leaderboard', icon: 'leaderboard', hue: 'sky', page: LeaderboardPage },
-    { path: '/dashboard/profiles', label: 'Game profiles', icon: 'profiles', hue: 'teal', page: ProfilesPage },
+    { path: '/dashboard', label: 'Live', blurb: 'What chat is doing right now, and the controls to go live.', icon: 'live', hue: 'red', page: LivePage },
+    { path: '/dashboard/commands', label: 'Commands', blurb: 'What chat types, the key it presses, and how the crowd shares control.', icon: 'commands', hue: 'indigo', page: CommandsPage },
+    { path: '/dashboard/gifts', label: 'Gifts and alerts', blurb: 'Gifts that press keys, and alerts that thank people on stream.', icon: 'gift', hue: 'pink', page: GiftsPage },
+    { path: '/dashboard/voice', label: 'Voice', blurb: 'What gets read aloud on your stream, and how it sounds.', icon: 'voice', hue: 'violet', page: VoicePage },
+    { path: '/dashboard/leaderboard', label: 'Leaderboard', blurb: 'Who plays the most, and the levels viewers earn.', icon: 'leaderboard', hue: 'sky', page: LeaderboardPage },
+    { path: '/dashboard/profiles', label: 'Game profiles', blurb: 'A set of commands, gifts and crowd mode for each game.', icon: 'profiles', hue: 'teal', page: ProfilesPage },
   ],
   [
-    { path: '/dashboard/companion', label: 'Companion', icon: 'companion', hue: 'orange', page: CompanionPage },
-    { path: '/dashboard/overlay', label: 'Stream overlay', icon: 'overlay', hue: 'sky', page: OverlayPage },
-    { path: '/dashboard/settings', label: 'Settings', icon: 'settings', hue: 'muted', page: SettingsPage },
+    { path: '/dashboard/companion', label: 'Companion', blurb: 'The app on your gaming PC that presses the keys.', icon: 'companion', hue: 'orange', page: CompanionPage },
+    { path: '/dashboard/overlay', label: 'Stream overlay', blurb: 'The browser source that puts Fluxion on your stream.', icon: 'overlay', hue: 'sky', page: OverlayPage },
+    { path: '/dashboard/settings', label: 'Settings', blurb: 'Your TikTok account, limits and login.', icon: 'settings', hue: 'muted', page: SettingsPage },
   ],
 ];
 
@@ -120,11 +120,20 @@ function Shell({ host, refreshHost }: { host: Host; refreshHost: () => Promise<u
       </nav>
 
       <main className="content">
-        <header className="page-header">
-          <h1>{section.label}</h1>
-          <span className="tag teal">{host.profileName} profile</span>
+        <div className="content-glow" aria-hidden="true" />
+        <div className="topbar">
+          <span className="crumbs">
+            <span>Fluxion</span>
+            <span>{host.profileName} profile</span>
+            <span>{section.label}</span>
+          </span>
+          {status.live && <span className="on-air">{status.source === 'simulated' ? 'Test mode' : 'On air'}</span>}
           <div className="spacer" />
           <ProfilePicker host={host} refreshHost={refreshHost} />
+        </div>
+        <header className="page-header">
+          <h1>{section.label}</h1>
+          <p>{section.blurb}</p>
         </header>
         {/* Keyed by profile so switching profiles reloads everything that belongs to one. */}
         <Page key={host.profileId} host={host} refreshHost={refreshHost} status={status} setStatus={setStatus} feed={feed} />
