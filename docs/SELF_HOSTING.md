@@ -32,6 +32,7 @@ WebSockets (`/ws/companion`, `/ws/overlay`) pass through Caddy with no extra con
 | --- | --- | --- |
 | `POSTGRES_PASSWORD` | required | Database password |
 | `EULER_API_KEY` | empty | Optional Euler Stream key for TikTok request signing |
+| `TIKTOK_SESSION_ID` | empty | Optional `sessionid` cookie of a TikTok account, for TikTok voices. Every host without their own sign-in uses it. Use a spare account: the TikTok voice API is unofficial |
 | `COOKIE_SECURE` | `true` | Set `false` only to use plain HTTP on a private network |
 | `FLUXION_BIND` | `127.0.0.1` | Interface the port is published on; `0.0.0.0` exposes it on the LAN |
 | `FLUXION_PORT` | `3000` | Published port |

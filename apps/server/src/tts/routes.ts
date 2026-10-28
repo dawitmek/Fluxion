@@ -14,7 +14,11 @@ export async function ttsRoutes(app: FastifyInstance) {
   app.addHook('preHandler', requireHost);
 
   // What this server can do, for the dashboard's engine and voice pickers.
-  app.get('/options', async () => ({ piperVoices: await app.piper.voices(), espeakVoices: ESPEAK_VOICES }));
+  app.get('/options', async () => ({
+    piperVoices: await app.piper.voices(),
+    espeakVoices: ESPEAK_VOICES,
+    tiktokServerAccount: app.speech.hasServerTiktokAccount, // TikTok voices work without the host signing in
+  }));
 
   // The voices the host's cloud account offers. Uses the saved key, which never comes back to the browser.
   app.get('/cloud-voices', async (req, reply) => {

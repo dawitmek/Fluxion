@@ -7,6 +7,7 @@ export interface Config {
   secureCookies: boolean;
   piperBin: string | undefined;
   piperVoicesDir: string | undefined;
+  tiktokSessionId: string | undefined;
 }
 
 export function loadConfig(env: NodeJS.ProcessEnv = process.env): Config {
@@ -23,5 +24,7 @@ export function loadConfig(env: NodeJS.ProcessEnv = process.env): Config {
     // Optional server-side TTS. The Docker image sets both; without them the Piper engine falls back to eSpeak.
     piperBin: env.PIPER_BIN || undefined,
     piperVoicesDir: env.PIPER_VOICES_DIR || undefined,
+    // Optional: a TikTok account's sessionid cookie, used for TikTok voices by every host who hasn't signed in themselves.
+    tiktokSessionId: env.TIKTOK_SESSION_ID || undefined,
   };
 }

@@ -16,7 +16,7 @@ const voice = (cfg: Partial<VoiceConfig>): VoiceConfig => ({
   piperVoice: null,
   piperSpeaker: null,
   cloud: null,
-  tiktok: null,
+  tiktok: { session: null, voice: null },
   effect: 'none',
   ...cfg,
 });
@@ -185,6 +185,19 @@ describe('tiktok voices', () => {
     expect(audio.toString()).toBe('mp3');
     expect(hosts).toHaveLength(2);
     expect(hosts[0]).not.toBe(hosts[1]);
+  });
+
+  it("uses the server's account unless the host signed in with their own", async () => {
+    const cookies: (string | null)[] = [];
+    const fetchImpl = (async (_url: string, init: RequestInit) => {
+      cookies.push(new Headers(init.headers).get('cookie'));
+      return ok();
+    }) as typeof fetch;
+    const service = new SpeechService(fakePiper(), () => {}, fetchImpl, 'serveraccount');
+    await service.speakStrict(voice({ engine: 'tiktok' }), 'hi');
+    await service.speakStrict(voice({ engine: 'tiktok', tiktok: { session: 'hostaccount', voice: null } }), 'hi');
+    expect(cookies).toEqual(['sessionid=serveraccount', 'sessionid=hostaccount']);
+    await expect(new SpeechService(fakePiper(), () => {}, fetchImpl).speakStrict(voice({ engine: 'tiktok' }), 'hi')).rejects.toThrow('Sign in to TikTok');
   });
 
   it("explains TikTok's status codes", async () => {

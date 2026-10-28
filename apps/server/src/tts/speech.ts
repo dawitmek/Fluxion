@@ -2,7 +2,7 @@ import type { Speech, TtsEngine, VoiceEffect } from '@fluxion/shared';
 import type { hosts } from '../db/schema.js';
 import { synthesizeCloud, type CloudVoice } from './cloud.js';
 import type { Piper } from './piper.js';
-import { synthesizeTiktok, type TiktokVoice } from './tiktok.js';
+import { synthesizeTiktok } from './tiktok.js';
 
 export interface VoiceConfig {
   engine: TtsEngine;
@@ -11,7 +11,8 @@ export interface VoiceConfig {
   piperVoice: string | null;
   piperSpeaker: number | null;
   cloud: CloudVoice | null; // null until the host sets a provider and key
-  tiktok: TiktokVoice | null; // null until the host signs in to TikTok from the companion
+  // session is null until the host signs in to TikTok from the companion; the server's account is used then.
+  tiktok: { session: string | null; voice: string | null };
   effect: VoiceEffect;
 }
 
@@ -27,7 +28,7 @@ export function voiceConfig(host: typeof hosts.$inferSelect): VoiceConfig {
       host.ttsCloudProvider && host.ttsCloudKey
         ? { provider: host.ttsCloudProvider, key: host.ttsCloudKey, region: host.ttsCloudRegion, voice: host.ttsCloudVoice }
         : null,
-    tiktok: host.ttsTiktokSession ? { session: host.ttsTiktokSession, voice: host.ttsTiktokVoice } : null,
+    tiktok: { session: host.ttsTiktokSession, voice: host.ttsTiktokVoice },
   };
 }
 
@@ -38,7 +39,12 @@ export class SpeechService {
     private piper: Piper,
     private onError: (err: unknown) => void = () => {},
     readonly fetchImpl: typeof fetch = fetch, // tests swap in a fake provider
+    private tiktokSession?: string, // the server's own TikTok account (TIKTOK_SESSION_ID), if set
   ) {}
+
+  get hasServerTiktokAccount() {
+    return Boolean(this.tiktokSession);
+  }
 
   async speak(cfg: VoiceConfig, text: string): Promise<Speech> {
     const espeak: Speech = { kind: 'espeak', text, voice: cfg.espeakVoice, effect: cfg.effect };
@@ -67,8 +73,9 @@ export class SpeechService {
         return { kind: 'audio', data: audio.toString('base64'), mime: 'audio/wav' };
       }
       case 'tiktok': {
-        if (!cfg.tiktok) throw new Error('Sign in to TikTok from the companion app first');
-        const audio = await synthesizeTiktok(cfg.tiktok, text, this.fetchImpl);
+        const session = cfg.tiktok.session ?? this.tiktokSession;
+        if (!session) throw new Error('Sign in to TikTok from the companion app first');
+        const audio = await synthesizeTiktok({ session, voice: cfg.tiktok.voice }, text, this.fetchImpl);
         return { kind: 'audio', data: audio.toString('base64'), mime: 'audio/mpeg' };
       }
       case 'cloud': {

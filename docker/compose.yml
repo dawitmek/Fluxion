@@ -13,6 +13,7 @@ services:
     environment:
       DATABASE_URL: postgres://fluxion:${POSTGRES_PASSWORD:?set POSTGRES_PASSWORD in .env}@postgres:5432/fluxion
       EULER_API_KEY: ${EULER_API_KEY:-}
+      TIKTOK_SESSION_ID: ${TIKTOK_SESSION_ID:-}
       COOKIE_SECURE: ${COOKIE_SECURE:-true}
     ports:
       - "${FLUXION_BIND:-127.0.0.1}:${FLUXION_PORT:-3000}:3000"

@@ -38,7 +38,7 @@ beforeAll(async () => {
     throw new Error('TikTok must not be contacted in tests');
   };
   app = await buildApp(
-    { databaseUrl, port: 0, host: '127.0.0.1', eulerApiKey: undefined, production: false, secureCookies: false, piperBin: undefined, piperVoicesDir: undefined },
+    { databaseUrl, port: 0, host: '127.0.0.1', eulerApiKey: undefined, production: false, secureCookies: false, piperBin: undefined, piperVoicesDir: undefined, tiktokSessionId: undefined },
     { logger: false, createTikTok: fakeTikTok, fetch: fakeFetch },
   );
   await app.listen({ port: 0, host: '127.0.0.1' });
@@ -550,7 +550,7 @@ describe('alerts and text-to-speech', () => {
     // A second app with a fake Piper offering a 3-speaker and a 1-speaker voice.
     const fixture = (p: string) => fileURLToPath(new URL(`./fixtures/${p}`, import.meta.url));
     const withPiper = await buildApp(
-      { databaseUrl, port: 0, host: '127.0.0.1', eulerApiKey: undefined, production: false, secureCookies: false, piperBin: undefined, piperVoicesDir: undefined },
+      { databaseUrl, port: 0, host: '127.0.0.1', eulerApiKey: undefined, production: false, secureCookies: false, piperBin: undefined, piperVoicesDir: undefined, tiktokSessionId: undefined },
       { logger: false, piper: new Piper(process.execPath, fixture('piper-voices'), [fixture('fake-piper.mjs')]) },
     );
     try {

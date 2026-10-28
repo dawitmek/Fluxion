@@ -116,10 +116,11 @@ function VoiceCard({
   refreshHost: () => void;
 }) {
   const voices = useVoices();
-  const [options, setOptions] = useState<{ piperVoices: { name: string; speakers: number }[]; espeakVoices: string[] }>({
-    piperVoices: [],
-    espeakVoices: [],
-  });
+  const [options, setOptions] = useState<{
+    piperVoices: { name: string; speakers: number }[];
+    espeakVoices: string[];
+    tiktokServerAccount: boolean;
+  }>({ piperVoices: [], espeakVoices: [], tiktokServerAccount: false });
   const [cloudVoices, setCloudVoices] = useState<{ id: string; label: string }[] | null>(null);
   const loadCloudVoices = guard(() => api<{ id: string; label: string }[]>('GET', '/tts/cloud-voices').then(setCloudVoices));
   // A list from another provider or key would offer voices this account can't use.
@@ -143,7 +144,7 @@ function VoiceCard({
     }
   };
   const piperMissing = host.ttsEngine === 'piper' && options.piperVoices.length === 0;
-  const tiktokWaiting = host.ttsEngine === 'tiktok' && !host.ttsTiktokConnected;
+  const tiktokWaiting = host.ttsEngine === 'tiktok' && !host.ttsTiktokConnected && !options.tiktokServerAccount;
   // The sign-in happens in the companion app; notice it here without a reload.
   useEffect(() => {
     if (!tiktokWaiting) return;
@@ -220,16 +221,26 @@ function VoiceCard({
                 ))}
               </select>
             </label>
-            {host.ttsTiktokConnected && (
+            {host.ttsTiktokConnected ? (
               <div className="field">
                 TikTok account
                 <span className="row" style={{ flexWrap: 'nowrap' }}>
-                  <span className="tag green">Signed in</span>
+                  <span className="tag green">Your account</span>
                   <button className="btn btn-ghost" onClick={() => save({ ttsTiktokSession: null })}>
                     Sign out
                   </button>
                 </span>
               </div>
+            ) : (
+              options.tiktokServerAccount && (
+                <div className="field">
+                  TikTok account
+                  <span className="hint">To use your own instead, sign in to TikTok from the companion app.</span>
+                  <span className="row">
+                    <span className="tag green">This server&apos;s account</span>
+                  </span>
+                </div>
+              )
             )}
           </>
         )}

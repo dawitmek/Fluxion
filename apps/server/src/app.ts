@@ -60,7 +60,12 @@ export async function buildApp(config: Config, options: Options = {}) {
   app.decorate('hub', hub);
   const stats = new Stats(db);
   const piper = options.piper ?? new Piper(config.piperBin, config.piperVoicesDir);
-  const speech = new SpeechService(piper, (err) => app.log.warn({ err }, 'TTS failed; falling back to eSpeak'), options.fetch);
+  const speech = new SpeechService(
+    piper,
+    (err) => app.log.warn({ err }, 'TTS failed; falling back to eSpeak'),
+    options.fetch,
+    config.tiktokSessionId,
+  );
   app.decorate('stats', stats);
   app.decorate('piper', piper);
   app.decorate('speech', speech);
