@@ -16,6 +16,11 @@ export function CompanionPage({ status }: PageProps) {
       <Card
         title="Pair a companion"
         description="The companion app runs on your gaming PC and presses keys in your game. Create a code here, then enter it in the companion along with this server's address."
+        actions={
+          <a className="btn btn-ghost" href="/download" target="_blank" rel="noreferrer">
+            Download the app
+          </a>
+        }
       >
         <ErrorNotice error={error} />
         <div className="pairing">

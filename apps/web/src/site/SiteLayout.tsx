@@ -1,16 +1,18 @@
 import { useEffect, useState, type ReactNode } from 'react';
 import { api } from '../api';
 import { Icon, Logo } from '../icons';
+import { GITHUB_URL } from '../release';
 import { Link, usePath } from '../router';
 import './site.css';
 
-export const GITHUB_URL = 'https://github.com/dawitmek/Fluxion';
+export { GITHUB_URL };
 
 const PAGES = [
   { href: '/features', label: 'Features' },
   { href: '/how-it-works', label: 'How it works' },
   { href: '/self-hosting', label: 'Self-hosting' },
   { href: '/faq', label: 'FAQ' },
+  { href: '/download', label: 'Download' },
 ];
 
 // Signed-in visitors get a way back into the app instead of Log in / Sign up.

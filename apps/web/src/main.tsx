@@ -4,7 +4,7 @@ import '@fluxion/theme/theme.css';
 import { Auth } from './Auth';
 import { Dashboard } from './dashboard/Dashboard';
 import { HomePage } from './site/HomePage';
-import { FaqPage, FeaturesPage, HowItWorksPage, SelfHostingPage } from './site/pages';
+import { DownloadPage, FaqPage, FeaturesPage, HowItWorksPage, SelfHostingPage } from './site/pages';
 import { Overlay } from './Overlay';
 import { usePath } from './router';
 import './app.css';
@@ -23,6 +23,7 @@ function App() {
   if (path === '/how-it-works') return <HowItWorksPage />;
   if (path === '/self-hosting') return <SelfHostingPage />;
   if (path === '/faq') return <FaqPage />;
+  if (path === '/download') return <DownloadPage />;
   return <HomePage />;
 }
 

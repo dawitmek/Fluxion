@@ -1,0 +1,48 @@
+# Builds the companion installers and attaches them to a draft GitHub release.
+# Start it by pushing a tag such as companion-v0.1.0, then publish the draft once the files look right.
+# The Download page links to the newest published release.
+name: Release companion
+
+on:
+  push:
+    tags: ['companion-v*']
+
+permissions:
+  contents: write
+
+jobs:
+  build:
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - os: windows-latest
+            args: ''
+            rust-targets: ''
+          - os: macos-latest
+            args: --target universal-apple-darwin
+            rust-targets: aarch64-apple-darwin,x86_64-apple-darwin
+    runs-on: ${{ matrix.os }}
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: npm
+      - uses: dtolnay/rust-toolchain@stable
+        with:
+          targets: ${{ matrix.rust-targets }}
+      - uses: swatinem/rust-cache@v2
+        with:
+          workspaces: apps/companion/src-tauri -> target
+      - run: npm ci
+      - uses: tauri-apps/tauri-action@v0
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        with:
+          projectPath: apps/companion
+          tagName: ${{ github.ref_name }}
+          releaseName: Fluxion Companion ${{ github.ref_name }}
+          releaseBody: Download the installer for your system below, or use the Download page on the Fluxion site.
+          releaseDraft: true
+          args: ${{ matrix.args }}

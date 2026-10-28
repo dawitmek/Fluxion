@@ -1,6 +1,7 @@
 import type { ReactNode } from 'react';
 import { Link } from '../router';
 import { CompanionArt, GiftArt, LevelsArt, ModesArt, ProfilesArt, SafetyArt, VoiceArt } from './visuals';
+import { detectPlatform, RELEASES_URL, useCompanionRelease, type Platform } from '../release';
 import { GITHUB_URL, SiteLayout } from './SiteLayout';
 
 function PageHero({ title, children }: { title: ReactNode; children: ReactNode }) {
@@ -143,7 +144,7 @@ export function HowItWorksPage() {
             <div>
               <h2>Set up the companion on your gaming PC</h2>
               <p>
-                Install the companion app on the PC that runs your game. In the dashboard, open Companion and create a pairing
+                <Link href="/download">Download the companion app</Link> and install it on the PC that runs your game. In the dashboard, open Companion and create a pairing
                 code, then enter it in the app with your server address. On macOS, allow it under Accessibility when asked.
               </p>
             </div>
@@ -307,6 +308,97 @@ export function FaqPage() {
               <p>{a}</p>
             </details>
           ))}
+        </div>
+      </div>
+    </SiteLayout>
+  );
+}
+
+const PLATFORMS: { id: Platform; name: string; needs: string; file: string }[] = [
+  { id: 'windows', name: 'Windows', needs: 'Windows 10 or 11, 64-bit', file: 'Installer (.exe)' },
+  { id: 'mac', name: 'macOS', needs: 'macOS 11 or later, Apple silicon or Intel', file: 'Disk image (.dmg)' },
+];
+
+export function DownloadPage() {
+  const release = useCompanionRelease();
+  const yours = detectPlatform();
+
+  return (
+    <SiteLayout>
+      <PageHero title="Download the companion">
+        The companion runs on the PC that plays your game and presses the keys chat asks for. Install it there, then pair it
+        from your dashboard.
+      </PageHero>
+      <div className="s-wrap">
+        <div className="s-downloads">
+          {PLATFORMS.map((p) => {
+            const url = release?.downloads[p.id];
+            return (
+              <div key={p.id} className="s-box s-download">
+                <h2>{p.name}</h2>
+                <p className="s-muted">{p.needs}</p>
+                {url ? (
+                  <a href={url} className={`s-btn ${p.id === yours ? 's-btn-solid' : 's-btn-line'}`}>
+                    Download for {p.name}
+                  </a>
+                ) : (
+                  <span className="s-btn s-btn-line" aria-disabled="true">
+                    {release === undefined ? 'Checking for the latest version…' : 'Not available yet'}
+                  </span>
+                )}
+                <p className="s-download-meta">
+                  {url ? `Version ${release!.version} · ${p.file}` : release === null ? 'No release has been published yet.' : '\u00a0'}
+                </p>
+              </div>
+            );
+          })}
+        </div>
+        <p className="s-download-more">
+          Older versions and release notes are on <a href={RELEASES_URL}>GitHub releases</a>.
+        </p>
+
+        <ol className="s-timeline">
+          <li>
+            <div>
+              <h2>Open it the first time</h2>
+              <p>
+                The companion isn’t code-signed yet, so your PC asks before opening it. On Windows, choose More info, then Run
+                anyway. On a Mac, open the app once, then go to System Settings, Privacy &amp; Security and choose Open Anyway.
+              </p>
+            </div>
+          </li>
+          <li>
+            <div>
+              <h2>Pair it with your account</h2>
+              <p>
+                In the dashboard, open Companion and create a pairing code. Enter the code and the server address shown there
+                into the app.
+              </p>
+            </div>
+          </li>
+          <li>
+            <div>
+              <h2>Mac only: allow key presses</h2>
+              <p>
+                macOS asks for Accessibility permission so the companion can press keys. Turn it on for Fluxion Companion in
+                System Settings, Privacy &amp; Security, Accessibility.
+              </p>
+            </div>
+          </li>
+        </ol>
+
+        <div className="s-box s-download-source">
+          <h2>Build it yourself</h2>
+          <p className="s-muted">
+            You need Node 22 or later and Rust, plus the{' '}
+            <a href="https://tauri.app/start/prerequisites/">Tauri prerequisites</a> for your system. The installer ends up in{' '}
+            <code>apps/companion/src-tauri/target/release/bundle</code>.
+          </p>
+          <pre className="s-code">
+            <code>
+              git clone {GITHUB_URL} && cd Fluxion{'\n'}npm ci{'\n'}npm run tauri build -w apps/companion
+            </code>
+          </pre>
         </div>
       </div>
     </SiteLayout>
