@@ -1,4 +1,5 @@
 import type { FastifyInstance } from 'fastify';
+import type { ViewerEvent } from '@fluxion/shared';
 import { requireHost } from '../auth/session.js';
 import { LiveError, type Source } from './session-manager.js';
 
@@ -36,23 +37,33 @@ export async function liveRoutes(app: FastifyInstance) {
 
   app.get('/status', async (req) => live.status(req.hostId));
 
-  app.post<{ Body: { viewer: string; text: string } }>(
+  // A fake comment ({viewer, text}) or gift ({viewer, gift, count}).
+  app.post<{ Body: { viewer: string; text?: string; gift?: string; count?: number } }>(
     '/simulate',
     {
       schema: {
         body: {
           type: 'object',
           additionalProperties: false,
-          required: ['viewer', 'text'],
+          required: ['viewer'],
+          oneOf: [{ required: ['text'] }, { required: ['gift'] }],
           properties: {
             viewer: { type: 'string', minLength: 1, maxLength: 64 },
             text: { type: 'string', minLength: 1, maxLength: 200 },
+            gift: { type: 'string', minLength: 1, maxLength: 64 },
+            count: { type: 'integer', minimum: 1, maximum: 100 },
           },
         },
       },
     },
     async (req, reply) => {
-      if (!live.simulate(req.hostId, req.body.viewer, req.body.text)) {
+      const { viewer, text, gift, count = 1 } = req.body;
+      const at = Date.now();
+      const event: ViewerEvent =
+        gift !== undefined
+          ? { kind: 'gift', viewerId: viewer, giftId: 0, giftName: gift, count, at }
+          : { kind: 'comment', viewerId: viewer, text: text!, at };
+      if (!live.simulate(req.hostId, event)) {
         return reply.code(409).send({ error: 'Start a simulated session first' });
       }
       return { ok: true };

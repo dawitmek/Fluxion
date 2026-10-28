@@ -1,0 +1,8 @@
+**/node_modules
+**/dist
+**/target
+.git
+.env
+.env.*
+!.env.example
+apps/companion/src-tauri

@@ -19,7 +19,7 @@ beforeAll(async () => {
     throw new Error('TikTok must not be contacted in tests');
   };
   app = await buildApp(
-    { databaseUrl, port: 0, host: '127.0.0.1', eulerApiKey: undefined, production: false },
+    { databaseUrl, port: 0, host: '127.0.0.1', eulerApiKey: undefined, production: false, secureCookies: false },
     { logger: false, createTikTok: fakeTikTok },
   );
   await app.listen({ port: 0, host: '127.0.0.1' });
@@ -33,7 +33,7 @@ afterAll(async () => {
 beforeEach(async () => {
   for (const socket of sockets.splice(0)) socket.close();
   await app.live.stopAll();
-  await app.db.execute(sql`TRUNCATE hosts, auth_sessions, commands, companions, pairing_codes CASCADE`);
+  await app.db.execute(sql`TRUNCATE hosts, auth_sessions, commands, companions, pairing_codes, gift_triggers, viewer_stats CASCADE`);
 });
 
 // --- helpers ---------------------------------------------------------------
@@ -137,10 +137,12 @@ describe('accounts', () => {
     expect((await attempt()).statusCode).toBe(429);
   });
 
-  it('refuses commands that press disallowed keys', async () => {
+  it('refuses commands that press disallowed keys or use the reserved queue keyword', async () => {
     const { cookie } = await signUp();
     const res = await api(cookie, 'POST', '/api/commands', { keyword: 'quit', key: 'AltLeft', holdMs: 100, cooldownMs: 0 });
     expect(res.statusCode).toBe(400);
+    const join = await api(cookie, 'POST', '/api/commands', { keyword: 'Join', key: 'KeyJ', holdMs: 100, cooldownMs: 0 });
+    expect(join.statusCode).toBe(400);
   });
 
   it('requires a TikTok username before going live on TikTok', async () => {
@@ -163,9 +165,11 @@ describe('live pipeline (simulated source)', () => {
     expect((await api(cookie, 'POST', '/api/live/start', { source: 'simulated' })).json()).toEqual({
       live: true,
       source: 'simulated',
+      mode: 'anarchy',
       companionsOnline: 1,
     });
     expect(await overlay.next()).toEqual({ type: 'live', state: 'started' });
+    expect(await overlay.next()).toMatchObject({ type: 'mode', state: { mode: 'anarchy' } });
 
     await api(cookie, 'POST', '/api/live/simulate', { viewer: 'alice', text: 'LEFT' });
     expect(await companion.next()).toMatchObject({ type: 'action', action: { key: 'KeyA', holdMs: 300 } });
@@ -207,6 +211,71 @@ describe('live pipeline (simulated source)', () => {
     expect(await companionB.drain()).toEqual([]);
     // B has no session of its own to simulate into.
     expect((await api(b.cookie, 'POST', '/api/live/simulate', { viewer: 'x', text: 'left' })).statusCode).toBe(409);
+  });
+});
+
+describe('modes, gifts and leaderboard (simulated source)', () => {
+  async function liveHost() {
+    const host = await signUp();
+    const companion = await connectCompanion((await pairCompanion(host.cookie)).token);
+    await companion.next(); // ready
+    const me = (await api(host.cookie, 'GET', '/api/auth/me')).json();
+    await api(host.cookie, 'POST', '/api/live/start', { source: 'simulated' });
+    const say = (viewer: string, text: string) => api(host.cookie, 'POST', '/api/live/simulate', { viewer, text });
+    return { ...host, companion, me, say };
+  }
+
+  it('switches to democracy mid-stream and fires the winning vote', async () => {
+    const { cookie, companion, me, say } = await liveHost();
+    const overlay = connect(`/ws/overlay?token=${me.overlayToken}`);
+    // A late-joining overlay catches up on the session.
+    expect(await overlay.next()).toEqual({ type: 'live', state: 'started' });
+    expect(await overlay.next()).toMatchObject({ type: 'mode', state: { mode: 'anarchy' } });
+    expect(await overlay.next()).toEqual({ type: 'leaderboard', entries: [] });
+
+    expect((await api(cookie, 'PATCH', '/api/settings', { mode: 'democracy', voteWindowMs: 1000 })).statusCode).toBe(200);
+    expect(await overlay.next()).toMatchObject({ type: 'mode', state: { mode: 'democracy', tally: [], endsAt: null } });
+    expect((await api(cookie, 'GET', '/api/live/status')).json().mode).toBe('democracy');
+
+    await say('alice', 'left');
+    await say('bob', 'right');
+    await say('carol', 'right');
+    expect(await companion.drain(300)).toEqual([]); // nothing until the window closes
+    expect(await companion.next()).toMatchObject({ type: 'action', action: { key: 'KeyD' } });
+    expect(await companion.drain(1200)).toEqual([]); // exactly one press
+    const messages = await overlay.drain(0);
+    expect(messages).toContainEqual(expect.objectContaining({ type: 'command', viewer: '2 votes', keyword: 'right' }));
+  });
+
+  it('presses a gift trigger once per gift and counts gifts on the leaderboard', async () => {
+    const { cookie, companion, say } = await liveHost();
+    const commands = (await api(cookie, 'GET', '/api/commands')).json();
+    const jump = commands.find((c: any) => c.keyword === 'jump');
+    const created = await api(cookie, 'POST', '/api/gift-triggers', { giftName: 'Rose', commandId: jump.id });
+    expect(created.statusCode).toBe(201);
+    expect((await api(cookie, 'POST', '/api/gift-triggers', { giftName: 'rose', commandId: jump.id })).statusCode).toBe(409);
+    expect((await api(cookie, 'GET', '/api/gift-triggers')).json()).toMatchObject([{ giftName: 'rose', keyword: 'jump' }]);
+
+    await api(cookie, 'POST', '/api/live/simulate', { viewer: 'alice', gift: 'Rose', count: 2 });
+    expect(await companion.next()).toMatchObject({ action: { key: 'Space' } });
+    expect(await companion.next()).toMatchObject({ action: { key: 'Space' } }); // repeat, 400 ms later
+    await say('bob', 'left');
+    await companion.next();
+
+    await app.live.flushStats();
+    expect((await api(cookie, 'GET', '/api/leaderboard')).json()).toEqual([
+      { viewer: 'bob', commands: 1, gifts: 0 },
+      { viewer: 'alice', commands: 0, gifts: 2 },
+    ]);
+    expect((await api(cookie, 'DELETE', '/api/leaderboard')).statusCode).toBe(204);
+    expect((await api(cookie, 'GET', '/api/leaderboard')).json()).toEqual([]);
+  });
+
+  it('rejects a simulate request with both or neither of text and gift', async () => {
+    const { cookie } = await liveHost();
+    const bad = (payload: object) => api(cookie, 'POST', '/api/live/simulate', payload);
+    expect((await bad({ viewer: 'a' })).statusCode).toBe(400);
+    expect((await bad({ viewer: 'a', text: 'left', gift: 'Rose' })).statusCode).toBe(400);
   });
 });
 

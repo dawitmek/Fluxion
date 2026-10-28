@@ -1,6 +1,6 @@
 import type { FastifyInstance } from 'fastify';
 import { and, eq } from 'drizzle-orm';
-import { isAllowedKey } from '@fluxion/shared';
+import { isAllowedKey, QUEUE_JOIN } from '@fluxion/shared';
 import { commands } from '../db/schema.js';
 import { requireHost } from '../auth/session.js';
 import { isUniqueViolation } from '../db/client.js';
@@ -14,6 +14,9 @@ const fields = {
   cooldownMs: { type: 'integer', minimum: 0, maximum: 600000 },
   enabled: { type: 'boolean' },
 } as const;
+
+const reservedKeyword = (keyword: string | undefined) =>
+  keyword?.toLowerCase() === QUEUE_JOIN ? `"${QUEUE_JOIN}" is reserved for joining the queue` : null;
 
 const idParam = { type: 'object', properties: { id: { type: 'string', format: 'uuid' } } } as const;
 
@@ -37,6 +40,8 @@ export async function commandRoutes(app: FastifyInstance) {
     },
     async (req, reply) => {
       if (!isAllowedKey(req.body.key)) return reply.code(400).send({ error: `Key not allowed: ${req.body.key}` });
+      const reserved = reservedKeyword(req.body.keyword);
+      if (reserved) return reply.code(400).send({ error: reserved });
       const [created] = await db
         .insert(commands)
         .values({ ...req.body, keyword: req.body.keyword.toLowerCase(), hostId: req.hostId })
@@ -59,6 +64,8 @@ export async function commandRoutes(app: FastifyInstance) {
     async (req, reply) => {
       const { key, keyword } = req.body;
       if (key !== undefined && !isAllowedKey(key)) return reply.code(400).send({ error: `Key not allowed: ${key}` });
+      const reserved = reservedKeyword(keyword);
+      if (reserved) return reply.code(400).send({ error: reserved });
       const patch = { ...req.body, ...(keyword !== undefined && { keyword: keyword.toLowerCase() }) };
       try {
         const [updated] = await db

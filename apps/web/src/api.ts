@@ -20,12 +20,20 @@ export async function api<T = unknown>(method: string, path: string, body?: unkn
   return data as T;
 }
 
+import type { LeaderboardEntry, Mode } from '@fluxion/shared';
+
+export type { LeaderboardEntry, Mode };
+
 export interface Host {
   id: string;
   email: string;
   tiktokUsername: string | null;
   overlayToken: string;
   actionsPerSecond: number;
+  mode: Mode;
+  voteWindowMs: number;
+  turnMs: number;
+  giftBoosts: boolean;
 }
 
 export interface Command {
@@ -37,6 +45,13 @@ export interface Command {
   enabled: boolean;
 }
 
+export interface GiftTrigger {
+  id: string;
+  giftName: string;
+  commandId: string;
+  keyword: string;
+}
+
 export interface Companion {
   id: string;
   name: string;
@@ -46,5 +61,6 @@ export interface Companion {
 export interface LiveStatus {
   live: boolean;
   source?: 'tiktok' | 'simulated';
+  mode?: Mode;
   companionsOnline: number;
 }

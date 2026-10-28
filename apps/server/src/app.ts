@@ -10,6 +10,7 @@ import type { Config } from './config.js';
 import { createDb, type Db } from './db/client.js';
 import { Hub } from './gateway/hub.js';
 import { SessionManager } from './live/session-manager.js';
+import { Stats } from './leaderboard/stats.js';
 import { TikTokAdapter } from './platforms/tiktok.js';
 import type { PlatformAdapter } from './platforms/types.js';
 import { authRoutes } from './auth/routes.js';
@@ -17,6 +18,8 @@ import { settingsRoutes } from './settings/routes.js';
 import { commandRoutes } from './commands/routes.js';
 import { companionRoutes } from './companions/routes.js';
 import { liveRoutes } from './live/routes.js';
+import { giftTriggerRoutes } from './gift-triggers/routes.js';
+import { leaderboardRoutes } from './leaderboard/routes.js';
 import { gatewayRoutes } from './gateway/routes.js';
 
 declare module 'fastify' {
@@ -25,6 +28,7 @@ declare module 'fastify' {
     db: Db;
     hub: Hub;
     live: SessionManager;
+    stats: Stats;
   }
 }
 
@@ -43,9 +47,11 @@ export async function buildApp(config: Config, options: Options = {}) {
   app.decorate('config', config);
   app.decorate('db', db);
   app.decorate('hub', hub);
-  app.decorate('live', new SessionManager(db, hub, createTikTok));
+  const stats = new Stats(db);
+  app.decorate('stats', stats);
+  app.decorate('live', new SessionManager(db, hub, stats, createTikTok));
   app.addHook('onClose', async () => {
-    await app.live.stopAll();
+    await app.live.close();
     await close();
   });
 
@@ -59,6 +65,8 @@ export async function buildApp(config: Config, options: Options = {}) {
   await app.register(commandRoutes, { prefix: '/api/commands' });
   await app.register(companionRoutes, { prefix: '/api/companions' });
   await app.register(liveRoutes, { prefix: '/api/live' });
+  await app.register(giftTriggerRoutes, { prefix: '/api/gift-triggers' });
+  await app.register(leaderboardRoutes, { prefix: '/api/leaderboard' });
   await app.register(gatewayRoutes);
 
   // In production the server also serves the built web app, so everything lives on one address.

@@ -62,5 +62,6 @@ export async function gatewayRoutes(app: FastifyInstance) {
     const [host] = token ? await db.select({ id: hosts.id }).from(hosts).where(eq(hosts.overlayToken, token)) : [];
     if (!host) return socket.close(4001, 'Unauthorized');
     hub.addOverlay(host.id, socket);
+    for (const message of await app.live.overlaySnapshot(host.id)) socket.send(JSON.stringify(message));
   });
 }

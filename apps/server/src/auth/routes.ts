@@ -42,7 +42,7 @@ export async function authRoutes(app: FastifyInstance) {
       return created;
     });
     if (!host) return reply.code(409).send({ error: 'Email already registered' });
-    await startSession(db, reply, host.id, config.production);
+    await startSession(db, reply, host.id, config.secureCookies);
     return reply.code(201).send({ id: host.id });
   });
 
@@ -51,7 +51,7 @@ export async function authRoutes(app: FastifyInstance) {
     if (!host || !(await verify(host.passwordHash, req.body.password))) {
       return reply.code(401).send({ error: 'Wrong email or password' });
     }
-    await startSession(db, reply, host.id, config.production);
+    await startSession(db, reply, host.id, config.secureCookies);
     return { id: host.id };
   });
 
@@ -68,6 +68,10 @@ export async function authRoutes(app: FastifyInstance) {
         tiktokUsername: hosts.tiktokUsername,
         overlayToken: hosts.overlayToken,
         actionsPerSecond: hosts.actionsPerSecond,
+        mode: hosts.mode,
+        voteWindowMs: hosts.voteWindowMs,
+        turnMs: hosts.turnMs,
+        giftBoosts: hosts.giftBoosts,
       })
       .from(hosts)
       .where(eq(hosts.id, req.hostId));

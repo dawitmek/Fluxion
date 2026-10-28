@@ -1,0 +1,36 @@
+# Self-hosted Fluxion: the server (with dashboard and overlay) plus Postgres.
+# Usage: cp .env.example .env, set POSTGRES_PASSWORD, then
+#   docker compose -f docker/compose.yml --env-file .env up -d --build
+# Put a reverse proxy with HTTPS in front of port 3000 (see docs/SELF_HOSTING.md).
+name: fluxion-selfhost
+services:
+  fluxion:
+    build: ..
+    restart: unless-stopped
+    depends_on:
+      postgres:
+        condition: service_healthy
+    environment:
+      DATABASE_URL: postgres://fluxion:${POSTGRES_PASSWORD:?set POSTGRES_PASSWORD in .env}@postgres:5432/fluxion
+      EULER_API_KEY: ${EULER_API_KEY:-}
+      COOKIE_SECURE: ${COOKIE_SECURE:-true}
+    ports:
+      - "${FLUXION_BIND:-127.0.0.1}:${FLUXION_PORT:-3000}:3000"
+
+  postgres:
+    image: postgres:17
+    restart: unless-stopped
+    environment:
+      POSTGRES_USER: fluxion
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:?set POSTGRES_PASSWORD in .env}
+      POSTGRES_DB: fluxion
+    volumes:
+      - pgdata:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U fluxion"]
+      interval: 5s
+      timeout: 5s
+      retries: 10
+
+volumes:
+  pgdata:

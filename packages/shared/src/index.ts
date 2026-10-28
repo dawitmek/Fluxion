@@ -28,7 +28,29 @@ export type ServerToCompanion =
   | { type: 'error'; reason: string }
   | { type: 'action'; action: KeyAction };
 
+// Crowd-control modes. The host picks one and can switch while live.
+export const MODES = ['anarchy', 'democracy', 'queue', 'gift'] as const;
+export type Mode = (typeof MODES)[number];
+
+// In queue mode, a viewer types this to join the line.
+export const QUEUE_JOIN = 'join';
+
+// What the overlay shows for the current mode. Times are server-clock milliseconds.
+export type ModeState =
+  | { mode: 'anarchy' }
+  | { mode: 'gift' }
+  | { mode: 'democracy'; tally: { keyword: string; votes: number }[]; endsAt: number | null }
+  | { mode: 'queue'; viewer: string | null; endsAt: number | null; queue: string[] };
+
+export interface LeaderboardEntry {
+  viewer: string;
+  commands: number;
+  gifts: number;
+}
+
 // Server -> overlay, over /ws/overlay. Read-only.
 export type ServerToOverlay =
   | { type: 'command'; viewer: string; keyword: string; at: number }
-  | { type: 'live'; state: 'started' | 'stopped' };
+  | { type: 'live'; state: 'started' | 'stopped' }
+  | { type: 'mode'; state: ModeState; serverNow: number } // serverNow lets the overlay correct for clock skew
+  | { type: 'leaderboard'; entries: LeaderboardEntry[] };

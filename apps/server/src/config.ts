@@ -4,6 +4,7 @@ export interface Config {
   host: string;
   eulerApiKey: string | undefined;
   production: boolean;
+  secureCookies: boolean;
 }
 
 export function loadConfig(env: NodeJS.ProcessEnv = process.env): Config {
@@ -15,5 +16,7 @@ export function loadConfig(env: NodeJS.ProcessEnv = process.env): Config {
     host: env.HOST ?? '127.0.0.1',
     eulerApiKey: env.EULER_API_KEY || undefined,
     production: env.NODE_ENV === 'production',
+    // Secure cookies need HTTPS. Defaults on in production; COOKIE_SECURE=false allows plain HTTP on a LAN.
+    secureCookies: env.COOKIE_SECURE ? env.COOKIE_SECURE === 'true' : env.NODE_ENV === 'production',
   };
 }

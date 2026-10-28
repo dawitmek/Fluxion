@@ -1,6 +1,26 @@
 import { useCallback, useEffect, useState, type FormEvent } from 'react';
-import { ALLOWED_KEYS } from '@fluxion/shared';
-import { api, ApiError, type Command, type Companion, type Host, type LiveStatus } from './api';
+import { ALLOWED_KEYS, MODES, QUEUE_JOIN } from '@fluxion/shared';
+import {
+  api,
+  ApiError,
+  type Command,
+  type Companion,
+  type GiftTrigger,
+  type Host,
+  type LeaderboardEntry,
+  type LiveStatus,
+  type Mode,
+} from './api';
+
+const MODE_INFO: Record<Mode, { label: string; help: string }> = {
+  anarchy: { label: 'Anarchy', help: 'Every command fires, subject to cooldowns and the rate limit.' },
+  democracy: { label: 'Democracy', help: 'Chat votes; the most-voted command fires when each voting window closes.' },
+  queue: {
+    label: 'Queue',
+    help: `Viewers type "${QUEUE_JOIN}" to line up. One viewer at a time controls the game for a turn.`,
+  },
+  gift: { label: 'Gift-only', help: 'Comments do nothing. Only gift triggers press keys.' },
+};
 
 export function Dashboard() {
   const [host, setHost] = useState<Host | null | undefined>(undefined);
@@ -79,7 +99,10 @@ function Main({ host, refreshHost, onLogout }: { host: Host; refreshHost: () => 
         </button>
       </header>
       <LiveSection host={host} refreshHost={refreshHost} />
+      <ModeSection host={host} refreshHost={refreshHost} />
       <CommandsSection />
+      <GiftTriggersSection />
+      <LeaderboardSection />
       <CompanionsSection />
       <OverlaySection host={host} />
     </main>
@@ -92,6 +115,8 @@ function LiveSection({ host, refreshHost }: { host: Host; refreshHost: () => voi
   const [rate, setRate] = useState(host.actionsPerSecond);
   const [testViewer, setTestViewer] = useState('tester');
   const [testText, setTestText] = useState('left');
+  const [testGift, setTestGift] = useState('Rose');
+  const [testCount, setTestCount] = useState(1);
   const [busy, setBusy] = useState(false);
   const { error, guard } = useError();
 
@@ -119,6 +144,7 @@ function LiveSection({ host, refreshHost }: { host: Host; refreshHost: () => voi
     e.preventDefault();
     guard(() => api('POST', '/live/simulate', { viewer: testViewer, text: testText }))();
   };
+  const simulateGift = guard(() => api('POST', '/live/simulate', { viewer: testViewer, gift: testGift, count: testCount }));
 
   return (
     <section className="card">
@@ -131,7 +157,7 @@ function LiveSection({ host, refreshHost }: { host: Host; refreshHost: () => voi
         <span className={`pill ${status.companionsOnline > 0 ? 'ok' : 'bad'}`}>
           {status.companionsOnline > 0 ? `${status.companionsOnline} companion online` : 'No companion connected'}
         </span>
-        <span className="pill">Anarchy mode</span>
+        <span className="pill">{MODE_INFO[status.mode ?? host.mode].label} mode</span>
       </div>
 
       <div className="grid2">
@@ -172,8 +198,64 @@ function LiveSection({ host, refreshHost }: { host: Host; refreshHost: () => voi
             <input value={testText} onChange={(e) => setTestText(e.target.value)} aria-label="Comment" />
             <button className="primary">Send comment</button>
           </div>
+          <div className="inline">
+            <input value={testGift} onChange={(e) => setTestGift(e.target.value)} aria-label="Gift name" />
+            <input
+              className="num"
+              type="number"
+              min={1}
+              max={100}
+              value={testCount}
+              onChange={(e) => setTestCount(Number(e.target.value))}
+              aria-label="Gift count"
+            />
+            <button type="button" onClick={simulateGift}>
+              Send gift
+            </button>
+          </div>
         </form>
       )}
+    </section>
+  );
+}
+
+function ModeSection({ host, refreshHost }: { host: Host; refreshHost: () => void }) {
+  const { error, guard } = useError();
+  const save = (patch: Partial<Host>) => guard(() => api('PATCH', '/settings', patch).then(refreshHost))();
+
+  return (
+    <section className="card">
+      <h2>Crowd mode</h2>
+      <p className="muted">You can switch while live. Viewers' votes and the queue are kept when you change other settings.</p>
+      {error && <p className="error">{error}</p>}
+      <div className="modes" role="radiogroup" aria-label="Crowd mode">
+        {MODES.map((mode) => (
+          <label key={mode} className={`mode ${host.mode === mode ? 'selected' : ''}`}>
+            <input type="radio" name="mode" checked={host.mode === mode} onChange={() => save({ mode })} />
+            <strong>{MODE_INFO[mode].label}</strong>
+            <span className="muted">{MODE_INFO[mode].help}</span>
+          </label>
+        ))}
+      </div>
+      <div className="grid2">
+        <label>
+          Voting window (seconds, democracy)
+          <NumberCell
+            value={host.voteWindowMs / 1000}
+            min={1}
+            max={30}
+            onSave={(s) => save({ voteWindowMs: Math.round(s * 1000) })}
+          />
+        </label>
+        <label>
+          Turn length (seconds, queue)
+          <NumberCell value={host.turnMs / 1000} min={5} max={300} onSave={(s) => save({ turnMs: Math.round(s * 1000) })} />
+        </label>
+      </div>
+      <label className="check">
+        <input type="checkbox" checked={host.giftBoosts} onChange={(e) => save({ giftBoosts: e.target.checked })} />
+        Gift boosts: in democracy a gift adds votes to the gifter's vote; in queue it moves them to the front.
+      </label>
     </section>
   );
 }
@@ -249,6 +331,119 @@ function CommandsSection() {
         <KeySelect value={draft.key} onChange={(key) => setDraft({ ...draft, key })} />
         <button className="primary">Add command</button>
       </form>
+    </section>
+  );
+}
+
+function GiftTriggersSection() {
+  const [triggers, setTriggers] = useState<GiftTrigger[]>([]);
+  const [commands, setCommands] = useState<Command[]>([]);
+  const [giftName, setGiftName] = useState('');
+  const [commandId, setCommandId] = useState('');
+  const { error, guard } = useError();
+  const load = useCallback(
+    () =>
+      Promise.all([api<GiftTrigger[]>('GET', '/gift-triggers'), api<Command[]>('GET', '/commands')]).then(([t, c]) => {
+        setTriggers(t);
+        setCommands(c);
+      }),
+    [],
+  );
+  useEffect(() => void load(), [load]);
+
+  const add = (e: FormEvent) => {
+    e.preventDefault();
+    guard(() =>
+      api('POST', '/gift-triggers', { giftName, commandId: commandId || commands[0]?.id }).then(() => (setGiftName(''), load())),
+    )();
+  };
+
+  return (
+    <section className="card">
+      <h2>Gift triggers</h2>
+      <p className="muted">
+        When a viewer sends this gift, its command is pressed, in every mode. A streak of N gifts presses it N times (up to
+        10). Use the gift's name as TikTok shows it, e.g. Rose.
+      </p>
+      {error && <p className="error">{error}</p>}
+      {triggers.length > 0 && (
+        <ul className="list">
+          {triggers.map((t) => (
+            <li key={t.id}>
+              <span>{t.giftName}</span>
+              <span className="muted">presses {t.keyword}</span>
+              <button className="link" onClick={guard(() => api('DELETE', `/gift-triggers/${t.id}`).then(load))}>
+                Delete
+              </button>
+            </li>
+          ))}
+        </ul>
+      )}
+      <form className="inline add-command" onSubmit={add}>
+        <input placeholder="Gift name" value={giftName} onChange={(e) => setGiftName(e.target.value)} required maxLength={64} aria-label="Gift name" />
+        <select value={commandId} onChange={(e) => setCommandId(e.target.value)} aria-label="Command">
+          {commands.map((c) => (
+            <option key={c.id} value={c.id}>
+              {c.keyword}
+            </option>
+          ))}
+        </select>
+        <button className="primary" disabled={commands.length === 0}>
+          Add trigger
+        </button>
+      </form>
+    </section>
+  );
+}
+
+function LeaderboardSection() {
+  const [entries, setEntries] = useState<LeaderboardEntry[]>([]);
+  const { error, guard } = useError();
+  const load = useCallback(() => api<LeaderboardEntry[]>('GET', '/leaderboard').then(setEntries), []);
+  useEffect(() => void load(), [load]);
+
+  return (
+    <section className="card">
+      <h2>Leaderboard</h2>
+      <p className="muted">Commands that actually pressed a key, and gifts sent, per viewer. Updates every few seconds.</p>
+      {error && <p className="error">{error}</p>}
+      {entries.length === 0 ? (
+        <p className="muted">No activity yet.</p>
+      ) : (
+        <div className="table-wrap">
+          <table>
+            <thead>
+              <tr>
+                <th>#</th>
+                <th>Viewer</th>
+                <th>Commands</th>
+                <th>Gifts</th>
+              </tr>
+            </thead>
+            <tbody>
+              {entries.map((e, i) => (
+                <tr key={e.viewer}>
+                  <td>{i + 1}</td>
+                  <td>{e.viewer}</td>
+                  <td>{e.commands}</td>
+                  <td>{e.gifts}</td>
+                </tr>
+              ))}
+            </tbody>
+          </table>
+        </div>
+      )}
+      <div className="actions">
+        <button onClick={guard(load)}>Refresh</button>
+        <button
+          className="link"
+          onClick={guard(async () => {
+            if (confirm('Reset the leaderboard? This cannot be undone.')) await api('DELETE', '/leaderboard').then(load);
+          })}
+        >
+          Reset
+        </button>
+      </div>
     </section>
   );
 }

@@ -78,3 +78,25 @@ html:has(body.overlay-body), body.overlay-body { background: transparent; }
 .overlay-viewer { font-weight: 700; margin-right: 10px; }
 .overlay-keyword { text-transform: uppercase; color: #ffd166; font-weight: 800; letter-spacing: 1px; }
 @keyframes pop { from { transform: translateY(8px); opacity: 0; } to { transform: none; opacity: 1; } }
+.modes { display: grid; grid-template-columns: repeat(auto-fit, minmax(180px, 1fr)); gap: 8px; margin-bottom: 12px; }
+.mode { position: relative; display: flex; flex-direction: column; gap: 4px; margin: 0; padding: 10px; border: 1px solid var(--border); border-radius: 8px; cursor: pointer; }
+.mode.selected { border-color: var(--accent); box-shadow: 0 0 0 1px var(--accent); }
+.mode:focus-within { outline: 2px solid var(--accent); outline-offset: 2px; }
+.mode input { position: absolute; opacity: 0; pointer-events: none; }
+label.check { display: flex; gap: 8px; align-items: flex-start; }
+label.check input { width: auto; margin: 2px 0 0; }
+.test-console .inline + .inline { margin-top: 8px; }
+.overlay-panel { position: fixed; top: 16px; min-width: 220px; background: rgba(0, 0, 0, 0.7); color: #fff; padding: 10px 14px; border-radius: 10px; font-family: system-ui, sans-serif; font-size: 20px; animation: pop 0.25s ease-out; }
+.overlay-mode { left: 16px; }
+.overlay-leaderboard { right: 16px; }
+.overlay-title { display: flex; justify-content: space-between; gap: 16px; font-weight: 800; text-transform: uppercase; letter-spacing: 1px; font-size: 16px; margin-bottom: 6px; }
+.overlay-timer { color: #ffd166; font-variant-numeric: tabular-nums; }
+.overlay-muted { color: rgba(255, 255, 255, 0.75); font-size: 16px; margin-top: 4px; }
+.overlay-player { font-size: 26px; font-weight: 800; }
+.overlay-row { display: flex; gap: 10px; padding: 2px 0; }
+.overlay-rank { width: 1.2em; color: #ffd166; font-weight: 800; }
+.overlay-name { flex: 1; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; max-width: 220px; }
+.overlay-score { font-weight: 700; font-variant-numeric: tabular-nums; }
+.overlay-bar { position: relative; display: flex; justify-content: space-between; gap: 12px; padding: 4px 8px; margin-top: 4px; border-radius: 6px; overflow: hidden; background: rgba(255, 255, 255, 0.08); }
+.overlay-bar > span { position: relative; }
+.overlay-bar-fill { position: absolute; inset: 0 auto 0 0; background: rgba(232, 23, 93, 0.6); transition: width 0.3s ease-out; }
