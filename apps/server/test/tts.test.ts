@@ -187,6 +187,13 @@ describe('tiktok voices', () => {
     expect(hosts[0]).not.toBe(hosts[1]);
   });
 
+  it('tries the next host when one refuses the session', async () => {
+    let calls = 0;
+    const audio = await synthesizeTiktok({ session: 'abc', voice: null }, 'hi', (async () =>
+      ++calls === 1 ? Response.json({ status_code: 1, status_msg: 'Couldn’t load speech' }) : ok()) as unknown as typeof fetch);
+    expect([audio.toString(), calls]).toEqual(['mp3', 2]);
+  });
+
   it("uses the server's account unless the host signed in with their own", async () => {
     const cookies: (string | null)[] = [];
     const fetchImpl = (async (_url: string, init: RequestInit) => {

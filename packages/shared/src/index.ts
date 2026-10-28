@@ -114,7 +114,7 @@ export const TIKTOK_VOICES = [
   { id: 'de_002', label: 'German, male' },
   { id: 'es_002', label: 'Spanish, male' },
   { id: 'es_mx_002', label: 'Spanish (Mexico), male' },
-  { id: 'br_001', label: 'Portuguese (Brazil), female' },
+  { id: 'br_003', label: 'Portuguese (Brazil), female' },
   { id: 'br_005', label: 'Portuguese (Brazil), male' },
   { id: 'id_001', label: 'Indonesian, female' },
   { id: 'jp_001', label: 'Japanese, female' },
