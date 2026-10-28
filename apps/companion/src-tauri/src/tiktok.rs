@@ -5,7 +5,7 @@
 use crate::controller::Controller;
 use std::sync::Arc;
 use std::time::Duration;
-use tauri::{AppHandle, Manager, Url, WebviewUrl, WebviewWindowBuilder};
+use tauri::{AppHandle, Manager, WebviewUrl, WebviewWindowBuilder};
 
 const WINDOW: &str = "tiktok-login";
 const LOGIN_URL: &str = "https://www.tiktok.com/login";
@@ -29,15 +29,16 @@ pub async fn sign_in(app: AppHandle, controller: Arc<Controller>) -> Result<bool
 
     // TikTok sets the httpOnly sessionid cookie once sign-in completes. Cookies are read off the main thread:
     // on Windows, reading them from the main thread deadlocks.
-    let tiktok: Url = "https://www.tiktok.com".parse().unwrap();
     let session = loop {
         tokio::time::sleep(Duration::from_secs(1)).await;
         if app.get_webview_window(WINDOW).is_none() {
             return Ok(false);
         }
-        let Ok(cookies) = window.cookies_for_url(tiktok.clone()) else { continue };
-        if let Some(cookie) = cookies.iter().find(|c| c.name() == "sessionid" && !c.value().is_empty()) {
-            break cookie.value().to_string();
+        // All cookies rather than cookies_for_url: on macOS that one only matches the exact host
+        // (www.tiktok.com), and TikTok sets sessionid on .tiktok.com.
+        let Ok(cookies) = window.cookies() else { continue };
+        if let Some(session) = find_session(&cookies) {
+            break session;
         }
     };
     let _ = window.close();
@@ -54,4 +55,33 @@ pub async fn sign_in(app: AppHandle, controller: Arc<Controller>) -> Result<bool
         return Err(body["error"].as_str().unwrap_or("The server did not accept the TikTok sign-in").to_string());
     }
     Ok(true)
+}
+
+fn find_session(cookies: &[tauri::webview::Cookie<'static>]) -> Option<String> {
+    cookies
+        .iter()
+        .find(|c| {
+            let domain = c.domain().unwrap_or_default().trim_start_matches('.');
+            c.name() == "sessionid" && !c.value().is_empty() && (domain == "tiktok.com" || domain.ends_with(".tiktok.com"))
+        })
+        .map(|c| c.value().to_string())
+}
+
+#[cfg(test)]
+mod tests {
+    use super::find_session;
+    use tauri::webview::Cookie;
+
+    #[test]
+    fn finds_the_session_on_any_tiktok_domain() {
+        let cookie = |name: &'static str, value: &'static str, domain: &'static str| {
+            let mut c = Cookie::new(name, value);
+            c.set_domain(domain);
+            c
+        };
+        assert_eq!(find_session(&[cookie("sessionid", "abc", ".tiktok.com")]), Some("abc".into()));
+        assert_eq!(find_session(&[cookie("sessionid", "abc", "www.tiktok.com")]), Some("abc".into()));
+        assert_eq!(find_session(&[cookie("sessionid", "abc", "nottiktok.com")]), None);
+        assert_eq!(find_session(&[cookie("sessionid", "", ".tiktok.com"), cookie("sid_tt", "x", ".tiktok.com")]), None);
+    }
 }
