@@ -1,0 +1,66 @@
+import type { FastifyInstance } from 'fastify';
+import type { WebSocket } from 'ws';
+import { eq } from 'drizzle-orm';
+import { PROTOCOL_VERSION, type CompanionToServer, type ServerToCompanion } from '@fluxion/shared';
+import { companions, hosts } from '../db/schema.js';
+import { sha256 } from '../crypto.js';
+
+const HELLO_TIMEOUT_MS = 5000;
+
+const reply = (socket: WebSocket, message: ServerToCompanion) => socket.send(JSON.stringify(message));
+
+export async function gatewayRoutes(app: FastifyInstance) {
+  const { db, hub } = app;
+
+  // The token travels in the first message rather than the URL, so it never lands in access logs.
+  app.get('/ws/companion', { websocket: true }, (socket) => {
+    const timer = setTimeout(() => socket.close(4001, 'No hello'), HELLO_TIMEOUT_MS);
+
+    socket.once('message', async (raw) => {
+      clearTimeout(timer);
+      let hello: CompanionToServer;
+      try {
+        hello = JSON.parse(raw.toString());
+      } catch {
+        return socket.close(4001, 'Bad message');
+      }
+      if (hello.type !== 'hello' || typeof hello.token !== 'string') return socket.close(4001, 'Expected hello');
+      if (hello.protocol !== PROTOCOL_VERSION) {
+        reply(socket, { type: 'error', reason: `Protocol ${hello.protocol} unsupported; server speaks ${PROTOCOL_VERSION}` });
+        return socket.close(4001, 'Protocol mismatch');
+      }
+
+      const [companion] = await db
+        .update(companions)
+        .set({ lastSeenAt: new Date() })
+        .where(eq(companions.tokenHash, sha256(hello.token)))
+        .returning({ id: companions.id, hostId: companions.hostId });
+      if (!companion) {
+        reply(socket, { type: 'error', reason: 'Unknown companion token' });
+        return socket.close(4001, 'Unauthorized');
+      }
+
+      hub.addCompanion(companion.hostId, companion.id, socket);
+      reply(socket, { type: 'ready', hostId: companion.hostId });
+
+      socket.on('message', (data) => {
+        try {
+          const message = JSON.parse(data.toString()) as CompanionToServer;
+          if (message.type === 'ack' && message.status === 'rejected') {
+            app.log.warn({ companionId: companion.id, ...message }, 'companion rejected action');
+          }
+        } catch {
+          // Ignore malformed messages from an authenticated companion.
+        }
+      });
+    });
+  });
+
+  // Overlays are read-only browser sources; the secret token in the URL is the norm for those.
+  app.get<{ Querystring: { token?: string } }>('/ws/overlay', { websocket: true }, async (socket, req) => {
+    const token = req.query.token;
+    const [host] = token ? await db.select({ id: hosts.id }).from(hosts).where(eq(hosts.overlayToken, token)) : [];
+    if (!host) return socket.close(4001, 'Unauthorized');
+    hub.addOverlay(host.id, socket);
+  });
+}
