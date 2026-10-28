@@ -4,12 +4,13 @@ mod controller;
 mod input;
 mod keys;
 mod protocol;
+mod tiktok;
 
 use controller::{Controller, Snapshot};
 use input::GameWindow;
 use serde::Deserialize;
 use std::sync::Arc;
-use tauri::{Manager, State};
+use tauri::{AppHandle, Manager, State};
 use tauri_plugin_global_shortcut::{Code, GlobalShortcutExt, Modifiers, Shortcut, ShortcutState};
 
 type Ctl<'a> = State<'a, Arc<Controller>>;
@@ -79,6 +80,11 @@ fn set_paused(ctl: Ctl, paused: bool) {
 }
 
 #[tauri::command]
+async fn tiktok_sign_in(app: AppHandle, ctl: Ctl<'_>) -> Result<bool, String> {
+    tiktok::sign_in(app, ctl.inner().clone()).await
+}
+
+#[tauri::command]
 fn request_permission() {
     input::request_permission();
 }
@@ -117,7 +123,8 @@ pub fn run() {
             set_target,
             set_allowed_keys,
             set_paused,
-            request_permission
+            request_permission,
+            tiktok_sign_in
         ])
         .run(tauri::generate_context!())
         .expect("error while running the Fluxion companion");

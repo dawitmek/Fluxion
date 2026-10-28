@@ -48,6 +48,8 @@ export interface Host {
   ttsCloudKeySet: boolean;
   ttsCloudRegion: string | null;
   ttsCloudVoice: string | null;
+  ttsTiktokVoice: string | null;
+  ttsTiktokConnected: boolean;
   // Active profile
   profileId: string;
   profileName: string;

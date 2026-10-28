@@ -92,6 +92,9 @@ export async function authRoutes(app: FastifyInstance) {
         ttsCloudVoice: hosts.ttsCloudVoice,
         // The key itself never leaves the server.
         ttsCloudKeySet: sql<boolean>`${hosts.ttsCloudKey} is not null`,
+        ttsTiktokVoice: hosts.ttsTiktokVoice,
+        // Same for the TikTok session.
+        ttsTiktokConnected: sql<boolean>`${hosts.ttsTiktokSession} is not null`,
         // Mode settings of the active profile.
         profileId: profiles.id,
         profileName: profiles.name,

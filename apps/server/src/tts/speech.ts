@@ -2,6 +2,7 @@ import type { Speech, TtsEngine, VoiceEffect } from '@fluxion/shared';
 import type { hosts } from '../db/schema.js';
 import { synthesizeCloud, type CloudVoice } from './cloud.js';
 import type { Piper } from './piper.js';
+import { synthesizeTiktok, type TiktokVoice } from './tiktok.js';
 
 export interface VoiceConfig {
   engine: TtsEngine;
@@ -10,6 +11,7 @@ export interface VoiceConfig {
   piperVoice: string | null;
   piperSpeaker: number | null;
   cloud: CloudVoice | null; // null until the host sets a provider and key
+  tiktok: TiktokVoice | null; // null until the host signs in to TikTok from the companion
   effect: VoiceEffect;
 }
 
@@ -25,6 +27,7 @@ export function voiceConfig(host: typeof hosts.$inferSelect): VoiceConfig {
       host.ttsCloudProvider && host.ttsCloudKey
         ? { provider: host.ttsCloudProvider, key: host.ttsCloudKey, region: host.ttsCloudRegion, voice: host.ttsCloudVoice }
         : null,
+    tiktok: host.ttsTiktokSession ? { session: host.ttsTiktokSession, voice: host.ttsTiktokVoice } : null,
   };
 }
 
@@ -62,6 +65,11 @@ export class SpeechService {
         if ((await this.piper.voices()).length === 0) return { kind: 'espeak', text, voice: cfg.espeakVoice }; // not installed
         const audio = await this.piper.synthesize(text, cfg.piperVoice, cfg.piperSpeaker);
         return { kind: 'audio', data: audio.toString('base64'), mime: 'audio/wav' };
+      }
+      case 'tiktok': {
+        if (!cfg.tiktok) throw new Error('Sign in to TikTok from the companion app first');
+        const audio = await synthesizeTiktok(cfg.tiktok, text, this.fetchImpl);
+        return { kind: 'audio', data: audio.toString('base64'), mime: 'audio/mpeg' };
       }
       case 'cloud': {
         if (!cfg.cloud) throw new Error('Choose a cloud provider and enter your API key first');

@@ -45,7 +45,7 @@ const FEATURES: { title: string; text: string; points: string[]; art: ReactNode 
     points: [
       'Read prefixed comments (like !tts hello), alerts, or all of chat.',
       'Filters for length, blocked words, per-viewer cooldowns and minimum level.',
-      'Engines: Piper voices on your server, eSpeak in the overlay, your own Google, Azure or ElevenLabs key, or the PC’s own voices.',
+      'Engines: Piper voices on your server, eSpeak in the overlay, TikTok’s own voices through your TikTok account, your own Google, Azure or ElevenLabs key, or the PC’s own voices.',
       'Effects: chipmunk, deep, monster, robot, radio and echo.',
     ],
     art: <VoiceArt />,

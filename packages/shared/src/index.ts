@@ -79,12 +79,49 @@ export type TtsMode = (typeof TTS_MODES)[number];
 // Where speech is made. Only browser voices bypass OBS's audio capture; the others play through Web Audio.
 //   piper:   natural voices generated on the server (falls back to espeak if the server has no Piper)
 //   espeak:  robotic voice synthesized inside the overlay (WebAssembly), many languages
+//   tiktok:  TikTok's own voices, called by the server with the host's TikTok session (signed in via the companion)
 //   cloud:   the host's own Google / Azure / ElevenLabs key, called by the server
 //   browser: the browser's built-in voices (plays outside OBS's mixer)
-export const TTS_ENGINES = ['piper', 'espeak', 'cloud', 'browser'] as const;
+export const TTS_ENGINES = ['piper', 'espeak', 'tiktok', 'cloud', 'browser'] as const;
 export type TtsEngine = (typeof TTS_ENGINES)[number];
 export const CLOUD_PROVIDERS = ['google', 'azure', 'elevenlabs'] as const;
 export type CloudProvider = (typeof CLOUD_PROVIDERS)[number];
+
+// TikTok's text-to-speech voices, by the speaker id TikTok's API takes. The first is the default.
+export const TIKTOK_VOICES = [
+  { id: 'en_us_001', label: 'Female (US)' },
+  { id: 'en_us_002', label: 'Jessie (US)' },
+  { id: 'en_us_006', label: 'Joey (US)' },
+  { id: 'en_us_007', label: 'Professor (US)' },
+  { id: 'en_us_009', label: 'Scientist (US)' },
+  { id: 'en_us_010', label: 'Confidence (US)' },
+  { id: 'en_uk_001', label: 'Narrator (UK)' },
+  { id: 'en_uk_003', label: 'Male (UK)' },
+  { id: 'en_au_001', label: 'Metro (Australia)' },
+  { id: 'en_au_002', label: 'Smooth (Australia)' },
+  { id: 'en_male_narration', label: 'Story teller' },
+  { id: 'en_male_funny', label: 'Wacky' },
+  { id: 'en_female_emotional', label: 'Peaceful' },
+  { id: 'en_us_ghostface', label: 'Ghost face' },
+  { id: 'en_us_chewbacca', label: 'Chewbacca' },
+  { id: 'en_us_c3po', label: 'C-3PO' },
+  { id: 'en_us_stitch', label: 'Stitch' },
+  { id: 'en_us_stormtrooper', label: 'Stormtrooper' },
+  { id: 'en_us_rocket', label: 'Rocket' },
+  { id: 'fr_001', label: 'French, male 1' },
+  { id: 'fr_002', label: 'French, male 2' },
+  { id: 'de_001', label: 'German, female' },
+  { id: 'de_002', label: 'German, male' },
+  { id: 'es_002', label: 'Spanish, male' },
+  { id: 'es_mx_002', label: 'Spanish (Mexico), male' },
+  { id: 'br_001', label: 'Portuguese (Brazil), female' },
+  { id: 'br_005', label: 'Portuguese (Brazil), male' },
+  { id: 'id_001', label: 'Indonesian, female' },
+  { id: 'jp_001', label: 'Japanese, female' },
+  { id: 'jp_006', label: 'Japanese, male' },
+  { id: 'kr_002', label: 'Korean, male' },
+  { id: 'kr_003', label: 'Korean, female' },
+] as const;
 
 // Applied by the overlay to any voice. Browser voices only get the pitch/speed part.
 export const VOICE_EFFECTS = ['none', 'chipmunk', 'deep', 'monster', 'robot', 'radio', 'echo'] as const;
@@ -92,7 +129,7 @@ export type VoiceEffect = (typeof VOICE_EFFECTS)[number];
 
 // How the overlay should say something.
 export type Speech = (
-  | { kind: 'audio'; data: string; mime: string } // base64, from Piper or a cloud provider
+  | { kind: 'audio'; data: string; mime: string } // base64, from Piper, TikTok or a cloud provider
   | { kind: 'espeak'; text: string; voice: string }
   | { kind: 'browser'; text: string; voice: string | null }
 ) & { effect?: VoiceEffect };

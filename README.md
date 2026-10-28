@@ -33,6 +33,7 @@ TikTok LIVE chat ──▶ Fluxion server ──▶ Companion app on your gaming
 - **Text-to-speech:** read prefixed comments, alerts or all of chat. The engines are:
   - Piper voices on your server
   - eSpeak in the overlay
+  - TikTok's own voices, after you sign in to TikTok in the companion (an unofficial TikTok API, so it may break)
   - your own Google, Azure or ElevenLabs key
   - the PC's own voices
 

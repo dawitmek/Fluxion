@@ -242,6 +242,8 @@ function Paired({ state, run }: { state: Snapshot; run: Run }) {
         </div>
       </section>
 
+      <TiktokVoices />
+
       <section className="card" aria-labelledby="activity-title">
         <h2 id="activity-title" style={{ marginBottom: 8 }}>
           Activity
@@ -261,5 +263,40 @@ function Paired({ state, run }: { state: Snapshot; run: Run }) {
         )}
       </section>
     </>
+  );
+}
+
+// Signs in to TikTok in a separate window so the server can use TikTok's own voices for text-to-speech.
+function TiktokVoices() {
+  const [status, setStatus] = useState<{ busy: boolean; message: string | null; ok: boolean }>({ busy: false, message: null, ok: false });
+
+  const signIn = () => {
+    setStatus({ busy: true, message: null, ok: false });
+    invoke<boolean>("tiktok_sign_in")
+      .then((done) =>
+        setStatus({ busy: false, ok: done, message: done ? "Signed in. Choose TikTok voices on the dashboard's Voice page." : null }),
+      )
+      .catch((e) => setStatus({ busy: false, ok: false, message: String(e) }));
+  };
+
+  return (
+    <section className="card stack" aria-labelledby="tiktok-title">
+      <div>
+        <h2 id="tiktok-title">TikTok voices</h2>
+        <p className="muted">
+          Read chat aloud in TikTok's own voices. Sign in to TikTok here and Fluxion uses your account to make the speech.
+        </p>
+      </div>
+      {status.message && (
+        <p className={`notice ${status.ok ? "info" : "error"}`} role="status">
+          {status.message}
+        </p>
+      )}
+      <div className="row">
+        <button className="btn" disabled={status.busy} onClick={signIn}>
+          {status.busy ? "Waiting for you to sign in…" : "Sign in to TikTok"}
+        </button>
+      </div>
+    </section>
   );
 }

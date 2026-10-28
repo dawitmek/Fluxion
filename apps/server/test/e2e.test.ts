@@ -21,6 +21,11 @@ const fakeFetch = (async (url: string | URL, init: RequestInit = {}) => {
   cloudRequests.push({ url: String(url), init });
   if (String(url).includes('bad-key')) return new Response('{"error":"API key not valid"}', { status: 403 });
   const mp3 = new Uint8Array([0xff, 0xfb, 0x90, 0x00]);
+  // TikTok answers 200 with a status code in the JSON; 1 means the session is no longer signed in.
+  if (String(url).includes('tiktokv.com')) {
+    const signedIn = new Headers(init.headers).get('cookie') === 'sessionid=goodsession0123456789';
+    return Response.json(signedIn ? { status_code: 0, data: { v_str: Buffer.from(mp3).toString('base64') } } : { status_code: 1, status_msg: 'session expired' });
+  }
   if (String(url).includes('googleapis.com/v1/voices')) return Response.json({ voices: [{ name: 'en-GB-Neural2-A', ssmlGender: 'FEMALE' }] });
   // Google wraps audio in JSON; Azure and ElevenLabs return the bytes.
   if (String(url).includes('googleapis')) return Response.json({ audioContent: Buffer.from(mp3).toString('base64') });
@@ -508,6 +513,37 @@ describe('alerts and text-to-speech', () => {
     // Clearing the key works too.
     await api(cookie, 'PATCH', '/api/settings', { ttsCloudKey: null });
     expect((await api(cookie, 'GET', '/api/auth/me')).json().ttsCloudKeySet).toBe(false);
+  });
+
+  it('signs in to TikTok voices through the companion and keeps the session secret', async () => {
+    const { cookie } = await signUp();
+    const { token } = await pairCompanion(cookie);
+    const sendSession = (sessionId: string, auth = `Bearer ${token}`) =>
+      app.inject({ method: 'POST', url: '/api/companions/tiktok-session', payload: { sessionId }, headers: { authorization: auth }, remoteAddress: nextAddress() });
+
+    await api(cookie, 'PATCH', '/api/settings', { ttsEngine: 'tiktok', ttsTiktokVoice: 'en_us_002' });
+    const before = await api(cookie, 'POST', '/api/tts/preview');
+    expect([before.statusCode, before.json().error]).toEqual([502, 'Sign in to TikTok from the companion app first']);
+
+    // Only a paired companion can send a session, and only one TikTok accepts.
+    expect((await sendSession('goodsession0123456789', 'Bearer not-a-token')).statusCode).toBe(401);
+    const expired = await sendSession('expiredsession0123456');
+    expect([expired.statusCode, expired.json().error]).toEqual([400, 'TikTok signed you out. Sign in to TikTok again from the companion app.']);
+    expect((await sendSession('goodsession0123456789')).statusCode).toBe(200);
+
+    const me = (await api(cookie, 'GET', '/api/auth/me')).json();
+    expect(me).toMatchObject({ ttsEngine: 'tiktok', ttsTiktokVoice: 'en_us_002', ttsTiktokConnected: true });
+    expect(JSON.stringify(me)).not.toContain('goodsession');
+
+    cloudRequests.length = 0;
+    expect((await api(cookie, 'POST', '/api/tts/preview', { text: 'hi & bye' })).json()).toEqual({ kind: 'audio', data: '//uQAA==', mime: 'audio/mpeg', effect: 'none' });
+    const query = new URL(cloudRequests[0]!.url).searchParams;
+    expect([query.get('text_speaker'), query.get('req_text')]).toEqual(['en_us_002', 'hi  and  bye']);
+
+    // Signing out from the dashboard clears it; the session can't be set from the browser.
+    expect((await api(cookie, 'PATCH', '/api/settings', { ttsTiktokSession: 'goodsession0123456789' })).statusCode).toBe(400);
+    await api(cookie, 'PATCH', '/api/settings', { ttsTiktokSession: null });
+    expect((await api(cookie, 'GET', '/api/auth/me')).json().ttsTiktokConnected).toBe(false);
   });
 
   it('keeps the Piper speaker within the chosen voice', async () => {

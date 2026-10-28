@@ -29,6 +29,9 @@ export const hosts = pgTable('hosts', {
   ttsCloudKey: text('tts_cloud_key'), // the host's own API key; never sent back to the browser
   ttsCloudRegion: text('tts_cloud_region'), // Azure only
   ttsCloudVoice: text('tts_cloud_voice'),
+  // The host's TikTok sessionid cookie, sent by the companion after the host signs in; never sent to the browser.
+  ttsTiktokSession: text('tts_tiktok_session'),
+  ttsTiktokVoice: text('tts_tiktok_voice'), // a TIKTOK_VOICES id; null means the first
   createdAt: timestamp('created_at', { withTimezone: true }).notNull().defaultNow(),
 });
 

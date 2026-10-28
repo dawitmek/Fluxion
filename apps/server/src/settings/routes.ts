@@ -41,6 +41,8 @@ type Body = {
   ttsCloudKey?: string | null;
   ttsCloudRegion?: string | null;
   ttsCloudVoice?: string | null;
+  ttsTiktokVoice?: string | null;
+  ttsTiktokSession?: null;
 };
 
 // Mode settings belong to the active profile (they differ per game); the rest to the host.
@@ -81,6 +83,9 @@ export async function settingsRoutes(app: FastifyInstance) {
             ttsCloudKey: { type: ['string', 'null'], maxLength: 300 },
             ttsCloudRegion: { type: ['string', 'null'], pattern: '^[a-z0-9]{1,40}$' },
             ttsCloudVoice: { type: ['string', 'null'], maxLength: 100 },
+            ttsTiktokVoice: { type: ['string', 'null'], pattern: '^[a-z0-9_]{1,60}$' },
+            // Only clearing: the session itself comes from the companion (POST /api/companions/tiktok-session).
+            ttsTiktokSession: { type: 'null' },
           },
         },
       },

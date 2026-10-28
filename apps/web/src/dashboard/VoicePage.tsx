@@ -1,5 +1,5 @@
 import { useEffect, useState } from 'react';
-import { CLOUD_PROVIDERS, MAX_LEVEL, VOICE_EFFECTS } from '@fluxion/shared';
+import { CLOUD_PROVIDERS, MAX_LEVEL, TIKTOK_VOICES, VOICE_EFFECTS } from '@fluxion/shared';
 import { api, ApiError, type CloudProvider, type Host, type Speech, type TtsEngine, type VoiceEffect } from '../api';
 import { SpeechPlayer } from '../speech-player';
 import { Card, Choices, ErrorNotice, NumberCell, TextCell, useError } from '../ui';
@@ -22,6 +22,7 @@ function useVoices() {
 const ENGINES: [TtsEngine, string, string][] = [
   ['piper', 'Piper (server)', 'Natural offline voices made on the Fluxion server. Plays through OBS.'],
   ['espeak', 'eSpeak (overlay)', 'Robotic voice made inside the overlay, many languages. Plays through OBS.'],
+  ['tiktok', 'TikTok voices', "TikTok's own voices, through your TikTok account. Unofficial: TikTok may change or block it."],
   ['cloud', 'Your cloud key', 'Google, Azure or ElevenLabs with your own API key (you pay them). Plays through OBS.'],
   ['browser', 'Browser voices', "The streaming PC's built-in voices. Plays outside OBS's mixer; capture Desktop Audio."],
 ];
@@ -43,9 +44,12 @@ const EFFECT_LABELS: Record<VoiceEffect, string> = {
 
 let previewPlayer: SpeechPlayer | null = null;
 
+// Secrets the dashboard can set or clear but never reads back.
+type SettingsPatch = Partial<Host> | { ttsCloudKey: string | null } | { ttsTiktokSession: null };
+
 export function VoicePage({ host, refreshHost }: PageProps) {
   const { error, guard, setError } = useError();
-  const save = (patch: Partial<Host> | { ttsCloudKey: string | null }) =>
+  const save = (patch: SettingsPatch) =>
     guard(() => api('PATCH', '/settings', patch).then(refreshHost))();
 
   return (
@@ -66,7 +70,7 @@ export function VoicePage({ host, refreshHost }: PageProps) {
           onChange={(ttsMode) => save({ ttsMode })}
         />
       </Card>
-      <VoiceCard host={host} save={save} guard={guard} setError={setError} />
+      <VoiceCard host={host} save={save} guard={guard} setError={setError} refreshHost={refreshHost} />
       <Card title="Chat filters" description="Applies to chat only; alerts are always read.">
         <div className="form-grid">
           <label className="field">
@@ -103,11 +107,13 @@ function VoiceCard({
   save,
   guard,
   setError,
+  refreshHost,
 }: {
   host: Host;
-  save: (patch: Partial<Host> | { ttsCloudKey: string | null }) => void;
+  save: (patch: SettingsPatch) => void;
   guard: ReturnType<typeof useError>['guard'];
   setError: (e: string | null) => void;
+  refreshHost: () => void;
 }) {
   const voices = useVoices();
   const [options, setOptions] = useState<{ piperVoices: { name: string; speakers: number }[]; espeakVoices: string[] }>({
@@ -137,6 +143,13 @@ function VoiceCard({
     }
   };
   const piperMissing = host.ttsEngine === 'piper' && options.piperVoices.length === 0;
+  const tiktokWaiting = host.ttsEngine === 'tiktok' && !host.ttsTiktokConnected;
+  // The sign-in happens in the companion app; notice it here without a reload.
+  useEffect(() => {
+    if (!tiktokWaiting) return;
+    const timer = setInterval(refreshHost, 3000);
+    return () => clearInterval(timer);
+  }, [tiktokWaiting, refreshHost]);
   const piperVoice = options.piperVoices.find((v) => v.name === host.ttsPiperVoice) ?? options.piperVoices[0];
 
   return (
@@ -149,6 +162,12 @@ function VoiceCard({
       }
     >
       <Choices label="Voice engine" value={host.ttsEngine} options={ENGINES} onChange={(ttsEngine) => save({ ttsEngine })} />
+      {tiktokWaiting && (
+        <p className="notice info">
+          Sign in to TikTok from the companion app: open it on your PC and choose Sign in to TikTok. Until then, chat is read
+          with eSpeak.
+        </p>
+      )}
       {piperMissing && (
         <p className="notice warning">This server has no Piper voices installed, so eSpeak is used instead. The Docker image includes Piper.</p>
       )}
@@ -189,7 +208,32 @@ function VoiceCard({
             </span>
           </div>
         )}
-        {(host.ttsEngine === 'espeak' || piperMissing || host.ttsEngine === 'cloud') && (
+        {host.ttsEngine === 'tiktok' && (
+          <>
+            <label className="field">
+              TikTok voice
+              <select value={host.ttsTiktokVoice ?? ''} onChange={(e) => save({ ttsTiktokVoice: e.target.value || null })}>
+                {TIKTOK_VOICES.map((v, i) => (
+                  <option key={v.id} value={i === 0 ? '' : v.id}>
+                    {v.label}
+                  </option>
+                ))}
+              </select>
+            </label>
+            {host.ttsTiktokConnected && (
+              <div className="field">
+                TikTok account
+                <span className="row" style={{ flexWrap: 'nowrap' }}>
+                  <span className="tag green">Signed in</span>
+                  <button className="btn btn-ghost" onClick={() => save({ ttsTiktokSession: null })}>
+                    Sign out
+                  </button>
+                </span>
+              </div>
+            )}
+          </>
+        )}
+        {(host.ttsEngine === 'espeak' || piperMissing || host.ttsEngine === 'cloud' || host.ttsEngine === 'tiktok') && (
           <label className="field">
             eSpeak language{host.ttsEngine !== 'espeak' && ' (fallback)'}
             <select value={host.ttsEspeakVoice} onChange={(e) => save({ ttsEspeakVoice: e.target.value })}>

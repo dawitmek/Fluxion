@@ -3,6 +3,7 @@ import { fileURLToPath } from 'node:url';
 import { Piper, wav } from '../src/tts/piper.js';
 import { errorMessage, listCloudVoices, synthesizeCloud } from '../src/tts/cloud.js';
 import { SpeechService, type VoiceConfig } from '../src/tts/speech.js';
+import { synthesizeTiktok } from '../src/tts/tiktok.js';
 
 const fixture = (p: string) => fileURLToPath(new URL(`./fixtures/${p}`, import.meta.url));
 // The fake Piper is a Node script, so it runs the same on macOS, Linux and Windows.
@@ -15,6 +16,7 @@ const voice = (cfg: Partial<VoiceConfig>): VoiceConfig => ({
   piperVoice: null,
   piperSpeaker: null,
   cloud: null,
+  tiktok: null,
   effect: 'none',
   ...cfg,
 });
@@ -155,5 +157,43 @@ describe('speech service', () => {
     });
     // Piper selected on a server without Piper: eSpeak, no error.
     expect(await new SpeechService(new Piper(undefined, undefined)).speakStrict(voice({}), 'hi')).toMatchObject({ kind: 'espeak' });
+  });
+});
+
+describe('tiktok voices', () => {
+  const ok = () => Response.json({ status_code: 0, data: { v_str: Buffer.from('mp3').toString('base64') } });
+
+  it('sends the session as a cookie and decodes the audio', async () => {
+    const calls: { url: string; init: RequestInit }[] = [];
+    const audio = await synthesizeTiktok({ session: 'abc', voice: null }, 'a+b', (async (url: string, init: RequestInit) => {
+      calls.push({ url, init });
+      return ok();
+    }) as typeof fetch);
+    expect(audio.toString()).toBe('mp3');
+    expect(new Headers(calls[0]!.init.headers).get('cookie')).toBe('sessionid=abc');
+    const query = new URL(calls[0]!.url).searchParams;
+    expect([query.get('text_speaker'), query.get('req_text')]).toEqual(['en_us_001', 'a plus b']);
+  });
+
+  it('moves to the next API host when one cannot be reached', async () => {
+    const hosts: string[] = [];
+    const audio = await synthesizeTiktok({ session: 'abc', voice: 'en_us_002' }, 'hi', (async (url: string) => {
+      hosts.push(new URL(url).host);
+      if (hosts.length === 1) throw new TypeError('fetch failed');
+      return ok();
+    }) as typeof fetch);
+    expect(audio.toString()).toBe('mp3');
+    expect(hosts).toHaveLength(2);
+    expect(hosts[0]).not.toBe(hosts[1]);
+  });
+
+  it("explains TikTok's status codes", async () => {
+    const answer = (body: object) => (async () => Response.json(body)) as unknown as typeof fetch;
+    await expect(synthesizeTiktok({ session: 'x', voice: 'gone' }, 'hi', answer({ status_code: 4 }))).rejects.toThrow('no longer offers that voice');
+    await expect(synthesizeTiktok({ session: 'x', voice: null }, 'hi', answer({ status_code: 9, status_msg: 'odd' }))).rejects.toThrow('TikTok TTS failed (9): odd');
+    const unreachable = (async () => {
+      throw new TypeError('fetch failed');
+    }) as unknown as typeof fetch;
+    await expect(synthesizeTiktok({ session: 'x', voice: null }, 'hi', unreachable)).rejects.toThrow("Could not reach TikTok's voice service: fetch failed");
   });
 });

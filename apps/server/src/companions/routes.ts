@@ -1,9 +1,10 @@
 import type { FastifyInstance } from 'fastify';
 import { randomInt } from 'node:crypto';
 import { and, eq, gt } from 'drizzle-orm';
-import { companions, pairingCodes } from '../db/schema.js';
+import { companions, hosts, pairingCodes } from '../db/schema.js';
 import { newToken, sha256 } from '../crypto.js';
 import { requireHost } from '../auth/session.js';
+import { synthesizeTiktok, TiktokError } from '../tts/tiktok.js';
 
 const PAIRING_TTL_MS = 10 * 60 * 1000;
 const CODE_ALPHABET = 'ABCDEFGHJKLMNPQRSTUVWXYZ23456789'; // no 0/O or 1/I
@@ -49,6 +50,39 @@ export async function companionRoutes(app: FastifyInstance) {
         .values({ hostId: pairing.hostId, name: req.body.name, tokenHash: sha256(token) })
         .returning({ id: companions.id });
       return reply.code(201).send({ id: companion!.id, token });
+    },
+  );
+
+  // The companion sends the host's TikTok session after they sign in to TikTok in its login window.
+  // It authenticates with its device token; the session is checked with a short test line before it's saved.
+  app.post<{ Body: { sessionId: string } }>(
+    '/tiktok-session',
+    {
+      config: { rateLimit: { max: 10, timeWindow: '1 minute' } },
+      schema: {
+        body: {
+          type: 'object',
+          additionalProperties: false,
+          required: ['sessionId'],
+          properties: { sessionId: { type: 'string', pattern: '^[A-Za-z0-9]{16,128}$' } },
+        },
+      },
+    },
+    async (req, reply) => {
+      const token = req.headers.authorization?.match(/^Bearer (\S+)$/)?.[1];
+      const [companion] = token
+        ? await db.select({ hostId: companions.hostId }).from(companions).where(eq(companions.tokenHash, sha256(token)))
+        : [];
+      if (!companion) return reply.code(401).send({ error: 'This companion is not paired. Pair it again.' });
+      try {
+        await synthesizeTiktok({ session: req.body.sessionId, voice: null }, 'test', app.speech.fetchImpl);
+      } catch (err) {
+        if (err instanceof TiktokError) return reply.code(400).send({ error: err.message });
+        throw err;
+      }
+      await db.update(hosts).set({ ttsTiktokSession: req.body.sessionId }).where(eq(hosts.id, companion.hostId));
+      await app.live.reload(companion.hostId);
+      return { ok: true };
     },
   );
 
