@@ -9,8 +9,8 @@ type Body = { name: string; gameProcess?: string | null };
 
 const fields = {
   name: { type: 'string', minLength: 1, maxLength: 48 },
-  // An executable name as the companion lists it, e.g. "gta5.exe". No paths.
-  gameProcess: { type: ['string', 'null'], pattern: '^[^\\\\/:*?"<>|]{1,64}\\.exe$' },
+  // An executable name as the companion lists it, e.g. "gta5.exe" on Windows or "textedit" on macOS. No paths.
+  gameProcess: { type: ['string', 'null'], pattern: '^[^\\\\/:*?"<>|]{1,64}$' },
 } as const;
 
 const idParam = { type: 'object', properties: { id: { type: 'string', format: 'uuid' } } } as const;

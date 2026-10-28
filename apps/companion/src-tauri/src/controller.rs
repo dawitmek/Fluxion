@@ -37,6 +37,7 @@ pub struct Snapshot {
     all_keys: Vec<String>,
     log: Vec<LogEntry>,
     platform_supported: bool,
+    permission_problem: Option<&'static str>, // macOS: Accessibility permission not granted yet
     panic_hotkey: &'static str,
 }
 
@@ -95,7 +96,8 @@ impl Controller {
             allowed_keys: allowed_keys(&config.allowed_keys),
             all_keys: ALL_KEYS.iter().map(|k| k.to_string()).collect(),
             log: self.log.lock().unwrap().iter().cloned().collect(),
-            platform_supported: cfg!(windows),
+            platform_supported: cfg!(any(windows, target_os = "macos")),
+            permission_problem: input::permission_problem(),
             panic_hotkey: PANIC_HOTKEY,
         }
     }
@@ -147,6 +149,9 @@ impl Controller {
         }
         if keys::scan_code(key).is_none() {
             return Err("key not supported".into());
+        }
+        if let Some(problem) = input::permission_problem() {
+            return Err(problem.into());
         }
         let config = self.config();
         if !allowed_keys(&config.allowed_keys).iter().any(|k| k == key) {

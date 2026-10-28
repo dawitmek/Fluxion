@@ -78,6 +78,11 @@ fn set_paused(ctl: Ctl, paused: bool) {
     ctl.set_paused(paused);
 }
 
+#[tauri::command]
+fn request_permission() {
+    input::request_permission();
+}
+
 #[cfg_attr(mobile, tauri::mobile_entry_point)]
 pub fn run() {
     // The panic hotkey only ever pauses; resuming is a deliberate click in the app.
@@ -111,7 +116,8 @@ pub fn run() {
             list_windows,
             set_target,
             set_allowed_keys,
-            set_paused
+            set_paused,
+            request_permission
         ])
         .run(tauri::generate_context!())
         .expect("error while running the Fluxion companion");

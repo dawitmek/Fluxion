@@ -318,6 +318,8 @@ describe('game profiles', () => {
     expect(gta.gameProcess).toBe('gta5.exe');
     expect((await api(cookie, 'POST', '/api/profiles', { name: 'GTA V' })).statusCode).toBe(409);
     expect((await api(cookie, 'POST', '/api/profiles', { name: 'Bad', gameProcess: 'C:\\Games\\gta5.exe' })).statusCode).toBe(400);
+    // macOS process names have no extension.
+    expect((await api(cookie, 'POST', '/api/profiles', { name: 'Mac game', gameProcess: 'TextEdit' })).json().gameProcess).toBe('textedit');
 
     expect((await api(cookie, 'POST', `/api/profiles/${gta.id}/activate`)).statusCode).toBe(200);
     expect(await companion.next()).toEqual({ type: 'profile', name: 'GTA V', gameProcess: 'gta5.exe' });
@@ -334,6 +336,7 @@ describe('game profiles', () => {
     expect(list.map((p: any) => [p.name, p.active])).toEqual([
       ['Default', false],
       ['GTA V', true],
+      ['Mac game', false],
     ]);
     const original = list.find((p: any) => p.name === 'Default');
     expect((await api(cookie, 'DELETE', `/api/profiles/${gta.id}`)).statusCode).toBe(409); // active

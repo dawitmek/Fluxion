@@ -1,11 +1,11 @@
-// OS-level keyboard input and window inspection. Windows only for now; other platforms refuse actions.
+// OS-level keyboard input and window inspection on Windows and macOS; other platforms refuse actions.
 
 use serde::Serialize;
 
 #[derive(Serialize, Clone)]
 pub struct GameWindow {
     pub title: String,
-    pub process: String, // executable file name, lowercase, e.g. "gta5.exe"
+    pub process: String, // executable file name, lowercase, e.g. "gta5.exe" or "textedit"
 }
 
 #[cfg(windows)]
@@ -107,13 +107,96 @@ mod imp {
     }
 }
 
-#[cfg(not(windows))]
+#[cfg(target_os = "macos")]
+mod imp {
+    use super::GameWindow;
+    use crate::keys::ScanCode;
+    use core_foundation::base::TCFType;
+    use core_foundation::boolean::CFBoolean;
+    use core_foundation::dictionary::{CFDictionary, CFDictionaryRef};
+    use core_foundation::string::CFString;
+    use core_graphics::event::{CGEvent, CGEventTapLocation};
+    use core_graphics::event_source::{CGEventSource, CGEventSourceStateID};
+    use objc2_app_kit::{NSApplicationActivationPolicy, NSWorkspace};
+    use std::path::Path;
+
+    #[link(name = "ApplicationServices", kind = "framework")]
+    unsafe extern "C" {
+        fn AXIsProcessTrusted() -> bool;
+        fn AXIsProcessTrustedWithOptions(options: CFDictionaryRef) -> bool;
+    }
+
+    // macOS drops synthetic key events from apps without Accessibility permission, silently.
+    pub fn permission_problem() -> Option<&'static str> {
+        if unsafe { AXIsProcessTrusted() } {
+            None
+        } else {
+            Some("Fluxion Companion needs Accessibility permission to press keys")
+        }
+    }
+
+    // Shows macOS's own prompt and opens the Accessibility settings pane.
+    pub fn request_permission() {
+        let options = CFDictionary::from_CFType_pairs(&[(
+            CFString::new("AXTrustedCheckOptionPrompt").as_CFType(),
+            CFBoolean::true_value().as_CFType(),
+        )]);
+        unsafe { AXIsProcessTrustedWithOptions(options.as_concrete_TypeRef()) };
+        let _ = std::process::Command::new("open")
+            .arg("x-apple.systempreferences:com.apple.preference.security?Privacy_Accessibility")
+            .spawn();
+    }
+
+    pub fn send_key(scan: &ScanCode, up: bool) -> Result<(), String> {
+        if let Some(problem) = permission_problem() {
+            return Err(problem.into());
+        }
+        let source = CGEventSource::new(CGEventSourceStateID::HIDSystemState).map_err(|()| "could not create an input source")?;
+        let event = CGEvent::new_keyboard_event(source, scan.mac, !up).map_err(|()| "could not create a key event")?;
+        event.post(CGEventTapLocation::HID);
+        Ok(())
+    }
+
+    fn process_name(pid: i32) -> Option<String> {
+        let mut buf = vec![0u8; libc::PROC_PIDPATHINFO_MAXSIZE as usize];
+        let len = unsafe { libc::proc_pidpath(pid, buf.as_mut_ptr().cast(), buf.len() as u32) };
+        if len <= 0 {
+            return None;
+        }
+        let path = String::from_utf8_lossy(&buf[..len as usize]).into_owned();
+        Path::new(&path).file_name().map(|n| n.to_string_lossy().to_lowercase())
+    }
+
+    pub fn foreground_process() -> Option<String> {
+        let app = NSWorkspace::sharedWorkspace().frontmostApplication()?;
+        process_name(app.processIdentifier())
+    }
+
+    // Apps with a Dock icon; macOS only shares window titles with Screen Recording permission, so use app names.
+    pub fn list_windows() -> Vec<GameWindow> {
+        let mut windows: Vec<GameWindow> = NSWorkspace::sharedWorkspace()
+            .runningApplications()
+            .iter()
+            .filter(|app| app.activationPolicy() == NSApplicationActivationPolicy::Regular)
+            .filter_map(|app| {
+                let process = process_name(app.processIdentifier())?;
+                let title = app.localizedName().map(|n| n.to_string()).unwrap_or_else(|| process.clone());
+                Some(GameWindow { title, process })
+            })
+            .collect();
+        windows.sort_by(|a, b| a.process.cmp(&b.process));
+        windows.dedup_by(|a, b| a.process == b.process);
+        windows
+    }
+}
+
+#[cfg(not(any(windows, target_os = "macos")))]
 mod imp {
     use super::GameWindow;
     use crate::keys::ScanCode;
 
     pub fn send_key(_scan: &ScanCode, _up: bool) -> Result<(), String> {
-        Err("Key input is only supported on Windows so far".into())
+        Err("Key input is only supported on Windows and macOS so far".into())
     }
 
     pub fn foreground_process() -> Option<String> {
@@ -125,4 +208,18 @@ mod imp {
     }
 }
 
+// Only macOS asks the user for permission before input works.
+#[cfg(not(target_os = "macos"))]
+mod permission {
+    pub fn permission_problem() -> Option<&'static str> {
+        None
+    }
+
+    pub fn request_permission() {}
+}
+
+#[cfg(target_os = "macos")]
+use imp as permission;
+
 pub use imp::{foreground_process, list_windows, send_key};
+pub use permission::{permission_problem, request_permission};

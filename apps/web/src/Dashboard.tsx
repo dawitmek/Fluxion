@@ -320,8 +320,8 @@ function ProfilesSection({ host, refreshHost }: { host: Host; refreshHost: () =>
       <h2>Game profiles</h2>
       <p className="muted">
         Each profile has its own commands, gift triggers and crowd mode. Switching applies immediately, even while live.
-        If a profile names its game's process (as listed in the companion, e.g. <code>gta5.exe</code>), the companion
-        switches to that game too.
+        If a profile names its game's process (as listed in the companion, e.g. <code>gta5.exe</code> on Windows or{' '}
+        <code>minecraft</code> on macOS), the companion switches to that game too.
       </p>
       {error && <p className="error">{error}</p>}
       <div className="table-wrap">
@@ -366,7 +366,7 @@ function ProfilesSection({ host, refreshHost }: { host: Host; refreshHost: () =>
       </div>
       <form className="inline add-command" onSubmit={add}>
         <input placeholder="New profile name" value={name} onChange={(e) => setName(e.target.value)} required maxLength={48} aria-label="New profile name" />
-        <input placeholder="game.exe (optional)" value={gameProcess} onChange={(e) => setGameProcess(e.target.value)} aria-label="Game process" />
+        <input placeholder="game process (optional)" value={gameProcess} onChange={(e) => setGameProcess(e.target.value)} aria-label="Game process" />
         <button className="primary">Add (copies {host.profileName})</button>
       </form>
     </section>

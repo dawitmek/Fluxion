@@ -22,6 +22,7 @@ interface Snapshot {
   allKeys: string[];
   log: LogEntry[];
   platformSupported: boolean;
+  permissionProblem: string | null;
   panicHotkey: string;
 }
 
@@ -52,7 +53,19 @@ export default function App() {
     <main>
       <h1>Fluxion Companion</h1>
       {!state.platformSupported && (
-        <p className="warning">Key input only works on Windows so far. This build can pair and connect, but refuses every action.</p>
+        <p className="warning">Key input only works on Windows and macOS so far. This build can pair and connect, but refuses every action.</p>
+      )}
+      {state.permissionProblem && (
+        <div className="warning">
+          <p>
+            {state.permissionProblem}. Click below, then in System Settings → Privacy &amp; Security → Accessibility turn on
+            Fluxion Companion.
+          </p>
+          <div className="row">
+            <button onClick={() => run("request_permission")}>Open Accessibility settings</button>
+            <button onClick={() => invoke<Snapshot>("get_state").then(setState)}>Check again</button>
+          </div>
+        </div>
       )}
       {error && <p className="error">{error}</p>}
       {state.paired ? <Paired state={state} run={run} /> : <PairForm run={run} defaultServer={state.serverUrl} />}
