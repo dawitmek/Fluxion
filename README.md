@@ -21,13 +21,15 @@ Requires Node 22+ and Docker (for Postgres). The companion also needs Rust ([Tau
 ```sh
 npm install
 cp .env.example .env
-npm run db:up                         # Postgres on 127.0.0.1:5432 (plus a fluxion_test database)
-npm run build -w packages/shared
-npm run dev:server                    # http://127.0.0.1:3000, applies migrations on start
-npm run dev:web                       # http://localhost:5173, proxies /api and /ws to the server
-npm run tauri dev -w apps/companion
-npm test                              # unit + end-to-end tests (needs db:up)
+npm run dev                           # Postgres (Docker) + server + dashboard; open http://localhost:5173
+npm run tauri dev -w apps/companion   # the companion, in another terminal
+npm test                              # unit + end-to-end tests (needs the database from npm run dev or db:up)
 ```
+
+`npm run dev` starts Postgres on 127.0.0.1:5432, the server on the `PORT` from `.env` (default 3000; it applies
+migrations on start) and the dashboard on http://localhost:5173, which forwards `/api` and `/ws` to the server.
+If another program already uses port 3000, set `PORT=3001` in `.env`. `npm run dev:server` and `npm run dev:web`
+start the two halves separately.
 
 The companion pairs with whatever server address you give it (e.g. `http://127.0.0.1:3000`). Key input currently works on Windows only.
 

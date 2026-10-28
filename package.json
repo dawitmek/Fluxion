@@ -12,6 +12,7 @@
     "node": ">=22"
   },
   "scripts": {
+    "dev": "npm run db:up && npm run build -w packages/shared && concurrently -k -n server,web -c blue,magenta \"npm run dev:server\" \"npm run dev:web\"",
     "build": "npm run build -w packages/shared -w apps/server -w apps/web",
     "typecheck": "npm run typecheck --workspaces --if-present",
     "dev:server": "npm run dev -w apps/server",
@@ -22,6 +23,7 @@
     "test": "npm run build -w packages/shared && vitest run"
   },
   "devDependencies": {
+    "concurrently": "^9.2.5",
     "vitest": "^5.0.5"
   }
 }
