@@ -30,6 +30,11 @@ export interface Host {
   tiktokUsername: string | null;
   overlayToken: string;
   actionsPerSecond: number;
+  progression: boolean;
+  levelGating: boolean;
+  // Active profile
+  profileId: string;
+  profileName: string;
   mode: Mode;
   voteWindowMs: number;
   turnMs: number;
@@ -43,6 +48,14 @@ export interface Command {
   holdMs: number;
   cooldownMs: number;
   enabled: boolean;
+  minLevel: number;
+}
+
+export interface Profile {
+  id: string;
+  name: string;
+  gameProcess: string | null;
+  active: boolean;
 }
 
 export interface GiftTrigger {

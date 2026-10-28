@@ -24,7 +24,7 @@ describe('toViewerEvent', () => {
   });
 
   it('emits a streak gift only once, at the end of the streak', () => {
-    const tick = { user: { uniqueId: 'alice' }, giftId: 5655, repeatCount: 3, giftDetails: { giftName: 'Rose', giftType: 1 } };
+    const tick = { user: { uniqueId: 'alice' }, giftId: 5655, repeatCount: 3, giftDetails: { giftName: 'Rose', giftType: 1, diamondCount: 1 } };
     expect(toViewerEvent(WebcastEvent.GIFT, { ...tick, repeatEnd: false })).toBeNull();
     expect(toViewerEvent(WebcastEvent.GIFT, { ...tick, repeatEnd: true }, 9)).toEqual({
       kind: 'gift',
@@ -32,6 +32,7 @@ describe('toViewerEvent', () => {
       giftId: 5655,
       giftName: 'Rose',
       count: 3,
+      diamonds: 1,
       at: 9,
     });
   });
@@ -39,7 +40,7 @@ describe('toViewerEvent', () => {
   it('emits non-streak gifts immediately, including proto-shaped ones', () => {
     expect(
       toViewerEvent(WebcastEvent.GIFT, { user: { uniqueId: 'a' }, giftId: '7', repeatCount: 1, gift: { name: 'Lion', type: 2 } }, 1),
-    ).toEqual({ kind: 'gift', viewerId: 'a', giftId: 7, giftName: 'Lion', count: 1, at: 1 });
+    ).toEqual({ kind: 'gift', viewerId: 'a', giftId: 7, giftName: 'Lion', count: 1, diamonds: 0, at: 1 });
   });
 
   it('maps likes, follows and shares', () => {

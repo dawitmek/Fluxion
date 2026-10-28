@@ -1,7 +1,7 @@
 import type { FastifyInstance } from 'fastify';
 import { eq } from 'drizzle-orm';
 import { hash, verify } from '@node-rs/argon2';
-import { commands, hosts } from '../db/schema.js';
+import { commands, hosts, profiles } from '../db/schema.js';
 import { newToken } from '../crypto.js';
 import { endSession, requireHost, startSession } from './session.js';
 
@@ -38,7 +38,10 @@ export async function authRoutes(app: FastifyInstance) {
         .values({ email, passwordHash, overlayToken: newToken() })
         .onConflictDoNothing()
         .returning({ id: hosts.id });
-      if (created) await tx.insert(commands).values(DEFAULT_COMMANDS.map((c) => ({ ...c, hostId: created.id })));
+      if (!created) return undefined;
+      const [profile] = await tx.insert(profiles).values({ hostId: created.id, name: 'Default' }).returning({ id: profiles.id });
+      await tx.update(hosts).set({ activeProfileId: profile!.id }).where(eq(hosts.id, created.id));
+      await tx.insert(commands).values(DEFAULT_COMMANDS.map((c) => ({ ...c, hostId: created.id, profileId: profile!.id })));
       return created;
     });
     if (!host) return reply.code(409).send({ error: 'Email already registered' });
@@ -68,12 +71,18 @@ export async function authRoutes(app: FastifyInstance) {
         tiktokUsername: hosts.tiktokUsername,
         overlayToken: hosts.overlayToken,
         actionsPerSecond: hosts.actionsPerSecond,
-        mode: hosts.mode,
-        voteWindowMs: hosts.voteWindowMs,
-        turnMs: hosts.turnMs,
-        giftBoosts: hosts.giftBoosts,
+        progression: hosts.progression,
+        levelGating: hosts.levelGating,
+        // Mode settings of the active profile.
+        profileId: profiles.id,
+        profileName: profiles.name,
+        mode: profiles.mode,
+        voteWindowMs: profiles.voteWindowMs,
+        turnMs: profiles.turnMs,
+        giftBoosts: profiles.giftBoosts,
       })
       .from(hosts)
+      .innerJoin(profiles, eq(profiles.id, hosts.activeProfileId))
       .where(eq(hosts.id, req.hostId));
     return host;
   });

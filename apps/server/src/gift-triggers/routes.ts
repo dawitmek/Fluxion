@@ -2,21 +2,23 @@ import type { FastifyInstance } from 'fastify';
 import { and, eq } from 'drizzle-orm';
 import { commands, giftTriggers } from '../db/schema.js';
 import { requireHost } from '../auth/session.js';
+import { activeProfile } from '../profiles/active.js';
 
 type Body = { giftName: string; commandId: string };
 
-// Gift triggers press a command when a viewer sends a specific gift, in every mode.
+// Gift triggers press a command when a viewer sends a specific gift, in every mode. They belong to the active profile.
 export async function giftTriggerRoutes(app: FastifyInstance) {
   const { db } = app;
   app.addHook('preHandler', requireHost);
 
-  app.get('/', async (req) =>
-    db
+  app.get('/', async (req) => {
+    const profile = await activeProfile(db, req.hostId);
+    return db
       .select({ id: giftTriggers.id, giftName: giftTriggers.giftName, commandId: giftTriggers.commandId, keyword: commands.keyword })
       .from(giftTriggers)
       .innerJoin(commands, eq(giftTriggers.commandId, commands.id))
-      .where(eq(giftTriggers.hostId, req.hostId)),
-  );
+      .where(eq(giftTriggers.profileId, profile.id));
+  });
 
   app.post<{ Body: Body }>(
     '/',
@@ -34,14 +36,15 @@ export async function giftTriggerRoutes(app: FastifyInstance) {
       },
     },
     async (req, reply) => {
+      const profile = await activeProfile(db, req.hostId);
       const [command] = await db
         .select({ id: commands.id })
         .from(commands)
-        .where(and(eq(commands.id, req.body.commandId), eq(commands.hostId, req.hostId)));
+        .where(and(eq(commands.id, req.body.commandId), eq(commands.profileId, profile.id)));
       if (!command) return reply.code(400).send({ error: 'Command not found' });
       const [created] = await db
         .insert(giftTriggers)
-        .values({ hostId: req.hostId, giftName: req.body.giftName.trim().toLowerCase(), commandId: command.id })
+        .values({ hostId: req.hostId, profileId: profile.id, giftName: req.body.giftName.trim().toLowerCase(), commandId: command.id })
         .onConflictDoNothing()
         .returning();
       if (!created) return reply.code(409).send({ error: 'That gift already has a trigger' });

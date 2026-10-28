@@ -4,9 +4,9 @@ import { createEngine, MAX_GIFT_REPEATS, type EngineConfig } from '../src/engine
 import { IDLE_MS } from '../src/engine/queue.js';
 import type { EngineCommand } from '../src/engine/types.js';
 
-const left: EngineCommand = { keyword: 'left', key: 'KeyA', holdMs: 300, cooldownMs: 1000, enabled: true };
-const right: EngineCommand = { keyword: 'right', key: 'KeyD', holdMs: 300, cooldownMs: 1000, enabled: true };
-const jump: EngineCommand = { keyword: 'jump', key: 'Space', holdMs: 100, cooldownMs: 0, enabled: true };
+const left: EngineCommand = { keyword: 'left', key: 'KeyA', holdMs: 300, cooldownMs: 1000, enabled: true, minLevel: 1 };
+const right: EngineCommand = { keyword: 'right', key: 'KeyD', holdMs: 300, cooldownMs: 1000, enabled: true, minLevel: 1 };
+const jump: EngineCommand = { keyword: 'jump', key: 'Space', holdMs: 100, cooldownMs: 0, enabled: true, minLevel: 1 };
 
 const comment = (viewerId: string, text: string): ViewerEvent => ({ kind: 'comment', viewerId, text, at: 0 });
 const gift = (viewerId: string, giftName: string, count = 1): ViewerEvent => ({
@@ -15,10 +15,11 @@ const gift = (viewerId: string, giftName: string, count = 1): ViewerEvent => ({
   giftId: 1,
   giftName,
   count,
+  diamonds: 1,
   at: 0,
 });
 
-function setup(mode: Mode, config: Partial<EngineConfig> = {}) {
+function setup(mode: Mode, config: Partial<EngineConfig> = {}, levels: Record<string, number> = {}) {
   let t = 0;
   let id = 0;
   const ctx = {
@@ -29,10 +30,12 @@ function setup(mode: Mode, config: Partial<EngineConfig> = {}) {
       voteWindowMs: 3000,
       turnMs: 30000,
       giftBoosts: true,
+      levelGating: false,
       ...config,
     },
     now: () => t,
     newId: () => `a${++id}`,
+    levelOf: (viewerId: string) => levels[viewerId] ?? 1,
   };
   const engine = createEngine(mode, ctx);
   const keys = (decisions: { action: { key: string } }[]) => decisions.map((d) => d.action.key);
@@ -241,5 +244,28 @@ describe('gift triggers', () => {
     expect(press(comment('alice', 'left'))).toEqual([]);
     expect(press(gift('alice', 'rose'))).toEqual(['Space']);
     expect(engine.state()).toEqual({ mode: 'gift' });
+  });
+});
+
+describe('level gating', () => {
+  const shoot: EngineCommand = { keyword: 'shoot', key: 'KeyF', holdMs: 100, cooldownMs: 0, enabled: true, minLevel: 3 };
+  const levels = { rookie: 1, veteran: 3 };
+
+  it('ignores commands above the viewer’s level, in every comment-driven mode', () => {
+    const { press } = setup('anarchy', { commands: [left, shoot], levelGating: true }, levels);
+    expect(press(comment('rookie', 'shoot'))).toEqual([]);
+    expect(press(comment('rookie', 'left'))).toEqual(['KeyA']);
+    expect(press(comment('veteran', 'shoot'))).toEqual(['KeyF']);
+
+    const democracy = setup('democracy', { commands: [shoot], levelGating: true }, levels);
+    democracy.press(comment('rookie', 'shoot'));
+    democracy.advance(3000);
+    expect(democracy.tick()).toEqual([]); // the vote never counted
+  });
+
+  it('is off unless the host turns it on, and never applies to gift triggers', () => {
+    expect(setup('anarchy', { commands: [shoot] }, levels).press(comment('rookie', 'shoot'))).toEqual(['KeyF']);
+    const gifted = setup('anarchy', { commands: [shoot], levelGating: true, giftTriggers: [{ giftName: 'rose', keyword: 'shoot' }] }, levels);
+    expect(gifted.press(gift('rookie', 'Rose'))).toEqual(['KeyF']);
   });
 });

@@ -6,6 +6,7 @@ export interface EngineCommand {
   holdMs: number;
   cooldownMs: number;
   enabled: boolean;
+  minLevel: number;
 }
 
 export interface GiftTrigger {
@@ -21,12 +22,14 @@ export interface EngineConfig {
   voteWindowMs: number;
   turnMs: number;
   giftBoosts: boolean;
+  levelGating: boolean; // commands with minLevel above a viewer's level ignore them
 }
 
 export interface EngineContext {
   config: EngineConfig;
   now: () => number;
   newId: () => string;
+  levelOf: (viewerId: string) => number;
 }
 
 export interface Decision {

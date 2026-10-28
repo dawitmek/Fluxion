@@ -1,11 +1,8 @@
 import { useEffect, useState } from 'react';
-import { QUEUE_JOIN, type LeaderboardEntry, type ModeState, type ServerToOverlay } from '@fluxion/shared';
+import { levelForXp, QUEUE_JOIN, type LeaderboardEntry, type ModeState, type ServerToOverlay } from '@fluxion/shared';
 
-interface FeedItem {
-  id: number;
-  viewer: string;
-  keyword: string;
-}
+// A command, or a level-up shout-out.
+type FeedItem = { id: number; viewer: string } & ({ keyword: string; level?: number } | { levelUp: number });
 
 const MAX_ITEMS = 6;
 const ITEM_TTL_MS = 8000;
@@ -18,7 +15,10 @@ export function Overlay({ token }: { token: string }) {
   const [live, setLive] = useState(false);
   // clockOffset converts server times to this machine's clock.
   const [mode, setMode] = useState<{ state: ModeState; clockOffset: number } | null>(null);
-  const [leaderboard, setLeaderboard] = useState<LeaderboardEntry[]>([]);
+  const [leaderboard, setLeaderboard] = useState<{ entries: LeaderboardEntry[]; progression: boolean }>({
+    entries: [],
+    progression: false,
+  });
 
   useEffect(() => {
     document.body.classList.add('overlay-body');
@@ -34,13 +34,16 @@ export function Overlay({ token }: { token: string }) {
         const message = JSON.parse(event.data) as ServerToOverlay;
         if (message.type === 'live') setLive(message.state === 'started');
         if (message.type === 'mode') setMode({ state: message.state, clockOffset: Date.now() - message.serverNow });
-        if (message.type === 'leaderboard') setLeaderboard(message.entries);
-        if (message.type === 'command') {
-          const item = { id: nextId++, viewer: message.viewer, keyword: message.keyword };
+        if (message.type === 'leaderboard') setLeaderboard({ entries: message.entries, progression: message.progression });
+        const add = (item: FeedItem) => {
           setLive(true);
           setItems((current) => [item, ...current].slice(0, MAX_ITEMS));
           setTimeout(() => setItems((current) => current.filter((i) => i.id !== item.id)), ITEM_TTL_MS);
+        };
+        if (message.type === 'command') {
+          add({ id: nextId++, viewer: message.viewer, keyword: message.keyword, level: message.level });
         }
+        if (message.type === 'levelUp') add({ id: nextId++, viewer: message.viewer, levelUp: message.level });
       };
       // A bad token is permanent (4001); anything else is worth retrying.
       socket.onclose = (event) => {
@@ -61,26 +64,35 @@ export function Overlay({ token }: { token: string }) {
   return (
     <>
       {mode && <ModePanel state={mode.state} clockOffset={mode.clockOffset} />}
-      {leaderboard.length > 0 && (
+      {leaderboard.entries.length > 0 && (
         <div className="overlay-panel overlay-leaderboard">
           <div className="overlay-title">Top players</div>
-          {leaderboard.slice(0, LEADERBOARD_SIZE).map((entry, i) => (
+          {leaderboard.entries.slice(0, LEADERBOARD_SIZE).map((entry, i) => (
             <div key={entry.viewer} className="overlay-row">
               <span className="overlay-rank">{i + 1}</span>
               <span className="overlay-name">{entry.viewer}</span>
-              <span className="overlay-score">{entry.commands}</span>
+              <span className="overlay-score">
+                {leaderboard.progression ? `Lv ${levelForXp(entry.xp)}` : entry.commands}
+              </span>
             </div>
           ))}
         </div>
       )}
       <div className="overlay">
         {items.length === 0 && mode?.state.mode === 'anarchy' && <div className="overlay-hint">Type a command in chat to play!</div>}
-        {items.map((item) => (
-          <div key={item.id} className="overlay-item">
-            <span className="overlay-viewer">{item.viewer}</span>
-            <span className="overlay-keyword">{item.keyword}</span>
-          </div>
-        ))}
+        {items.map((item) =>
+          'levelUp' in item ? (
+            <div key={item.id} className="overlay-item overlay-levelup">
+              <span className="overlay-viewer">{item.viewer}</span> reached <span className="overlay-keyword">level {item.levelUp}</span>
+            </div>
+          ) : (
+            <div key={item.id} className="overlay-item">
+              <span className="overlay-viewer">{item.viewer}</span>
+              {item.level !== undefined && <span className="overlay-level">Lv {item.level}</span>}
+              <span className="overlay-keyword">{item.keyword}</span>
+            </div>
+          ),
+        )}
       </div>
     </>
   );

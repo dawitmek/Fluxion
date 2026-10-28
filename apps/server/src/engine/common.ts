@@ -1,10 +1,13 @@
 import type { ViewerEvent } from '@fluxion/shared';
 import type { Decision, EngineCommand, EngineContext } from './types.js';
 
-// The enabled command a comment names, if any. The whole comment must be the keyword.
+// The enabled command a comment names, if any, and if the viewer's level allows it.
+// The whole comment must be the keyword.
 export function matchComment(ctx: EngineContext, event: Extract<ViewerEvent, { kind: 'comment' }>): EngineCommand | undefined {
   const keyword = event.text.trim().toLowerCase();
-  return ctx.config.commands.find((c) => c.enabled && c.keyword === keyword);
+  const command = ctx.config.commands.find((c) => c.enabled && c.keyword === keyword);
+  if (command && ctx.config.levelGating && ctx.levelOf(event.viewerId) < command.minLevel) return undefined;
+  return command;
 }
 
 export function decide(ctx: EngineContext, command: EngineCommand, viewer: string, credit: string[], delayMs?: number): Decision {

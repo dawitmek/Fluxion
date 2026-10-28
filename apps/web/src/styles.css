@@ -100,3 +100,8 @@ label.check input { width: auto; margin: 2px 0 0; }
 .overlay-bar { position: relative; display: flex; justify-content: space-between; gap: 12px; padding: 4px 8px; margin-top: 4px; border-radius: 6px; overflow: hidden; background: rgba(255, 255, 255, 0.08); }
 .overlay-bar > span { position: relative; }
 .overlay-bar-fill { position: absolute; inset: 0 auto 0 0; background: rgba(232, 23, 93, 0.6); transition: width 0.3s ease-out; }
+td.row-actions { display: flex; gap: 8px; align-items: center; justify-content: flex-end; }
+td input:not([type='checkbox']) { margin: 0; }
+.overlay-level { display: inline-block; margin-right: 10px; padding: 1px 7px; border-radius: 6px; background: rgba(255, 209, 102, 0.25); color: #ffd166; font-size: 16px; font-weight: 700; vertical-align: 2px; }
+.overlay-levelup { background: linear-gradient(90deg, rgba(232, 23, 93, 0.85), rgba(255, 140, 0, 0.85)); }
+.overlay-levelup .overlay-keyword { color: #fff; }

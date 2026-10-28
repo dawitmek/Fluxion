@@ -4,6 +4,7 @@ import { eq } from 'drizzle-orm';
 import { PROTOCOL_VERSION, type CompanionToServer, type ServerToCompanion } from '@fluxion/shared';
 import { companions, hosts } from '../db/schema.js';
 import { sha256 } from '../crypto.js';
+import { sendProfileToCompanions } from '../profiles/active.js';
 
 const HELLO_TIMEOUT_MS = 5000;
 
@@ -42,6 +43,7 @@ export async function gatewayRoutes(app: FastifyInstance) {
 
       hub.addCompanion(companion.hostId, companion.id, socket);
       reply(socket, { type: 'ready', hostId: companion.hostId });
+      await sendProfileToCompanions(app, companion.hostId).catch((err) => app.log.error(err, 'could not send profile'));
 
       socket.on('message', (data) => {
         try {

@@ -1,5 +1,5 @@
 import { useCallback, useEffect, useState, type FormEvent } from 'react';
-import { ALLOWED_KEYS, MODES, QUEUE_JOIN } from '@fluxion/shared';
+import { ALLOWED_KEYS, levelForXp, MAX_LEVEL, MODES, QUEUE_JOIN, xpForLevel } from '@fluxion/shared';
 import {
   api,
   ApiError,
@@ -10,6 +10,7 @@ import {
   type LeaderboardEntry,
   type LiveStatus,
   type Mode,
+  type Profile,
 } from './api';
 
 const MODE_INFO: Record<Mode, { label: string; help: string }> = {
@@ -99,10 +100,13 @@ function Main({ host, refreshHost, onLogout }: { host: Host; refreshHost: () => 
         </button>
       </header>
       <LiveSection host={host} refreshHost={refreshHost} />
-      <ModeSection host={host} refreshHost={refreshHost} />
-      <CommandsSection />
-      <GiftTriggersSection />
-      <LeaderboardSection />
+      <ProfilesSection host={host} refreshHost={refreshHost} />
+      {/* Keyed by profile so switching profiles reloads everything that belongs to one. */}
+      <ModeSection key={`mode-${host.profileId}`} host={host} refreshHost={refreshHost} />
+      <CommandsSection key={`commands-${host.profileId}`} host={host} />
+      <GiftTriggersSection key={`gifts-${host.profileId}`} />
+      <ProgressionSection host={host} refreshHost={refreshHost} />
+      <LeaderboardSection host={host} />
       <CompanionsSection />
       <OverlaySection host={host} />
     </main>
@@ -226,8 +230,11 @@ function ModeSection({ host, refreshHost }: { host: Host; refreshHost: () => voi
 
   return (
     <section className="card">
-      <h2>Crowd mode</h2>
-      <p className="muted">You can switch while live. Viewers' votes and the queue are kept when you change other settings.</p>
+      <h2>Crowd mode · {host.profileName}</h2>
+      <p className="muted">
+        Saved with the active profile. You can switch while live; votes and the queue are kept when you change other
+        settings.
+      </p>
       {error && <p className="error">{error}</p>}
       <div className="modes" role="radiogroup" aria-label="Crowd mode">
         {MODES.map((mode) => (
@@ -261,9 +268,119 @@ function ModeSection({ host, refreshHost }: { host: Host; refreshHost: () => voi
   );
 }
 
+function ProfilesSection({ host, refreshHost }: { host: Host; refreshHost: () => void }) {
+  const [profiles, setProfiles] = useState<Profile[]>([]);
+  const [name, setName] = useState('');
+  const [gameProcess, setGameProcess] = useState('');
+  const { error, guard } = useError();
+  const load = useCallback(() => api<Profile[]>('GET', '/profiles').then(setProfiles), []);
+  useEffect(() => void load(), [load, host.profileId]);
+
+  const patch = (id: string, body: Partial<Profile>) => guard(() => api('PATCH', `/profiles/${id}`, body).then(load))();
+  const activate = (id: string) => guard(() => api('POST', `/profiles/${id}/activate`).then(refreshHost))();
+  const add = (e: FormEvent) => {
+    e.preventDefault();
+    guard(() =>
+      api('POST', '/profiles', { name, gameProcess: gameProcess.trim() || null }).then(() => {
+        setName('');
+        setGameProcess('');
+        return load();
+      }),
+    )();
+  };
+
+  return (
+    <section className="card">
+      <h2>Game profiles</h2>
+      <p className="muted">
+        Each profile has its own commands, gift triggers and crowd mode. Switching applies immediately, even while live.
+        If a profile names its game's process (as listed in the companion, e.g. <code>gta5.exe</code>), the companion
+        switches to that game too.
+      </p>
+      {error && <p className="error">{error}</p>}
+      <div className="table-wrap">
+        <table>
+          <thead>
+            <tr>
+              <th>Profile</th>
+              <th>Game process</th>
+              <th />
+            </tr>
+          </thead>
+          <tbody>
+            {profiles.map((p) => (
+              <tr key={p.id}>
+                <td>
+                  <TextCell value={p.name} required onSave={(v) => patch(p.id, { name: v })} label="Profile name" />
+                </td>
+                <td>
+                  <TextCell
+                    value={p.gameProcess ?? ''}
+                    placeholder="none"
+                    onSave={(v) => patch(p.id, { gameProcess: v || null })}
+                    label="Game process"
+                  />
+                </td>
+                <td className="row-actions">
+                  {p.active ? (
+                    <span className="pill ok">Active</span>
+                  ) : (
+                    <>
+                      <button onClick={() => activate(p.id)}>Switch to</button>
+                      <button className="link" onClick={guard(() => api('DELETE', `/profiles/${p.id}`).then(load))}>
+                        Delete
+                      </button>
+                    </>
+                  )}
+                </td>
+              </tr>
+            ))}
+          </tbody>
+        </table>
+      </div>
+      <form className="inline add-command" onSubmit={add}>
+        <input placeholder="New profile name" value={name} onChange={(e) => setName(e.target.value)} required maxLength={48} aria-label="New profile name" />
+        <input placeholder="game.exe (optional)" value={gameProcess} onChange={(e) => setGameProcess(e.target.value)} aria-label="Game process" />
+        <button className="primary">Add (copies {host.profileName})</button>
+      </form>
+    </section>
+  );
+}
+
+function ProgressionSection({ host, refreshHost }: { host: Host; refreshHost: () => void }) {
+  const { error, guard } = useError();
+  const save = (patch: Partial<Host>) => guard(() => api('PATCH', '/settings', patch).then(refreshHost))();
+  return (
+    <section className="card">
+      <h2>Viewer progression</h2>
+      <p className="muted">
+        Viewers earn XP on your streams: 1 per command that presses a key, plus each gift's diamond value. Levels show
+        on the overlay, with a shout-out when someone levels up. Level 2 takes {xpForLevel(2)} XP, level 3 {xpForLevel(3)},
+        level 5 {xpForLevel(5)}, level 10 {xpForLevel(10)}.
+      </p>
+      {error && <p className="error">{error}</p>}
+      <label className="check">
+        <input type="checkbox" checked={host.progression} onChange={(e) => save({ progression: e.target.checked })} />
+        Show XP and levels on the overlay
+      </label>
+      <label className="check">
+        <input
+          type="checkbox"
+          checked={host.levelGating}
+          disabled={!host.progression}
+          onChange={(e) => save({ levelGating: e.target.checked })}
+        />
+        Level requirements: commands can require a minimum level (set per command). Off by default; gift triggers are
+        never gated.
+      </label>
+    </section>
+  );
+}
+
 const emptyCommand = { keyword: '', key: 'KeyA', holdMs: 300, cooldownMs: 1000 };
 
-function CommandsSection() {
+function CommandsSection({ host }: { host: Host }) {
+  const gated = host.progression && host.levelGating;
   const [commands, setCommands] = useState<Command[]>([]);
   const [draft, setDraft] = useState(emptyCommand);
   const { error, guard } = useError();
@@ -279,7 +396,7 @@ function CommandsSection() {
 
   return (
     <section className="card">
-      <h2>Commands</h2>
+      <h2>Commands · {host.profileName}</h2>
       <p className="muted">A comment fires a command when it is exactly the keyword (any capitalization).</p>
       {error && <p className="error">{error}</p>}
       <div className="table-wrap">
@@ -291,6 +408,7 @@ function CommandsSection() {
               <th>Key</th>
               <th>Hold (ms)</th>
               <th>Cooldown per viewer (ms)</th>
+              {gated && <th>Min level</th>}
               <th />
             </tr>
           </thead>
@@ -310,6 +428,11 @@ function CommandsSection() {
                 <td>
                   <NumberCell value={c.cooldownMs} min={0} max={600000} onSave={(cooldownMs) => update(c.id, { cooldownMs })} />
                 </td>
+                {gated && (
+                  <td>
+                    <NumberCell value={c.minLevel} min={1} max={MAX_LEVEL} onSave={(minLevel) => update(c.id, { minLevel })} />
+                  </td>
+                )}
                 <td>
                   <button className="link" onClick={() => remove(c.id)}>
                     Delete
@@ -397,7 +520,7 @@ function GiftTriggersSection() {
   );
 }
 
-function LeaderboardSection() {
+function LeaderboardSection({ host }: { host: Host }) {
   const [entries, setEntries] = useState<LeaderboardEntry[]>([]);
   const { error, guard } = useError();
   const load = useCallback(() => api<LeaderboardEntry[]>('GET', '/leaderboard').then(setEntries), []);
@@ -406,7 +529,10 @@ function LeaderboardSection() {
   return (
     <section className="card">
       <h2>Leaderboard</h2>
-      <p className="muted">Commands that actually pressed a key, and gifts sent, per viewer. Updates every few seconds.</p>
+      <p className="muted">
+        Commands that pressed a key and gifts sent, per viewer, ranked by XP (1 per command plus gift diamonds). Updates
+        every few seconds.
+      </p>
       {error && <p className="error">{error}</p>}
       {entries.length === 0 ? (
         <p className="muted">No activity yet.</p>
@@ -419,6 +545,8 @@ function LeaderboardSection() {
                 <th>Viewer</th>
                 <th>Commands</th>
                 <th>Gifts</th>
+                {host.progression && <th>XP</th>}
+                {host.progression && <th>Level</th>}
               </tr>
             </thead>
             <tbody>
@@ -428,6 +556,8 @@ function LeaderboardSection() {
                   <td>{e.viewer}</td>
                   <td>{e.commands}</td>
                   <td>{e.gifts}</td>
+                  {host.progression && <td>{e.xp}</td>}
+                  {host.progression && <td>{levelForXp(e.xp)}</td>}
                 </tr>
               ))}
             </tbody>
@@ -446,6 +576,37 @@ function LeaderboardSection() {
         </button>
       </div>
     </section>
+  );
+}
+
+// Saves on blur, like NumberCell.
+function TextCell({
+  value,
+  onSave,
+  label,
+  placeholder,
+  required,
+}: {
+  value: string;
+  onSave: (v: string) => void;
+  label: string;
+  placeholder?: string;
+  required?: boolean;
+}) {
+  const [text, setText] = useState(value);
+  useEffect(() => setText(value), [value]);
+  return (
+    <input
+      value={text}
+      placeholder={placeholder}
+      aria-label={label}
+      onChange={(e) => setText(e.target.value)}
+      onBlur={() => {
+        const next = text.trim();
+        if (next === value || (required && !next)) return setText(value);
+        onSave(next);
+      }}
+    />
   );
 }
 

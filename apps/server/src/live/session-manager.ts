@@ -1,7 +1,8 @@
 import { eq } from 'drizzle-orm';
-import type { Mode, ServerToOverlay, ViewerEvent } from '@fluxion/shared';
+import { XP_PER_COMMAND, type Mode, type ServerToOverlay, type ViewerEvent } from '@fluxion/shared';
 import type { Db } from '../db/client.js';
 import { commands, giftTriggers, hosts } from '../db/schema.js';
+import { activeProfile } from '../profiles/active.js';
 import { createEngine, type Decision, type Engine, type EngineConfig, type EngineContext } from '../engine/index.js';
 import type { Hub } from '../gateway/hub.js';
 import type { Stats } from '../leaderboard/stats.js';
@@ -17,6 +18,7 @@ interface LiveSession {
   source: Source;
   adapter: PlatformAdapter;
   mode: Mode;
+  progression: boolean;
   ctx: EngineContext;
   engine: Engine;
   ticker: NodeJS.Timeout;
@@ -49,7 +51,7 @@ export class SessionManager {
     await this.stop(hostId);
     const loaded = await this.loadConfig(hostId);
     if (!loaded) throw new LiveError('Host not found', 404);
-    const { host, config } = loaded;
+    const { host, mode, config } = loaded;
 
     let adapter: PlatformAdapter;
     if (source === 'simulated') {
@@ -59,13 +61,19 @@ export class SessionManager {
       adapter = this.createTikTok(host.tiktokUsername);
     }
 
-    const ctx: EngineContext = { config, now: Date.now, newId: () => crypto.randomUUID() };
+    const ctx: EngineContext = {
+      config,
+      now: Date.now,
+      newId: () => crypto.randomUUID(),
+      levelOf: (viewerId) => this.stats.levelOf(hostId, viewerId),
+    };
     const session: LiveSession = {
       source,
       adapter,
-      mode: host.mode,
+      mode,
+      progression: host.progression,
       ctx,
-      engine: createEngine(host.mode, ctx),
+      engine: createEngine(mode, ctx),
       ticker: setInterval(() => this.run(hostId, session, session.engine.tick()), TICK_MS),
       delayed: new Set(),
       lastState: '',
@@ -76,9 +84,11 @@ export class SessionManager {
     });
 
     try {
+      await this.stats.load(hostId);
       await adapter.start();
     } catch (err) {
       clearInterval(session.ticker);
+      this.stats.unload(hostId);
       throw new LiveError(`Could not connect to TikTok LIVE: ${(err as Error).message}`, 409);
     }
     this.sessions.set(hostId, session);
@@ -92,6 +102,7 @@ export class SessionManager {
     this.sessions.delete(hostId);
     clearInterval(session.ticker);
     for (const timer of session.delayed) clearTimeout(timer);
+    this.stats.unload(hostId);
     await session.adapter.stop();
     this.hub.sendToOverlays(hostId, { type: 'live', state: 'stopped' });
   }
@@ -120,11 +131,14 @@ export class SessionManager {
     const loaded = await this.loadConfig(hostId);
     if (!loaded || this.sessions.get(hostId) !== session) return;
     session.ctx.config = loaded.config;
-    if (loaded.host.mode !== session.mode) {
-      session.mode = loaded.host.mode;
+    if (loaded.mode !== session.mode) {
+      session.mode = loaded.mode;
       session.engine = createEngine(session.mode, session.ctx);
     }
+    const progressionChanged = loaded.host.progression !== session.progression;
+    session.progression = loaded.host.progression;
     this.pushState(hostId, session);
+    if (progressionChanged) await this.pushLeaderboard(hostId);
   }
 
   // What a newly connected overlay needs to catch up.
@@ -134,17 +148,20 @@ export class SessionManager {
     return [
       { type: 'live', state: 'started' },
       { type: 'mode', state: session.engine.state(), serverNow: Date.now() },
-      { type: 'leaderboard', entries: await this.stats.top(hostId) },
+      { type: 'leaderboard', entries: await this.stats.top(hostId), progression: session.progression },
     ];
   }
 
   async flushStats() {
-    const changed = await this.stats.flush();
-    for (const hostId of changed) {
-      if (this.sessions.has(hostId)) {
-        this.hub.sendToOverlays(hostId, { type: 'leaderboard', entries: await this.stats.top(hostId) });
-      }
-    }
+    for (const hostId of await this.stats.flush()) await this.pushLeaderboard(hostId);
+  }
+
+  // Sends the current leaderboard to a live host's overlays.
+  async pushLeaderboard(hostId: string) {
+    const session = this.sessions.get(hostId);
+    if (!session) return;
+    const entries = await this.stats.top(hostId);
+    this.hub.sendToOverlays(hostId, { type: 'leaderboard', entries, progression: session.progression });
   }
 
   async stopAll() {
@@ -158,7 +175,10 @@ export class SessionManager {
   }
 
   private onEvent(hostId: string, session: LiveSession, event: ViewerEvent) {
-    if (event.kind === 'gift') this.stats.record(hostId, event.viewerId, 'gifts', event.count);
+    if (event.kind === 'gift') {
+      const xp = Math.max(1, event.diamonds) * event.count;
+      this.levelUp(hostId, session, event.viewerId, this.stats.record(hostId, event.viewerId, { gifts: event.count, xp }));
+    }
     this.run(hostId, session, session.engine.handle(event));
   }
 
@@ -167,20 +187,36 @@ export class SessionManager {
       if (decision.delayMs) {
         const timer = setTimeout(() => {
           session.delayed.delete(timer);
-          this.fire(hostId, decision);
+          this.fire(hostId, session, decision);
         }, decision.delayMs);
         session.delayed.add(timer);
       } else {
-        this.fire(hostId, decision);
+        this.fire(hostId, session, decision);
       }
     }
     this.pushState(hostId, session);
   }
 
-  private fire(hostId: string, decision: Decision) {
+  private fire(hostId: string, session: LiveSession, decision: Decision) {
     this.hub.sendToCompanions(hostId, { type: 'action', action: decision.action });
-    this.hub.sendToOverlays(hostId, { type: 'command', viewer: decision.viewer, keyword: decision.keyword, at: Date.now() });
-    for (const viewerId of decision.credit) this.stats.record(hostId, viewerId, 'commands');
+    const levelUps = decision.credit.map((viewerId) => {
+      const level = this.stats.record(hostId, viewerId, { commands: 1, xp: XP_PER_COMMAND });
+      return [viewerId, level] as const;
+    });
+    // A level badge only makes sense when the overlay names one viewer (not "3 votes").
+    const level = session.progression && decision.credit[0] === decision.viewer ? this.stats.levelOf(hostId, decision.viewer) : undefined;
+    this.hub.sendToOverlays(hostId, {
+      type: 'command',
+      viewer: decision.viewer,
+      keyword: decision.keyword,
+      at: Date.now(),
+      ...(level !== undefined && { level }),
+    });
+    for (const [viewerId, newLevel] of levelUps) this.levelUp(hostId, session, viewerId, newLevel);
+  }
+
+  private levelUp(hostId: string, session: LiveSession, viewer: string, level: number | null) {
+    if (level !== null && session.progression) this.hub.sendToOverlays(hostId, { type: 'levelUp', viewer, level });
   }
 
   // Sends the mode state to overlays only when it changed.
@@ -192,27 +228,28 @@ export class SessionManager {
     this.hub.sendToOverlays(hostId, { type: 'mode', state, serverNow: Date.now() });
   }
 
-  private async loadConfig(hostId: string): Promise<{ host: typeof hosts.$inferSelect; config: EngineConfig } | null> {
+  // The host's settings plus their active profile's commands, triggers and mode settings.
+  private async loadConfig(hostId: string) {
     const [host] = await this.db.select().from(hosts).where(eq(hosts.id, hostId));
     if (!host) return null;
+    const profile = await activeProfile(this.db, hostId);
     const [commandRows, triggerRows] = await Promise.all([
-      this.db.select().from(commands).where(eq(commands.hostId, hostId)),
+      this.db.select().from(commands).where(eq(commands.profileId, profile.id)),
       this.db
         .select({ giftName: giftTriggers.giftName, keyword: commands.keyword })
         .from(giftTriggers)
         .innerJoin(commands, eq(giftTriggers.commandId, commands.id))
-        .where(eq(giftTriggers.hostId, hostId)),
+        .where(eq(giftTriggers.profileId, profile.id)),
     ]);
-    return {
-      host,
-      config: {
-        commands: commandRows,
-        giftTriggers: triggerRows,
-        actionsPerSecond: host.actionsPerSecond,
-        voteWindowMs: host.voteWindowMs,
-        turnMs: host.turnMs,
-        giftBoosts: host.giftBoosts,
-      },
+    const config: EngineConfig = {
+      commands: commandRows,
+      giftTriggers: triggerRows,
+      actionsPerSecond: host.actionsPerSecond,
+      voteWindowMs: profile.voteWindowMs,
+      turnMs: profile.turnMs,
+      giftBoosts: profile.giftBoosts,
+      levelGating: host.progression && host.levelGating,
     };
+    return { host, mode: profile.mode, config };
   }
 }

@@ -15,6 +15,20 @@
       "when": 1793171086266,
       "tag": "0001_phase2",
       "breakpoints": true
+    },
+    {
+      "idx": 2,
+      "version": "7",
+      "when": 1793195216497,
+      "tag": "0002_profiles_progression",
+      "breakpoints": true
+    },
+    {
+      "idx": 3,
+      "version": "7",
+      "when": 1793195228456,
+      "tag": "0003_move_mode_to_profiles",
+      "breakpoints": true
     }
   ]
 }

@@ -16,6 +16,7 @@ interface Snapshot {
   connection: string;
   paused: boolean;
   targetProcess: string | null;
+  profileName: string | null;
   allowedKeys: string[];
   allKeys: string[];
   log: LogEntry[];
@@ -128,6 +129,12 @@ function Paired({ state, run }: { state: Snapshot; run: (c: string, a?: Record<s
       <section className="card">
         <h2>Game</h2>
         <p className="hint">Keys are only pressed while this program's window is focused.</p>
+        {state.profileName && (
+          <p className="hint">
+            Dashboard profile: <strong>{state.profileName}</strong>. Switching profiles on the dashboard picks its game here
+            when the profile names one.
+          </p>
+        )}
         <div className="row">
           <select value={state.targetProcess ?? ""} onChange={(e) => run("set_target", { process: e.target.value || null })}>
             <option value="">Select a game…</option>

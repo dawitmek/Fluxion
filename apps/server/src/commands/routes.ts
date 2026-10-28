@@ -1,11 +1,12 @@
 import type { FastifyInstance } from 'fastify';
 import { and, eq } from 'drizzle-orm';
-import { isAllowedKey, QUEUE_JOIN } from '@fluxion/shared';
+import { isAllowedKey, MAX_LEVEL, QUEUE_JOIN } from '@fluxion/shared';
 import { commands } from '../db/schema.js';
 import { requireHost } from '../auth/session.js';
 import { isUniqueViolation } from '../db/client.js';
+import { activeProfile } from '../profiles/active.js';
 
-type CommandBody = { keyword: string; key: string; holdMs: number; cooldownMs: number; enabled?: boolean };
+type CommandBody = { keyword: string; key: string; holdMs: number; cooldownMs: number; enabled?: boolean; minLevel?: number };
 
 const fields = {
   keyword: { type: 'string', pattern: '^\\S{1,32}$' },
@@ -13,6 +14,7 @@ const fields = {
   holdMs: { type: 'integer', minimum: 10, maximum: 5000 },
   cooldownMs: { type: 'integer', minimum: 0, maximum: 600000 },
   enabled: { type: 'boolean' },
+  minLevel: { type: 'integer', minimum: 1, maximum: MAX_LEVEL },
 } as const;
 
 const reservedKeyword = (keyword: string | undefined) =>
@@ -24,7 +26,11 @@ export async function commandRoutes(app: FastifyInstance) {
   const { db } = app;
   app.addHook('preHandler', requireHost);
 
-  app.get('/', async (req) => db.select().from(commands).where(eq(commands.hostId, req.hostId)));
+  // Commands of the active profile; switching profiles switches the list.
+  app.get('/', async (req) => {
+    const profile = await activeProfile(db, req.hostId);
+    return db.select().from(commands).where(eq(commands.profileId, profile.id));
+  });
 
   app.post<{ Body: CommandBody }>(
     '/',
@@ -44,7 +50,12 @@ export async function commandRoutes(app: FastifyInstance) {
       if (reserved) return reply.code(400).send({ error: reserved });
       const [created] = await db
         .insert(commands)
-        .values({ ...req.body, keyword: req.body.keyword.toLowerCase(), hostId: req.hostId })
+        .values({
+          ...req.body,
+          keyword: req.body.keyword.toLowerCase(),
+          hostId: req.hostId,
+          profileId: (await activeProfile(db, req.hostId)).id,
+        })
         .onConflictDoNothing()
         .returning();
       if (!created) return reply.code(409).send({ error: 'Keyword already exists' });

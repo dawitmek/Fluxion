@@ -38,7 +38,7 @@ export async function liveRoutes(app: FastifyInstance) {
   app.get('/status', async (req) => live.status(req.hostId));
 
   // A fake comment ({viewer, text}) or gift ({viewer, gift, count}).
-  app.post<{ Body: { viewer: string; text?: string; gift?: string; count?: number } }>(
+  app.post<{ Body: { viewer: string; text?: string; gift?: string; count?: number; diamonds?: number } }>(
     '/simulate',
     {
       schema: {
@@ -52,16 +52,17 @@ export async function liveRoutes(app: FastifyInstance) {
             text: { type: 'string', minLength: 1, maxLength: 200 },
             gift: { type: 'string', minLength: 1, maxLength: 64 },
             count: { type: 'integer', minimum: 1, maximum: 100 },
+            diamonds: { type: 'integer', minimum: 0, maximum: 100000 },
           },
         },
       },
     },
     async (req, reply) => {
-      const { viewer, text, gift, count = 1 } = req.body;
+      const { viewer, text, gift, count = 1, diamonds = 1 } = req.body;
       const at = Date.now();
       const event: ViewerEvent =
         gift !== undefined
-          ? { kind: 'gift', viewerId: viewer, giftId: 0, giftName: gift, count, at }
+          ? { kind: 'gift', viewerId: viewer, giftId: 0, giftName: gift, count, diamonds, at }
           : { kind: 'comment', viewerId: viewer, text: text!, at };
       if (!live.simulate(req.hostId, event)) {
         return reply.code(409).send({ error: 'Start a simulated session first' });

@@ -1,8 +1,9 @@
 import type { FastifyInstance } from 'fastify';
 import { eq } from 'drizzle-orm';
-import { hosts } from '../db/schema.js';
+import { hosts, profiles } from '../db/schema.js';
 import { MODES, type Mode } from '@fluxion/shared';
 import { requireHost } from '../auth/session.js';
+import { activeProfile } from '../profiles/active.js';
 
 type Body = {
   tiktokUsername?: string | null;
@@ -11,7 +12,12 @@ type Body = {
   voteWindowMs?: number;
   turnMs?: number;
   giftBoosts?: boolean;
+  progression?: boolean;
+  levelGating?: boolean;
 };
+
+// Mode settings belong to the active profile (they differ per game); the rest to the host.
+const PROFILE_FIELDS = ['mode', 'voteWindowMs', 'turnMs', 'giftBoosts'] as const;
 
 export async function settingsRoutes(app: FastifyInstance) {
   app.addHook('preHandler', requireHost);
@@ -30,18 +36,28 @@ export async function settingsRoutes(app: FastifyInstance) {
             voteWindowMs: { type: 'integer', minimum: 1000, maximum: 30000 },
             turnMs: { type: 'integer', minimum: 5000, maximum: 300000 },
             giftBoosts: { type: 'boolean' },
+            progression: { type: 'boolean' },
+            levelGating: { type: 'boolean' },
           },
         },
       },
     },
     async (req) => {
-      const { tiktokUsername, ...rest } = req.body;
-      const patch = {
-        ...rest,
+      const { tiktokUsername, actionsPerSecond, progression, levelGating } = req.body;
+      const hostPatch = {
         ...(tiktokUsername !== undefined && { tiktokUsername: tiktokUsername?.replace(/^@/, '') ?? null }),
+        ...(actionsPerSecond !== undefined && { actionsPerSecond }),
+        ...(progression !== undefined && { progression }),
+        ...(levelGating !== undefined && { levelGating }),
       };
-      if (Object.keys(patch).length === 0) return { ok: true };
-      await app.db.update(hosts).set(patch).where(eq(hosts.id, req.hostId));
+      const profilePatch = Object.fromEntries(
+        PROFILE_FIELDS.filter((f) => req.body[f] !== undefined).map((f) => [f, req.body[f]]),
+      ) as Partial<typeof profiles.$inferInsert>;
+      if (Object.keys(hostPatch).length > 0) await app.db.update(hosts).set(hostPatch).where(eq(hosts.id, req.hostId));
+      if (Object.keys(profilePatch).length > 0) {
+        const profile = await activeProfile(app.db, req.hostId);
+        await app.db.update(profiles).set(profilePatch).where(eq(profiles.id, profile.id));
+      }
       await app.live.reload(req.hostId);
       return { ok: true };
     },

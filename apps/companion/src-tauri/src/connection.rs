@@ -82,6 +82,9 @@ async fn session(
                     *backoff = Duration::from_secs(1);
                     controller.set_connection("connected");
                 }
+                Ok(ServerMessage::Profile { name, game_process }) => {
+                    let _ = controller.apply_profile(name, game_process);
+                }
                 Ok(ServerMessage::Error { reason }) => controller.set_connection(format!("server error: {reason}")),
                 Ok(ServerMessage::Action { action }) => {
                     let result = controller.perform(&action.key, action.hold_ms);

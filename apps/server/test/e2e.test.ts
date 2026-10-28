@@ -33,12 +33,12 @@ afterAll(async () => {
 beforeEach(async () => {
   for (const socket of sockets.splice(0)) socket.close();
   await app.live.stopAll();
-  await app.db.execute(sql`TRUNCATE hosts, auth_sessions, commands, companions, pairing_codes, gift_triggers, viewer_stats CASCADE`);
+  await app.db.execute(sql`TRUNCATE hosts, auth_sessions, profiles, commands, companions, pairing_codes, gift_triggers, viewer_stats CASCADE`);
 });
 
 // --- helpers ---------------------------------------------------------------
 
-// Each signup comes from its own address so the auth rate limit (10/min per IP) doesn't trip.
+// Each signup and pairing comes from its own address so the rate limits (10/min per IP) don't trip.
 let clientCount = 0;
 const nextAddress = () => `10.0.${Math.floor(++clientCount / 250)}.${clientCount % 250}`;
 
@@ -59,7 +59,7 @@ const api = (cookie: string, method: 'GET' | 'POST' | 'PATCH' | 'DELETE', url: s
 
 async function pairCompanion(cookie: string) {
   const { code } = (await api(cookie, 'POST', '/api/companions/pairing-code')).json();
-  const res = await app.inject({ method: 'POST', url: '/api/companions/pair', payload: { code, name: 'Gaming PC' } });
+  const res = await app.inject({ method: 'POST', url: '/api/companions/pair', payload: { code, name: 'Gaming PC' }, remoteAddress: nextAddress() });
   expect(res.statusCode).toBe(201);
   return res.json() as { id: string; token: string };
 }
@@ -159,6 +159,7 @@ describe('live pipeline (simulated source)', () => {
 
     const companion = await connectCompanion(token);
     expect(await companion.next()).toMatchObject({ type: 'ready', hostId: me.id });
+    expect(await companion.next()).toEqual({ type: 'profile', name: 'Default', gameProcess: null });
     const overlay = connect(`/ws/overlay?token=${me.overlayToken}`);
     await overlay.opened;
 
@@ -192,6 +193,7 @@ describe('live pipeline (simulated source)', () => {
     const { token } = await pairCompanion(cookie);
     const companion = await connectCompanion(token);
     await companion.next(); // ready
+    await companion.next(); // profile
     await api(cookie, 'POST', '/api/live/start', { source: 'simulated' });
 
     const created = await api(cookie, 'POST', '/api/commands', { keyword: 'Shoot', key: 'KeyF', holdMs: 50, cooldownMs: 0 });
@@ -205,6 +207,7 @@ describe('live pipeline (simulated source)', () => {
     const b = await signUp('b@example.com');
     const companionB = await connectCompanion((await pairCompanion(b.cookie)).token);
     await companionB.next(); // ready
+    await companionB.next(); // profile
 
     await api(a.cookie, 'POST', '/api/live/start', { source: 'simulated' });
     await api(a.cookie, 'POST', '/api/live/simulate', { viewer: 'alice', text: 'left' });
@@ -219,6 +222,7 @@ describe('modes, gifts and leaderboard (simulated source)', () => {
     const host = await signUp();
     const companion = await connectCompanion((await pairCompanion(host.cookie)).token);
     await companion.next(); // ready
+    await companion.next(); // profile
     const me = (await api(host.cookie, 'GET', '/api/auth/me')).json();
     await api(host.cookie, 'POST', '/api/live/start', { source: 'simulated' });
     const say = (viewer: string, text: string) => api(host.cookie, 'POST', '/api/live/simulate', { viewer, text });
@@ -231,7 +235,7 @@ describe('modes, gifts and leaderboard (simulated source)', () => {
     // A late-joining overlay catches up on the session.
     expect(await overlay.next()).toEqual({ type: 'live', state: 'started' });
     expect(await overlay.next()).toMatchObject({ type: 'mode', state: { mode: 'anarchy' } });
-    expect(await overlay.next()).toEqual({ type: 'leaderboard', entries: [] });
+    expect(await overlay.next()).toEqual({ type: 'leaderboard', entries: [], progression: false });
 
     expect((await api(cookie, 'PATCH', '/api/settings', { mode: 'democracy', voteWindowMs: 1000 })).statusCode).toBe(200);
     expect(await overlay.next()).toMatchObject({ type: 'mode', state: { mode: 'democracy', tally: [], endsAt: null } });
@@ -264,8 +268,8 @@ describe('modes, gifts and leaderboard (simulated source)', () => {
 
     await app.live.flushStats();
     expect((await api(cookie, 'GET', '/api/leaderboard')).json()).toEqual([
-      { viewer: 'bob', commands: 1, gifts: 0 },
-      { viewer: 'alice', commands: 0, gifts: 2 },
+      { viewer: 'alice', commands: 0, gifts: 2, xp: 2 }, // 1 diamond per simulated gift
+      { viewer: 'bob', commands: 1, gifts: 0, xp: 1 },
     ]);
     const me = (await api(cookie, 'GET', '/api/auth/me')).json();
     const overlay = connect(`/ws/overlay?token=${me.overlayToken}`);
@@ -274,7 +278,7 @@ describe('modes, gifts and leaderboard (simulated source)', () => {
     expect((await overlay.next()).entries).toHaveLength(2);
     expect((await api(cookie, 'DELETE', '/api/leaderboard')).statusCode).toBe(204);
     expect((await api(cookie, 'GET', '/api/leaderboard')).json()).toEqual([]);
-    expect(await overlay.next()).toEqual({ type: 'leaderboard', entries: [] });
+    expect(await overlay.next()).toEqual({ type: 'leaderboard', entries: [], progression: false });
   });
 
   it('rejects a simulate request with both or neither of text and gift', async () => {
@@ -282,6 +286,95 @@ describe('modes, gifts and leaderboard (simulated source)', () => {
     const bad = (payload: object) => api(cookie, 'POST', '/api/live/simulate', payload);
     expect((await bad({ viewer: 'a' })).statusCode).toBe(400);
     expect((await bad({ viewer: 'a', text: 'left', gift: 'Rose' })).statusCode).toBe(400);
+  });
+});
+
+describe('game profiles', () => {
+  it('switches commands and tells the companion which game to target', async () => {
+    const { cookie } = await signUp();
+    const companion = await connectCompanion((await pairCompanion(cookie)).token);
+    await companion.next(); // ready
+    expect(await companion.next()).toEqual({ type: 'profile', name: 'Default', gameProcess: null });
+    await api(cookie, 'POST', '/api/live/start', { source: 'simulated' });
+
+    // A new profile copies the active one; editing it doesn't touch the original.
+    const created = await api(cookie, 'POST', '/api/profiles', { name: 'GTA V', gameProcess: 'GTA5.exe' });
+    expect(created.statusCode).toBe(201);
+    const gta = created.json();
+    expect(gta.gameProcess).toBe('gta5.exe');
+    expect((await api(cookie, 'POST', '/api/profiles', { name: 'GTA V' })).statusCode).toBe(409);
+    expect((await api(cookie, 'POST', '/api/profiles', { name: 'Bad', gameProcess: 'C:\\Games\\gta5.exe' })).statusCode).toBe(400);
+
+    expect((await api(cookie, 'POST', `/api/profiles/${gta.id}/activate`)).statusCode).toBe(200);
+    expect(await companion.next()).toEqual({ type: 'profile', name: 'GTA V', gameProcess: 'gta5.exe' });
+    const gtaCommands = (await api(cookie, 'GET', '/api/commands')).json();
+    expect(gtaCommands.map((c: any) => c.keyword).sort()).toEqual(['down', 'jump', 'left', 'right', 'up']);
+    const left = gtaCommands.find((c: any) => c.keyword === 'left');
+    await api(cookie, 'PATCH', `/api/commands/${left.id}`, { key: 'KeyQ' });
+
+    // The live session uses the active profile's commands immediately.
+    await api(cookie, 'POST', '/api/live/simulate', { viewer: 'alice', text: 'left' });
+    expect(await companion.next()).toMatchObject({ type: 'action', action: { key: 'KeyQ' } });
+
+    const list = (await api(cookie, 'GET', '/api/profiles')).json();
+    expect(list.map((p: any) => [p.name, p.active])).toEqual([
+      ['Default', false],
+      ['GTA V', true],
+    ]);
+    const original = list.find((p: any) => p.name === 'Default');
+    expect((await api(cookie, 'DELETE', `/api/profiles/${gta.id}`)).statusCode).toBe(409); // active
+    await api(cookie, 'POST', `/api/profiles/${original.id}/activate`);
+    expect(await companion.next()).toMatchObject({ type: 'profile', name: 'Default' });
+    await api(cookie, 'POST', '/api/live/simulate', { viewer: 'bob', text: 'left' });
+    expect(await companion.next()).toMatchObject({ type: 'action', action: { key: 'KeyA' } });
+    expect((await api(cookie, 'DELETE', `/api/profiles/${gta.id}`)).statusCode).toBe(204);
+  });
+
+  it("can't reach another host's profiles", async () => {
+    const a = await signUp('a@example.com');
+    const b = await signUp('b@example.com');
+    const [profileA] = (await api(a.cookie, 'GET', '/api/profiles')).json();
+    expect((await api(b.cookie, 'POST', `/api/profiles/${profileA.id}/activate`)).statusCode).toBe(404);
+    expect((await api(b.cookie, 'PATCH', `/api/profiles/${profileA.id}`, { name: 'x' })).statusCode).toBe(404);
+  });
+});
+
+describe('viewer progression', () => {
+  it('gates commands by level, levels viewers up and shows levels on the overlay', async () => {
+    const { cookie } = await signUp();
+    const companion = await connectCompanion((await pairCompanion(cookie)).token);
+    await companion.next(); // ready
+    await companion.next(); // profile
+    const me = (await api(cookie, 'GET', '/api/auth/me')).json();
+    expect([me.progression, me.levelGating]).toEqual([false, false]);
+    const left = (await api(cookie, 'GET', '/api/commands')).json().find((c: any) => c.keyword === 'left');
+    await api(cookie, 'PATCH', `/api/commands/${left.id}`, { minLevel: 2 });
+    await api(cookie, 'PATCH', '/api/settings', { progression: true, levelGating: true });
+
+    await api(cookie, 'POST', '/api/live/start', { source: 'simulated' });
+    const overlay = connect(`/ws/overlay?token=${me.overlayToken}`);
+    await overlay.next(); // live
+    await overlay.next(); // mode
+    expect(await overlay.next()).toEqual({ type: 'leaderboard', entries: [], progression: true });
+
+    await api(cookie, 'POST', '/api/live/simulate', { viewer: 'alice', text: 'left' });
+    expect(await companion.drain()).toEqual([]); // level 1 < 2
+
+    // A 10-diamond gift is 10 XP: level 2.
+    await api(cookie, 'POST', '/api/live/simulate', { viewer: 'alice', gift: 'Lion', diamonds: 10 });
+    expect(await overlay.next()).toEqual({ type: 'levelUp', viewer: 'alice', level: 2 });
+    await api(cookie, 'POST', '/api/live/simulate', { viewer: 'alice', text: 'left' });
+    expect(await companion.next()).toMatchObject({ type: 'action', action: { key: 'KeyA' } });
+    expect(await overlay.next()).toMatchObject({ type: 'command', viewer: 'alice', keyword: 'left', level: 2 });
+
+    // XP survives going offline and back.
+    await api(cookie, 'POST', '/api/live/stop');
+    await app.live.flushStats();
+    await api(cookie, 'POST', '/api/live/start', { source: 'simulated' });
+    await api(cookie, 'POST', '/api/live/simulate', { viewer: 'alice', text: 'left' });
+    expect(await companion.next()).toMatchObject({ type: 'action', action: { key: 'KeyA' } });
+    await app.live.flushStats();
+    expect((await api(cookie, 'GET', '/api/leaderboard')).json()).toEqual([{ viewer: 'alice', commands: 2, gifts: 1, xp: 12 }]);
   });
 });
 
@@ -305,8 +398,9 @@ describe('gateway auth', () => {
   it('pairing codes work once', async () => {
     const { cookie } = await signUp();
     const { code } = (await api(cookie, 'POST', '/api/companions/pairing-code')).json();
-    const first = await app.inject({ method: 'POST', url: '/api/companions/pair', payload: { code, name: 'PC' } });
-    const second = await app.inject({ method: 'POST', url: '/api/companions/pair', payload: { code, name: 'PC' } });
+    const remoteAddress = nextAddress();
+    const first = await app.inject({ method: 'POST', url: '/api/companions/pair', payload: { code, name: 'PC' }, remoteAddress });
+    const second = await app.inject({ method: 'POST', url: '/api/companions/pair', payload: { code, name: 'PC' }, remoteAddress });
     expect([first.statusCode, second.statusCode]).toEqual([201, 400]);
   });
 
@@ -315,6 +409,7 @@ describe('gateway auth', () => {
     const { id, token } = await pairCompanion(cookie);
     const companion = await connectCompanion(token);
     await companion.next(); // ready
+    await companion.next(); // profile
     expect((await api(cookie, 'DELETE', `/api/companions/${id}`)).statusCode).toBe(204);
     expect(await companion.closed).toBe(4003);
   });

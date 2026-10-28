@@ -8,7 +8,7 @@ export async function leaderboardRoutes(app: FastifyInstance) {
 
   app.delete('/', async (req, reply) => {
     await app.stats.reset(req.hostId);
-    app.hub.sendToOverlays(req.hostId, { type: 'leaderboard', entries: [] });
+    await app.live.pushLeaderboard(req.hostId);
     return reply.code(204).send();
   });
 }
