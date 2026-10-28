@@ -1,8 +1,12 @@
 import { useCallback, useEffect, useRef, useState, type FormEvent } from 'react';
-import { ALLOWED_KEYS, levelForXp, MAX_LEVEL, MODES, QUEUE_JOIN, xpForLevel } from '@fluxion/shared';
+import { ALERT_EVENTS, ALERT_SOUNDS, ALLOWED_KEYS, levelForXp, MAX_LEVEL, MODES, QUEUE_JOIN, xpForLevel } from '@fluxion/shared';
+import { playSound } from './sounds';
 import {
   api,
   ApiError,
+  type AlertEvent,
+  type AlertRule,
+  type AlertSound,
   type Command,
   type Companion,
   type GiftTrigger,
@@ -108,6 +112,8 @@ function Main({ host, refreshHost, onLogout }: { host: Host; refreshHost: () => 
       <CommandsSection key={`commands-${host.profileId}`} host={host} />
       <GiftTriggersSection key={`gifts-${host.profileId}`} />
       <ProgressionSection host={host} refreshHost={refreshHost} />
+      <AlertsSection />
+      <TtsSection host={host} refreshHost={refreshHost} />
       <LeaderboardSection host={host} />
       <CompanionsSection />
       <OverlaySection host={host} />
@@ -218,6 +224,19 @@ function LiveSection({ host, refreshHost }: { host: Host; refreshHost: () => Pro
             />
             <button type="button" onClick={simulateGift}>
               Send gift
+            </button>
+          </div>
+          <div className="inline">
+            {(['follow', 'share'] as const).map((event) => (
+              <button key={event} type="button" onClick={guard(() => api('POST', '/live/simulate', { viewer: testViewer, event }))}>
+                Send {event}
+              </button>
+            ))}
+            <button
+              type="button"
+              onClick={guard(() => api('POST', '/live/simulate', { viewer: testViewer, event: 'like', count: 100 }))}
+            >
+              Send 100 likes
             </button>
           </div>
         </form>
@@ -375,6 +394,222 @@ function ProgressionSection({ host, refreshHost }: { host: Host; refreshHost: ()
         Level requirements: commands can require a minimum level (set per command). Off by default; gift triggers are
         never gated.
       </label>
+    </section>
+  );
+}
+
+const EVENT_LABELS: Record<AlertEvent, string> = { follow: 'Follow', share: 'Share', gift: 'Gift', likes: 'Likes' };
+const DEFAULT_TEMPLATES: Record<AlertEvent, string> = {
+  follow: '{viewer} followed!',
+  share: '{viewer} shared the stream!',
+  gift: '{viewer} sent {count}× {gift}!',
+  likes: '{total} likes! Thanks {viewer}',
+};
+
+// One AudioContext for previewing sounds on the dashboard.
+let previewAudio: AudioContext | null = null;
+const previewSound = (sound: AlertSound) => playSound((previewAudio ??= new AudioContext()), sound);
+
+function AlertsSection() {
+  const [alerts, setAlerts] = useState<AlertRule[]>([]);
+  const [event, setEvent] = useState<AlertEvent>('follow');
+  const { error, guard } = useError();
+  const load = useCallback(() => api<AlertRule[]>('GET', '/alerts').then(setAlerts), []);
+  useEffect(() => void load(), [load]);
+
+  const update = (id: string, patch: Partial<AlertRule>) => guard(() => api('PATCH', `/alerts/${id}`, patch).then(load))();
+  const add = () =>
+    guard(() =>
+      api('POST', '/alerts', {
+        event,
+        template: DEFAULT_TEMPLATES[event],
+        sound: 'chime',
+        ...(event === 'likes' && { likeStep: 1000 }),
+      }).then(load),
+    )();
+
+  return (
+    <section className="card">
+      <h2>Alerts</h2>
+      <p className="muted">
+        Shown big on the overlay, one at a time, with a sound and optionally read aloud. Placeholders: {'{viewer}'},{' '}
+        {'{count}'}, {'{gift}'}, {'{total}'} (likes). A gift alert for a specific gift replaces the any-gift one. Test
+        sends a sample to your overlay, live or not.
+      </p>
+      {error && <p className="error">{error}</p>}
+      <div className="table-wrap">
+        <table>
+          <thead>
+            <tr>
+              <th>On</th>
+              <th>Event</th>
+              <th>When</th>
+              <th>Text</th>
+              <th>Sound</th>
+              <th>Read aloud</th>
+              <th />
+            </tr>
+          </thead>
+          <tbody>
+            {alerts.map((a) => (
+              <tr key={a.id}>
+                <td>
+                  <input type="checkbox" checked={a.enabled} onChange={(e) => update(a.id, { enabled: e.target.checked })} />
+                </td>
+                <td>{EVENT_LABELS[a.event]}</td>
+                <td>
+                  {a.event === 'gift' && (
+                    <TextCell value={a.giftName ?? ''} placeholder="any gift" label="Gift name" onSave={(v) => update(a.id, { giftName: v || null })} />
+                  )}
+                  {a.event === 'likes' && (
+                    <span className="inline">
+                      every
+                      <NumberCell value={a.likeStep ?? 1000} min={1} max={1_000_000} onSave={(likeStep) => update(a.id, { likeStep })} />
+                    </span>
+                  )}
+                </td>
+                <td>
+                  <TextCell value={a.template} required label="Alert text" onSave={(template) => update(a.id, { template })} />
+                </td>
+                <td>
+                  <span className="inline">
+                    <select
+                      value={a.sound ?? ''}
+                      onChange={(e) => update(a.id, { sound: (e.target.value || null) as AlertSound | null })}
+                      aria-label="Sound"
+                    >
+                      <option value="">none</option>
+                      {ALERT_SOUNDS.map((s) => (
+                        <option key={s} value={s}>
+                          {s}
+                        </option>
+                      ))}
+                    </select>
+                    {a.sound && (
+                      <button className="link" onClick={() => previewSound(a.sound!)} aria-label={`Play ${a.sound}`}>
+                        ▶
+                      </button>
+                    )}
+                  </span>
+                </td>
+                <td>
+                  <input type="checkbox" checked={a.speak} onChange={(e) => update(a.id, { speak: e.target.checked })} />
+                </td>
+                <td className="row-actions">
+                  <button onClick={guard(() => api('POST', `/alerts/${a.id}/test`))}>Test</button>
+                  <button className="link" onClick={guard(() => api('DELETE', `/alerts/${a.id}`).then(load))}>
+                    Delete
+                  </button>
+                </td>
+              </tr>
+            ))}
+          </tbody>
+        </table>
+      </div>
+      <div className="inline add-command">
+        <select value={event} onChange={(e) => setEvent(e.target.value as AlertEvent)} aria-label="New alert event">
+          {ALERT_EVENTS.map((e) => (
+            <option key={e} value={e}>
+              {EVENT_LABELS[e]}
+            </option>
+          ))}
+        </select>
+        <button className="primary" onClick={add}>
+          Add alert
+        </button>
+      </div>
+    </section>
+  );
+}
+
+// Voices come from this browser; the overlay uses the same name if its browser has that voice.
+function useVoices() {
+  const [voices, setVoices] = useState<SpeechSynthesisVoice[]>([]);
+  useEffect(() => {
+    if (!('speechSynthesis' in window)) return;
+    const load = () => setVoices(speechSynthesis.getVoices());
+    load();
+    speechSynthesis.addEventListener('voiceschanged', load);
+    return () => speechSynthesis.removeEventListener('voiceschanged', load);
+  }, []);
+  return voices;
+}
+
+function TtsSection({ host, refreshHost }: { host: Host; refreshHost: () => Promise<unknown> }) {
+  const { error, guard } = useError();
+  const voices = useVoices();
+  const save = (patch: Partial<Host>) => guard(() => api('PATCH', '/settings', patch).then(refreshHost))();
+  const preview = () => {
+    const utterance = new SpeechSynthesisUtterance('viewer says hello from Fluxion');
+    const voice = voices.find((v) => v.name === host.ttsVoice);
+    if (voice) utterance.voice = voice;
+    speechSynthesis.speak(utterance);
+  };
+
+  return (
+    <section className="card">
+      <h2>Text-to-speech</h2>
+      <p className="muted">
+        Your overlay reads chat aloud as "viewer says …". Links are never read, and in "all chat" mode game commands are
+        skipped.
+      </p>
+      {error && <p className="error">{error}</p>}
+      <div className="modes" role="radiogroup" aria-label="Text-to-speech mode">
+        {(
+          [
+            ['off', 'Off', 'Only alerts marked "Read aloud" are spoken.'],
+            ['prefix', 'Prefixed chat', `Comments starting with ${host.ttsPrefix}, e.g. "${host.ttsPrefix} hello".`],
+            ['all', 'All chat', 'Every comment that passes the filters below. Busiest option.'],
+          ] as const
+        ).map(([mode, label, help]) => (
+          <label key={mode} className={`mode ${host.ttsMode === mode ? 'selected' : ''}`}>
+            <input type="radio" name="ttsMode" checked={host.ttsMode === mode} onChange={() => save({ ttsMode: mode })} />
+            <strong>{label}</strong>
+            <span className="muted">{help}</span>
+          </label>
+        ))}
+      </div>
+      <div className="grid2">
+        <label>
+          Prefix
+          <TextCell value={host.ttsPrefix} required label="Prefix" onSave={(ttsPrefix) => save({ ttsPrefix })} />
+        </label>
+        <label>
+          Voice (from this browser)
+          <select value={host.ttsVoice ?? ''} onChange={(e) => save({ ttsVoice: e.target.value || null })}>
+            <option value="">Default voice</option>
+            {voices.map((v) => (
+              <option key={v.name} value={v.name}>
+                {v.name} ({v.lang})
+              </option>
+            ))}
+          </select>
+        </label>
+        <label>
+          Max length (characters)
+          <NumberCell value={host.ttsMaxLength} min={10} max={300} onSave={(ttsMaxLength) => save({ ttsMaxLength })} />
+        </label>
+        <label>
+          Cooldown per viewer (seconds)
+          <NumberCell
+            value={host.ttsCooldownMs / 1000}
+            min={0}
+            max={600}
+            onSave={(s) => save({ ttsCooldownMs: s * 1000 })}
+          />
+        </label>
+        {host.progression && (
+          <label>
+            Minimum level
+            <NumberCell value={host.ttsMinLevel} min={1} max={MAX_LEVEL} onSave={(ttsMinLevel) => save({ ttsMinLevel })} />
+          </label>
+        )}
+      </div>
+      <label>
+        Blocked words (comma-separated; a comment containing one is not read)
+        <TextCell value={host.ttsBlockedWords} label="Blocked words" onSave={(ttsBlockedWords) => save({ ttsBlockedWords })} />
+      </label>
+      <button onClick={preview}>Preview voice here</button>
     </section>
   );
 }

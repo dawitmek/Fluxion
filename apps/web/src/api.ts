@@ -20,9 +20,9 @@ export async function api<T = unknown>(method: string, path: string, body?: unkn
   return data as T;
 }
 
-import type { LeaderboardEntry, Mode } from '@fluxion/shared';
+import type { AlertEvent, AlertSound, LeaderboardEntry, Mode, TtsMode } from '@fluxion/shared';
 
-export type { LeaderboardEntry, Mode };
+export type { AlertEvent, AlertSound, LeaderboardEntry, Mode, TtsMode };
 
 export interface Host {
   id: string;
@@ -32,6 +32,13 @@ export interface Host {
   actionsPerSecond: number;
   progression: boolean;
   levelGating: boolean;
+  ttsMode: TtsMode;
+  ttsPrefix: string;
+  ttsMaxLength: number;
+  ttsCooldownMs: number;
+  ttsMinLevel: number;
+  ttsBlockedWords: string;
+  ttsVoice: string | null;
   // Active profile
   profileId: string;
   profileName: string;
@@ -49,6 +56,17 @@ export interface Command {
   cooldownMs: number;
   enabled: boolean;
   minLevel: number;
+}
+
+export interface AlertRule {
+  id: string;
+  event: AlertEvent;
+  giftName: string | null;
+  likeStep: number | null;
+  template: string;
+  sound: AlertSound | null;
+  speak: boolean;
+  enabled: boolean;
 }
 
 export interface Profile {

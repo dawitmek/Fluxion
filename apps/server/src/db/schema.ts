@@ -1,5 +1,5 @@
 import { boolean, integer, pgTable, primaryKey, text, timestamp, unique, uuid, type AnyPgColumn } from 'drizzle-orm/pg-core';
-import type { Mode } from '@fluxion/shared';
+import type { AlertEvent, AlertSound, Mode, TtsMode } from '@fluxion/shared';
 
 export const hosts = pgTable('hosts', {
   id: uuid('id').primaryKey().defaultRandom(),
@@ -12,6 +12,14 @@ export const hosts = pgTable('hosts', {
   activeProfileId: uuid('active_profile_id').references((): AnyPgColumn => profiles.id),
   progression: boolean('progression').notNull().default(false), // XP and levels on the overlay
   levelGating: boolean('level_gating').notNull().default(false), // commands may require a level
+  // Text-to-speech of chat, spoken by the overlay.
+  ttsMode: text('tts_mode').$type<TtsMode>().notNull().default('prefix'),
+  ttsPrefix: text('tts_prefix').notNull().default('!tts'),
+  ttsMaxLength: integer('tts_max_length').notNull().default(150),
+  ttsCooldownMs: integer('tts_cooldown_ms').notNull().default(15000), // per viewer
+  ttsMinLevel: integer('tts_min_level').notNull().default(1), // only enforced with progression on
+  ttsBlockedWords: text('tts_blocked_words').notNull().default(''), // comma-separated
+  ttsVoice: text('tts_voice'), // a browser voice name; null means the overlay's default
   createdAt: timestamp('created_at', { withTimezone: true }).notNull().defaultNow(),
 });
 
@@ -65,6 +73,19 @@ export const giftTriggers = pgTable(
   },
   (t) => [unique().on(t.profileId, t.giftName)],
 );
+
+// An alert shown (and optionally spoken) on the overlay when an event happens.
+export const alertRules = pgTable('alert_rules', {
+  id: uuid('id').primaryKey().defaultRandom(),
+  hostId: uuid('host_id').notNull().references(() => hosts.id, { onDelete: 'cascade' }),
+  event: text('event').$type<AlertEvent>().notNull(),
+  giftName: text('gift_name'), // gift alerts: only this gift (lowercase); null matches any gift
+  likeStep: integer('like_step'), // likes alerts: fire every time the stream's total passes a multiple of this
+  template: text('template').notNull(),
+  sound: text('sound').$type<AlertSound>(),
+  speak: boolean('speak').notNull().default(false),
+  enabled: boolean('enabled').notNull().default(true),
+});
 
 // Leaderboard aggregates. Raw chat is never stored.
 export const viewerStats = pgTable(

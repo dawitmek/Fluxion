@@ -1,7 +1,8 @@
 import { eq } from 'drizzle-orm';
-import { XP_PER_COMMAND, type Mode, type ServerToOverlay, type ViewerEvent } from '@fluxion/shared';
+import { QUEUE_JOIN, XP_PER_COMMAND, type Mode, type ServerToOverlay, type ViewerEvent } from '@fluxion/shared';
 import type { Db } from '../db/client.js';
-import { commands, giftTriggers, hosts } from '../db/schema.js';
+import { alertRules, commands, giftTriggers, hosts } from '../db/schema.js';
+import { createAlerts, parseBlockedWords, type AlertContext } from '../alerts/engine.js';
 import { activeProfile } from '../profiles/active.js';
 import { createEngine, type Decision, type Engine, type EngineConfig, type EngineContext } from '../engine/index.js';
 import type { Hub } from '../gateway/hub.js';
@@ -21,6 +22,8 @@ interface LiveSession {
   progression: boolean;
   ctx: EngineContext;
   engine: Engine;
+  alertCtx: AlertContext;
+  alerts: ReturnType<typeof createAlerts>;
   ticker: NodeJS.Timeout;
   delayed: Set<NodeJS.Timeout>; // pending repeats of gift-triggered presses
   lastState: string;
@@ -51,7 +54,7 @@ export class SessionManager {
     await this.stop(hostId);
     const loaded = await this.loadConfig(hostId);
     if (!loaded) throw new LiveError('Host not found', 404);
-    const { host, mode, config } = loaded;
+    const { host, mode, config, alertConfig } = loaded;
 
     let adapter: PlatformAdapter;
     if (source === 'simulated') {
@@ -67,6 +70,15 @@ export class SessionManager {
       newId: () => crypto.randomUUID(),
       levelOf: (viewerId) => this.stats.levelOf(hostId, viewerId),
     };
+    const alertCtx: AlertContext = {
+      config: alertConfig,
+      now: Date.now,
+      levelOf: ctx.levelOf,
+      isCommand: (text) => {
+        const keyword = text.trim().toLowerCase();
+        return keyword === QUEUE_JOIN || ctx.config.commands.some((c) => c.enabled && c.keyword === keyword);
+      },
+    };
     const session: LiveSession = {
       source,
       adapter,
@@ -74,6 +86,8 @@ export class SessionManager {
       progression: host.progression,
       ctx,
       engine: createEngine(mode, ctx),
+      alertCtx,
+      alerts: createAlerts(alertCtx),
       ticker: setInterval(() => this.run(hostId, session, session.engine.tick()), TICK_MS),
       delayed: new Set(),
       lastState: '',
@@ -131,6 +145,7 @@ export class SessionManager {
     const loaded = await this.loadConfig(hostId);
     if (!loaded || this.sessions.get(hostId) !== session) return;
     session.ctx.config = loaded.config;
+    session.alertCtx.config = loaded.alertConfig;
     if (loaded.mode !== session.mode) {
       session.mode = loaded.mode;
       session.engine = createEngine(session.mode, session.ctx);
@@ -180,6 +195,7 @@ export class SessionManager {
       this.levelUp(hostId, session, event.viewerId, this.stats.record(hostId, event.viewerId, { gifts: event.count, xp }));
     }
     this.run(hostId, session, session.engine.handle(event));
+    for (const message of session.alerts.handle(event)) this.hub.sendToOverlays(hostId, message);
   }
 
   private run(hostId: string, session: LiveSession, decisions: Decision[]) {
@@ -233,13 +249,14 @@ export class SessionManager {
     const [host] = await this.db.select().from(hosts).where(eq(hosts.id, hostId));
     if (!host) return null;
     const profile = await activeProfile(this.db, hostId);
-    const [commandRows, triggerRows] = await Promise.all([
+    const [commandRows, triggerRows, alertRows] = await Promise.all([
       this.db.select().from(commands).where(eq(commands.profileId, profile.id)),
       this.db
         .select({ giftName: giftTriggers.giftName, keyword: commands.keyword })
         .from(giftTriggers)
         .innerJoin(commands, eq(giftTriggers.commandId, commands.id))
         .where(eq(giftTriggers.profileId, profile.id)),
+      this.db.select().from(alertRules).where(eq(alertRules.hostId, hostId)),
     ]);
     const config: EngineConfig = {
       commands: commandRows,
@@ -250,6 +267,19 @@ export class SessionManager {
       giftBoosts: profile.giftBoosts,
       levelGating: host.progression && host.levelGating,
     };
-    return { host, mode: profile.mode, config };
+    const alertConfig: AlertContext['config'] = {
+      rules: alertRows,
+      progression: host.progression,
+      tts: {
+        mode: host.ttsMode,
+        prefix: host.ttsPrefix,
+        maxLength: host.ttsMaxLength,
+        cooldownMs: host.ttsCooldownMs,
+        minLevel: host.ttsMinLevel,
+        blockedWords: parseBlockedWords(host.ttsBlockedWords),
+        voice: host.ttsVoice,
+      },
+    };
+    return { host, mode: profile.mode, config, alertConfig };
   }
 }

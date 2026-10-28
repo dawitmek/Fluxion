@@ -1,4 +1,5 @@
 import { useEffect, useState } from 'react';
+import { AlertPlayer } from './alert-player';
 import { levelForXp, QUEUE_JOIN, type LeaderboardEntry, type ModeState, type ServerToOverlay } from '@fluxion/shared';
 
 // A command, or a level-up shout-out.
@@ -19,6 +20,9 @@ export function Overlay({ token }: { token: string }) {
     entries: [],
     progression: false,
   });
+  const [alert, setAlert] = useState<{ id: number; text: string } | null>(null);
+  const [soundBlocked, setSoundBlocked] = useState(false);
+  const [player] = useState(() => new AlertPlayer(setAlert, setSoundBlocked));
 
   useEffect(() => {
     document.body.classList.add('overlay-body');
@@ -44,6 +48,8 @@ export function Overlay({ token }: { token: string }) {
           add({ id: nextId++, viewer: message.viewer, keyword: message.keyword, level: message.level });
         }
         if (message.type === 'levelUp') add({ id: nextId++, viewer: message.viewer, levelUp: message.level });
+        if (message.type === 'alert') player.enqueue(message);
+        if (message.type === 'tts') player.speak(`${message.viewer} says ${message.text}`, message.voice);
       };
       // A bad token is permanent (4001); anything else is worth retrying.
       socket.onclose = (event) => {
@@ -56,11 +62,38 @@ export function Overlay({ token }: { token: string }) {
       closed = true;
       clearTimeout(retry);
       socket.close();
+      player.stop();
       document.body.classList.remove('overlay-body');
     };
-  }, [token]);
+  }, [token, player]);
 
-  if (!live) return null;
+  return (
+    <>
+      {/* Alerts show even while offline, so the dashboard's Test button works before going live. */}
+      {alert && (
+        <div key={alert.id} className="overlay-alert">
+          {alert.text}
+        </div>
+      )}
+      {soundBlocked && (
+        <button className="overlay-unblock" onClick={() => player.unblock()}>
+          Click to enable alert sounds and voice (not needed in OBS or LIVE Studio)
+        </button>
+      )}
+      {live && <LiveWidgets mode={mode} leaderboard={leaderboard} items={items} />}
+    </>
+  );
+}
+
+function LiveWidgets({
+  mode,
+  leaderboard,
+  items,
+}: {
+  mode: { state: ModeState; clockOffset: number } | null;
+  leaderboard: { entries: LeaderboardEntry[]; progression: boolean };
+  items: FeedItem[];
+}) {
   return (
     <>
       {mode && <ModePanel state={mode.state} clockOffset={mode.clockOffset} />}

@@ -29,6 +29,13 @@
       "when": 1793195228456,
       "tag": "0003_move_mode_to_profiles",
       "breakpoints": true
+    },
+    {
+      "idx": 4,
+      "version": "7",
+      "when": 1793197357833,
+      "tag": "0004_alerts_tts",
+      "breakpoints": true
     }
   ]
 }

@@ -65,10 +65,23 @@ export function xpForLevel(level: number): number {
   return 10 * (level - 1) ** 2;
 }
 
+// Alerts: on-stream banners with a built-in sound, optionally read aloud.
+export const ALERT_EVENTS = ['follow', 'share', 'gift', 'likes'] as const;
+export type AlertEvent = (typeof ALERT_EVENTS)[number];
+// Synthesized in the overlay, so there are no audio files to host.
+export const ALERT_SOUNDS = ['chime', 'coin', 'pop', 'fanfare', 'whoosh'] as const;
+export type AlertSound = (typeof ALERT_SOUNDS)[number];
+// Template placeholders: {viewer}, {count}, {gift}, {total}.
+
+export const TTS_MODES = ['off', 'prefix', 'all'] as const;
+export type TtsMode = (typeof TTS_MODES)[number];
+
 // Server -> overlay, over /ws/overlay. Read-only.
 export type ServerToOverlay =
   | { type: 'command'; viewer: string; keyword: string; at: number; level?: number } // level: progression on
   | { type: 'live'; state: 'started' | 'stopped' }
   | { type: 'mode'; state: ModeState; serverNow: number } // serverNow lets the overlay correct for clock skew
   | { type: 'leaderboard'; entries: LeaderboardEntry[]; progression: boolean }
-  | { type: 'levelUp'; viewer: string; level: number };
+  | { type: 'levelUp'; viewer: string; level: number }
+  | { type: 'alert'; text: string; sound: AlertSound | null; speak: boolean; voice: string | null }
+  | { type: 'tts'; viewer: string; text: string; voice: string | null };

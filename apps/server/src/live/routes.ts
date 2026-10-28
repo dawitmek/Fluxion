@@ -37,8 +37,10 @@ export async function liveRoutes(app: FastifyInstance) {
 
   app.get('/status', async (req) => live.status(req.hostId));
 
-  // A fake comment ({viewer, text}) or gift ({viewer, gift, count}).
-  app.post<{ Body: { viewer: string; text?: string; gift?: string; count?: number; diamonds?: number } }>(
+  // A fake comment ({viewer, text}), gift ({viewer, gift, count}) or follow/share/like ({viewer, event, count}).
+  app.post<{
+    Body: { viewer: string; text?: string; gift?: string; event?: 'follow' | 'share' | 'like'; count?: number; diamonds?: number };
+  }>(
     '/simulate',
     {
       schema: {
@@ -46,24 +48,29 @@ export async function liveRoutes(app: FastifyInstance) {
           type: 'object',
           additionalProperties: false,
           required: ['viewer'],
-          oneOf: [{ required: ['text'] }, { required: ['gift'] }],
+          oneOf: [{ required: ['text'] }, { required: ['gift'] }, { required: ['event'] }],
           properties: {
             viewer: { type: 'string', minLength: 1, maxLength: 64 },
             text: { type: 'string', minLength: 1, maxLength: 200 },
             gift: { type: 'string', minLength: 1, maxLength: 64 },
-            count: { type: 'integer', minimum: 1, maximum: 100 },
+            event: { enum: ['follow', 'share', 'like'] },
+            count: { type: 'integer', minimum: 1, maximum: 1000 },
             diamonds: { type: 'integer', minimum: 0, maximum: 100000 },
           },
         },
       },
     },
     async (req, reply) => {
-      const { viewer, text, gift, count = 1, diamonds = 1 } = req.body;
+      const { viewer, text, gift, event: kind, count = 1, diamonds = 1 } = req.body;
       const at = Date.now();
       const event: ViewerEvent =
         gift !== undefined
           ? { kind: 'gift', viewerId: viewer, giftId: 0, giftName: gift, count, diamonds, at }
-          : { kind: 'comment', viewerId: viewer, text: text!, at };
+          : kind === 'like'
+            ? { kind: 'like', viewerId: viewer, count, at }
+            : kind !== undefined
+              ? { kind, viewerId: viewer, at }
+              : { kind: 'comment', viewerId: viewer, text: text!, at };
       if (!live.simulate(req.hostId, event)) {
         return reply.code(409).send({ error: 'Start a simulated session first' });
       }

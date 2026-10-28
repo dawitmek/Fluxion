@@ -1,7 +1,8 @@
 import type { FastifyInstance } from 'fastify';
 import { eq } from 'drizzle-orm';
 import { hash, verify } from '@node-rs/argon2';
-import { commands, hosts, profiles } from '../db/schema.js';
+import { alertRules, commands, hosts, profiles } from '../db/schema.js';
+import { DEFAULT_ALERTS } from '../alerts/defaults.js';
 import { newToken } from '../crypto.js';
 import { endSession, requireHost, startSession } from './session.js';
 
@@ -42,6 +43,7 @@ export async function authRoutes(app: FastifyInstance) {
       const [profile] = await tx.insert(profiles).values({ hostId: created.id, name: 'Default' }).returning({ id: profiles.id });
       await tx.update(hosts).set({ activeProfileId: profile!.id }).where(eq(hosts.id, created.id));
       await tx.insert(commands).values(DEFAULT_COMMANDS.map((c) => ({ ...c, hostId: created.id, profileId: profile!.id })));
+      await tx.insert(alertRules).values(DEFAULT_ALERTS.map((a) => ({ ...a, hostId: created.id })));
       return created;
     });
     if (!host) return reply.code(409).send({ error: 'Email already registered' });
@@ -73,6 +75,13 @@ export async function authRoutes(app: FastifyInstance) {
         actionsPerSecond: hosts.actionsPerSecond,
         progression: hosts.progression,
         levelGating: hosts.levelGating,
+        ttsMode: hosts.ttsMode,
+        ttsPrefix: hosts.ttsPrefix,
+        ttsMaxLength: hosts.ttsMaxLength,
+        ttsCooldownMs: hosts.ttsCooldownMs,
+        ttsMinLevel: hosts.ttsMinLevel,
+        ttsBlockedWords: hosts.ttsBlockedWords,
+        ttsVoice: hosts.ttsVoice,
         // Mode settings of the active profile.
         profileId: profiles.id,
         profileName: profiles.name,

@@ -33,7 +33,7 @@ afterAll(async () => {
 beforeEach(async () => {
   for (const socket of sockets.splice(0)) socket.close();
   await app.live.stopAll();
-  await app.db.execute(sql`TRUNCATE hosts, auth_sessions, profiles, commands, companions, pairing_codes, gift_triggers, viewer_stats CASCADE`);
+  await app.db.execute(sql`TRUNCATE hosts, auth_sessions, profiles, commands, companions, pairing_codes, gift_triggers, viewer_stats, alert_rules CASCADE`);
 });
 
 // --- helpers ---------------------------------------------------------------
@@ -363,6 +363,7 @@ describe('viewer progression', () => {
     // A 10-diamond gift is 10 XP: level 2.
     await api(cookie, 'POST', '/api/live/simulate', { viewer: 'alice', gift: 'Lion', diamonds: 10 });
     expect(await overlay.next()).toEqual({ type: 'levelUp', viewer: 'alice', level: 2 });
+    expect(await overlay.next()).toMatchObject({ type: 'alert', text: 'alice sent 1× Lion!', sound: 'coin' }); // starter alert
     await api(cookie, 'POST', '/api/live/simulate', { viewer: 'alice', text: 'left' });
     expect(await companion.next()).toMatchObject({ type: 'action', action: { key: 'KeyA' } });
     expect(await overlay.next()).toMatchObject({ type: 'command', viewer: 'alice', keyword: 'left', level: 2 });
@@ -375,6 +376,74 @@ describe('viewer progression', () => {
     expect(await companion.next()).toMatchObject({ type: 'action', action: { key: 'KeyA' } });
     await app.live.flushStats();
     expect((await api(cookie, 'GET', '/api/leaderboard')).json()).toEqual([{ viewer: 'alice', commands: 2, gifts: 1, xp: 12 }]);
+  });
+});
+
+describe('alerts and text-to-speech', () => {
+  it('seeds starter alerts, tests them offline, and speaks prefixed chat while live', async () => {
+    const { cookie } = await signUp();
+    const me = (await api(cookie, 'GET', '/api/auth/me')).json();
+    expect(me).toMatchObject({ ttsMode: 'prefix', ttsPrefix: '!tts', ttsVoice: null });
+    const alerts = (await api(cookie, 'GET', '/api/alerts')).json();
+    expect(alerts.map((a: any) => a.event).sort()).toEqual(['follow', 'gift', 'likes', 'share']);
+
+    // The Test button works without being live.
+    const overlay = connect(`/ws/overlay?token=${me.overlayToken}`);
+    await overlay.opened;
+    const follow = alerts.find((a: any) => a.event === 'follow');
+    await api(cookie, 'POST', `/api/alerts/${follow.id}/test`);
+    expect(await overlay.next()).toEqual({ type: 'alert', text: 'test_viewer followed!', sound: 'chime', speak: false, voice: null });
+
+    // Validation: likes need a step; event-specific fields are cleared for other events.
+    expect((await api(cookie, 'POST', '/api/alerts', { event: 'likes', template: 'x' })).statusCode).toBe(400);
+    expect((await api(cookie, 'POST', '/api/alerts', { event: 'follow', template: 'x', sound: 'airhorn' })).statusCode).toBe(400);
+    const lion = await api(cookie, 'POST', '/api/alerts', {
+      event: 'gift',
+      giftName: ' Lion ',
+      likeStep: 5,
+      template: 'ROAR {viewer}',
+      sound: 'fanfare',
+      speak: true,
+    });
+    expect(lion.statusCode).toBe(201);
+    expect(lion.json()).toMatchObject({ giftName: 'lion', likeStep: null });
+
+    await api(cookie, 'PATCH', '/api/settings', { ttsVoice: 'Microsoft Aria', ttsCooldownMs: 0 });
+    await api(cookie, 'POST', '/api/live/start', { source: 'simulated' });
+    await overlay.drain(100); // live + mode + leaderboard
+    const sim = (payload: object) => api(cookie, 'POST', '/api/live/simulate', { viewer: 'alice', ...payload });
+
+    await sim({ event: 'follow' });
+    expect(await overlay.next()).toMatchObject({ type: 'alert', text: 'alice followed!' });
+    await sim({ gift: 'Lion' });
+    expect(await overlay.next()).toEqual({ type: 'alert', text: 'ROAR alice', sound: 'fanfare', speak: true, voice: 'Microsoft Aria' });
+    await sim({ event: 'like', count: 1000 });
+    expect(await overlay.next()).toMatchObject({ type: 'alert', text: '1000 likes! Thanks alice' });
+
+    await sim({ text: '!tts hello chat' });
+    expect(await overlay.next()).toEqual({ type: 'tts', viewer: 'alice', text: 'hello chat', voice: 'Microsoft Aria' });
+    await sim({ text: 'hello chat' });
+    expect(await overlay.drain()).toEqual([]);
+
+    // Switching to "all" applies mid-stream; commands still aren't read.
+    expect((await api(cookie, 'PATCH', '/api/settings', { ttsMode: 'all' })).statusCode).toBe(200);
+    await sim({ text: 'hello chat' });
+    expect(await overlay.next()).toMatchObject({ type: 'tts', text: 'hello chat' });
+    await sim({ text: 'jump' });
+    expect((await overlay.drain()).filter((m) => m.type === 'tts')).toEqual([]);
+
+    expect((await api(cookie, 'DELETE', `/api/alerts/${follow.id}`)).statusCode).toBe(204);
+    await sim({ event: 'follow' });
+    expect(await overlay.drain()).toEqual([]);
+  });
+
+  it("can't touch another host's alerts", async () => {
+    const a = await signUp('a@example.com');
+    const b = await signUp('b@example.com');
+    const [alertA] = (await api(a.cookie, 'GET', '/api/alerts')).json();
+    expect((await api(b.cookie, 'POST', `/api/alerts/${alertA.id}/test`)).statusCode).toBe(404);
+    expect((await api(b.cookie, 'PATCH', `/api/alerts/${alertA.id}`, { template: 'x' })).statusCode).toBe(404);
+    expect((await api(b.cookie, 'DELETE', `/api/alerts/${alertA.id}`)).statusCode).toBe(404);
   });
 });
 

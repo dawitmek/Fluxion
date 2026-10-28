@@ -21,6 +21,7 @@ import { liveRoutes } from './live/routes.js';
 import { giftTriggerRoutes } from './gift-triggers/routes.js';
 import { leaderboardRoutes } from './leaderboard/routes.js';
 import { profileRoutes } from './profiles/routes.js';
+import { alertRoutes } from './alerts/routes.js';
 import { gatewayRoutes } from './gateway/routes.js';
 
 declare module 'fastify' {
@@ -69,6 +70,7 @@ export async function buildApp(config: Config, options: Options = {}) {
   await app.register(giftTriggerRoutes, { prefix: '/api/gift-triggers' });
   await app.register(leaderboardRoutes, { prefix: '/api/leaderboard' });
   await app.register(profileRoutes, { prefix: '/api/profiles' });
+  await app.register(alertRoutes, { prefix: '/api/alerts' });
   await app.register(gatewayRoutes);
 
   // In production the server also serves the built web app, so everything lives on one address.
