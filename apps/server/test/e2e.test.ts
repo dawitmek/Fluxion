@@ -267,8 +267,14 @@ describe('modes, gifts and leaderboard (simulated source)', () => {
       { viewer: 'bob', commands: 1, gifts: 0 },
       { viewer: 'alice', commands: 0, gifts: 2 },
     ]);
+    const me = (await api(cookie, 'GET', '/api/auth/me')).json();
+    const overlay = connect(`/ws/overlay?token=${me.overlayToken}`);
+    await overlay.next(); // live
+    await overlay.next(); // mode
+    expect((await overlay.next()).entries).toHaveLength(2);
     expect((await api(cookie, 'DELETE', '/api/leaderboard')).statusCode).toBe(204);
     expect((await api(cookie, 'GET', '/api/leaderboard')).json()).toEqual([]);
+    expect(await overlay.next()).toEqual({ type: 'leaderboard', entries: [] });
   });
 
   it('rejects a simulate request with both or neither of text and gift', async () => {

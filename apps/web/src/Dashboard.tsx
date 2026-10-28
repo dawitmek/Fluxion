@@ -194,12 +194,12 @@ function LiveSection({ host, refreshHost }: { host: Host; refreshHost: () => voi
         <form className="test-console" onSubmit={simulate}>
           <p className="muted">Pretend to be a viewer. Commands go to your companion like real chat.</p>
           <div className="inline">
-            <input value={testViewer} onChange={(e) => setTestViewer(e.target.value)} aria-label="Viewer name" />
-            <input value={testText} onChange={(e) => setTestText(e.target.value)} aria-label="Comment" />
+            <input value={testViewer} onChange={(e) => setTestViewer(e.target.value)} placeholder="Viewer" title="Viewer name" aria-label="Viewer name" />
+            <input value={testText} onChange={(e) => setTestText(e.target.value)} placeholder="Comment" title="Comment" aria-label="Comment" />
             <button className="primary">Send comment</button>
           </div>
           <div className="inline">
-            <input value={testGift} onChange={(e) => setTestGift(e.target.value)} aria-label="Gift name" />
+            <input value={testGift} onChange={(e) => setTestGift(e.target.value)} placeholder="Gift name" title="Gift name" aria-label="Gift name" />
             <input
               className="num"
               type="number"
@@ -207,6 +207,7 @@ function LiveSection({ host, refreshHost }: { host: Host; refreshHost: () => voi
               max={100}
               value={testCount}
               onChange={(e) => setTestCount(Number(e.target.value))}
+              title="Gift count"
               aria-label="Gift count"
             />
             <button type="button" onClick={simulateGift}>
