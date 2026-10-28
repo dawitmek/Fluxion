@@ -6,6 +6,8 @@ import { PROTOCOL_VERSION } from '@fluxion/shared';
 import { buildApp } from '../src/app.js';
 import { runMigrations } from '../src/db/migrate.js';
 import type { PlatformAdapter } from '../src/platforms/types.js';
+import { Piper } from '../src/tts/piper.js';
+import { fileURLToPath } from 'node:url';
 
 const databaseUrl = process.env.TEST_DATABASE_URL ?? 'postgres://fluxion:fluxion@127.0.0.1:5432/fluxion_test';
 
@@ -502,6 +504,37 @@ describe('alerts and text-to-speech', () => {
     // Clearing the key works too.
     await api(cookie, 'PATCH', '/api/settings', { ttsCloudKey: null });
     expect((await api(cookie, 'GET', '/api/auth/me')).json().ttsCloudKeySet).toBe(false);
+  });
+
+  it('keeps the Piper speaker within the chosen voice', async () => {
+    // A second app with a fake Piper offering a 3-speaker and a 1-speaker voice.
+    const fixture = (p: string) => fileURLToPath(new URL(`./fixtures/${p}`, import.meta.url));
+    const withPiper = await buildApp(
+      { databaseUrl, port: 0, host: '127.0.0.1', eulerApiKey: undefined, production: false, secureCookies: false, piperBin: undefined, piperVoicesDir: undefined },
+      { logger: false, piper: new Piper(process.execPath, fixture('piper-voices'), [fixture('fake-piper.mjs')]) },
+    );
+    try {
+      const signup = await withPiper.inject({
+        method: 'POST',
+        url: '/api/auth/signup',
+        payload: { email: 'piper@example.com', password: 'correct horse' },
+        remoteAddress: nextAddress(),
+      });
+      const cookie = `fluxion_session=${signup.cookies.find((c) => c.name === 'fluxion_session')!.value}`;
+      const patch = (payload: object) => withPiper.inject({ method: 'PATCH', url: '/api/settings', payload, headers: { cookie } });
+      const me = async () => (await withPiper.inject({ method: 'GET', url: '/api/auth/me', headers: { cookie } })).json();
+
+      expect((await patch({ ttsPiperVoice: 'many_voices', ttsPiperSpeaker: 2 })).statusCode).toBe(200);
+      expect((await patch({ ttsPiperSpeaker: 3 })).json().error).toBe('many_voices has speakers 0–2');
+      // Switching voice resets the speaker; a single-speaker voice only has speaker 0.
+      await patch({ ttsPiperVoice: 'test_voice' });
+      expect((await me()).ttsPiperSpeaker).toBeNull();
+      expect((await patch({ ttsPiperSpeaker: 1 })).statusCode).toBe(400);
+      expect((await patch({ ttsPiperVoice: 'many_voices', ttsPiperSpeaker: 1 })).statusCode).toBe(200);
+      expect((await me()).ttsPiperSpeaker).toBe(1);
+    } finally {
+      await withPiper.close();
+    }
   });
 
   it("can't touch another host's alerts", async () => {

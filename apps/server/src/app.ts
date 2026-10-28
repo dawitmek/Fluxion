@@ -45,6 +45,8 @@ interface Options {
   createTikTok?: (username: string) => PlatformAdapter;
   // Tests swap in a fake so they never contact a cloud TTS provider.
   fetch?: typeof fetch;
+  // Tests swap in a fake Piper with known voices.
+  piper?: Piper;
 }
 
 export async function buildApp(config: Config, options: Options = {}) {
@@ -57,7 +59,7 @@ export async function buildApp(config: Config, options: Options = {}) {
   app.decorate('db', db);
   app.decorate('hub', hub);
   const stats = new Stats(db);
-  const piper = new Piper(config.piperBin, config.piperVoicesDir);
+  const piper = options.piper ?? new Piper(config.piperBin, config.piperVoicesDir);
   const speech = new SpeechService(piper, (err) => app.log.warn({ err }, 'TTS failed; falling back to eSpeak'), options.fetch);
   app.decorate('stats', stats);
   app.decorate('piper', piper);

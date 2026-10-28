@@ -85,9 +85,21 @@ export async function settingsRoutes(app: FastifyInstance) {
         },
       },
     },
-    async (req) => {
+    async (req, reply) => {
       const { tiktokUsername, actionsPerSecond, progression, levelGating } = req.body;
       const tts = Object.fromEntries(Object.entries(req.body).filter(([k]) => k.startsWith('tts')));
+      // Speaker numbers belong to one Piper voice: a new voice starts at its first speaker,
+      // and a speaker the voice doesn't have is refused rather than silently played as speaker 0.
+      if (req.body.ttsPiperVoice !== undefined && req.body.ttsPiperSpeaker === undefined) tts.ttsPiperSpeaker = null;
+      if (typeof req.body.ttsPiperSpeaker === 'number') {
+        const [host] = await app.db.select({ voice: hosts.ttsPiperVoice }).from(hosts).where(eq(hosts.id, req.hostId));
+        const voices = await app.piper.voices();
+        const name = req.body.ttsPiperVoice !== undefined ? req.body.ttsPiperVoice : host?.voice;
+        const voice = voices.find((v) => v.name === name) ?? voices[0];
+        if (voice && req.body.ttsPiperSpeaker >= voice.speakers) {
+          return reply.code(400).send({ error: `${voice.name} has speakers 0–${voice.speakers - 1}` });
+        }
+      }
       const hostPatch = {
         ...tts,
         ...(tiktokUsername !== undefined && { tiktokUsername: tiktokUsername?.replace(/^@/, '') ?? null }),

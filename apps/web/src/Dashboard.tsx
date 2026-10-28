@@ -639,7 +639,11 @@ function TtsSection({ host, refreshHost }: { host: Host; refreshHost: () => Prom
         {host.ttsEngine === 'piper' && options.piperVoices.length > 0 && (
           <label>
             Piper voice
-            <select value={host.ttsPiperVoice ?? ''} onChange={(e) => save({ ttsPiperVoice: e.target.value || null })}>
+            <select
+              value={host.ttsPiperVoice ?? ''}
+              // A speaker number from the previous voice means nothing for the new one.
+              onChange={(e) => save({ ttsPiperVoice: e.target.value || null, ttsPiperSpeaker: null })}
+            >
               <option value="">Default ({options.piperVoices[0]!.name})</option>
               {options.piperVoices.map((v) => (
                 <option key={v.name} value={v.name}>
