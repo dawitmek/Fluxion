@@ -2,6 +2,7 @@
   "name": "@fluxion/server",
   "version": "0.1.0",
   "private": true,
+  "license": "GPL-3.0-or-later",
   "type": "module",
   "scripts": {
     "dev": "tsx watch --env-file-if-exists=../../.env src/index.ts",

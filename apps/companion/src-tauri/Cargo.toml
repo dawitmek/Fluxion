@@ -3,6 +3,7 @@ name = "fluxion-companion"
 version = "0.1.0"
 description = "Fluxion companion: presses whitelisted keys in the host's game"
 edition = "2024"
+license = "GPL-3.0-or-later"
 
 [lib]
 # The `_lib` suffix avoids a bin/lib name clash on Windows (rust-lang/cargo#8519).
