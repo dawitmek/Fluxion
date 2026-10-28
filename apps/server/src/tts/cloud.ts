@@ -22,10 +22,23 @@ const escapeXml = (s: string) =>
 // "en-US-Neural2-F" -> "en-US"
 const languageOf = (voice: string) => voice.split('-').slice(0, 2).join('-');
 
+// The provider's own explanation, if its error body has one: Google {error:{message}},
+// ElevenLabs {detail:{message}} or {detail:"..."}; otherwise the start of the raw body.
+export function errorMessage(body: string): string {
+  try {
+    const json = JSON.parse(body);
+    const message = json?.error?.message ?? json?.detail?.message ?? json?.detail ?? json?.message;
+    if (typeof message === 'string' && message) return message;
+  } catch {
+    // not JSON
+  }
+  return body.trim().slice(0, 200) || 'no details';
+}
+
 async function check(res: Response, provider: string) {
   if (res.ok) return;
-  const body = (await res.text().catch(() => '')).slice(0, 200);
-  throw new Error(`${provider} TTS failed (${res.status}): ${body}`);
+  const body = await res.text().catch(() => '');
+  throw new Error(`${provider} TTS failed (${res.status}): ${errorMessage(body)}`);
 }
 
 // Calls the host's own TTS provider. Returns encoded audio the overlay can decode.

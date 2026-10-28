@@ -1,7 +1,7 @@
 import { describe, expect, it } from 'vitest';
 import { fileURLToPath } from 'node:url';
 import { Piper, wav } from '../src/tts/piper.js';
-import { synthesizeCloud } from '../src/tts/cloud.js';
+import { errorMessage, synthesizeCloud } from '../src/tts/cloud.js';
 import { SpeechService, type VoiceConfig } from '../src/tts/speech.js';
 
 const fixture = (p: string) => fileURLToPath(new URL(`./fixtures/${p}`, import.meta.url));
@@ -67,6 +67,16 @@ describe('cloud TTS', () => {
       '<speak version="1.0" xml:lang="en-US"><voice name="en-US-AriaNeural">a &lt; b &amp; &quot;c&quot;</voice></speak>',
     );
     await expect(synthesizeCloud({ provider: 'azure', key: 'k', region: null, voice: null }, 'x', fetchImpl)).rejects.toThrow('region');
+  });
+
+  it("shows the provider's own error message", () => {
+    expect(errorMessage('{"error":{"code":400,"message":"API key not valid. Please pass a valid API key.","details":[]}}')).toBe(
+      'API key not valid. Please pass a valid API key.',
+    );
+    expect(errorMessage('{"detail":{"status":"invalid_api_key","message":"Invalid API key"}}')).toBe('Invalid API key');
+    expect(errorMessage('{"detail":"Not found"}')).toBe('Not found');
+    expect(errorMessage('')).toBe('no details');
+    expect(errorMessage('Unauthorized')).toBe('Unauthorized');
   });
 
   it('calls ElevenLabs with the voice id in the path', async () => {

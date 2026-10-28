@@ -36,6 +36,10 @@ WebSockets (`/ws/companion`, `/ws/overlay`) pass through Caddy with no extra con
 | `FLUXION_BIND` | `127.0.0.1` | Interface the port is published on; `0.0.0.0` exposes it on the LAN |
 | `FLUXION_PORT` | `3000` | Published port |
 
+Browsers share cookies between servers on the same host name regardless of port, so two Fluxion servers on
+`127.0.0.1:3000` and `127.0.0.1:3131` log each other out in one browser. Use different host names (for example
+`localhost` for one and `127.0.0.1` for the other) or separate browser profiles.
+
 ## Text-to-speech
 
 The image includes [Piper](https://github.com/rhasspy/piper) and two English voices, so the "Piper" voice engine
