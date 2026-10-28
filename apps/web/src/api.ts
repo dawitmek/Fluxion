@@ -20,9 +20,9 @@ export async function api<T = unknown>(method: string, path: string, body?: unkn
   return data as T;
 }
 
-import type { AlertEvent, AlertSound, CloudProvider, LeaderboardEntry, Mode, Speech, TtsEngine, TtsMode } from '@fluxion/shared';
+import type { AlertEvent, AlertSound, CloudProvider, LeaderboardEntry, Mode, Speech, TtsEngine, TtsMode, VoiceEffect } from '@fluxion/shared';
 
-export type { AlertEvent, AlertSound, CloudProvider, LeaderboardEntry, Mode, Speech, TtsEngine, TtsMode };
+export type { AlertEvent, AlertSound, CloudProvider, LeaderboardEntry, Mode, Speech, TtsEngine, TtsMode, VoiceEffect };
 
 export interface Host {
   id: string;
@@ -42,6 +42,8 @@ export interface Host {
   ttsEngine: TtsEngine;
   ttsEspeakVoice: string;
   ttsPiperVoice: string | null;
+  ttsPiperSpeaker: number | null;
+  ttsEffect: VoiceEffect;
   ttsCloudProvider: CloudProvider | null;
   ttsCloudKeySet: boolean;
   ttsCloudRegion: string | null;

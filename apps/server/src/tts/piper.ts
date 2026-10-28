@@ -25,12 +25,17 @@ export function wav(pcm: Buffer, sampleRate: number): Buffer {
   return Buffer.concat([header, pcm]);
 }
 
+export interface PiperVoice {
+  name: string;
+  speakers: number; // more than 1 for multi-speaker models such as libritts_r (904) and vctk (109)
+}
+
 // Natural-sounding offline voices (https://github.com/rhasspy/piper), run as a separate process per line.
 // A voice is a `<name>.onnx` model plus its `<name>.onnx.json` config in the voices directory.
 export class Piper {
   private running = 0;
   private waiting: (() => void)[] = [];
-  private voiceList: Promise<string[]> | null = null;
+  private voiceList: Promise<PiperVoice[]> | null = null;
 
   constructor(
     private bin: string | undefined,
@@ -38,25 +43,36 @@ export class Piper {
     private binArgs: string[] = [], // tests run a fake Piper as `node fake-piper.mjs`
   ) {}
 
-  async voices(): Promise<string[]> {
+  async voices(): Promise<PiperVoice[]> {
     if (!this.bin || !this.voicesDir) return [];
     const dir = this.voicesDir;
     this.voiceList ??= readdir(dir)
-      .then((files) => files.filter((f) => f.endsWith('.onnx') && files.includes(`${f}.json`)).map((f) => f.slice(0, -5)).sort())
+      .then(async (files) => {
+        const names = files.filter((f) => f.endsWith('.onnx') && files.includes(`${f}.json`)).map((f) => f.slice(0, -5));
+        const voices = await Promise.all(
+          names.map(async (name) => {
+            const config = JSON.parse(await readFile(join(dir, `${name}.onnx.json`), 'utf8')) as { num_speakers?: number };
+            return { name, speakers: Math.max(1, config.num_speakers ?? 1) };
+          }),
+        );
+        return voices.sort((a, b) => a.name.localeCompare(b.name));
+      })
       .catch(() => []);
     return this.voiceList;
   }
 
-  async synthesize(text: string, voice: string | null): Promise<Buffer> {
+  async synthesize(text: string, voice: string | null, speaker: number | null = null): Promise<Buffer> {
     const voices = await this.voices();
-    const name = voice && voices.includes(voice) ? voice : voices[0];
-    if (!name) throw new Error('No Piper voices installed');
-    const model = join(this.voicesDir!, `${name}.onnx`);
+    const chosen = voices.find((v) => v.name === voice) ?? voices[0];
+    if (!chosen) throw new Error('No Piper voices installed');
+    const model = join(this.voicesDir!, `${chosen.name}.onnx`);
     const { audio } = JSON.parse(await readFile(`${model}.json`, 'utf8')) as { audio: { sample_rate: number } };
+    // Out-of-range speakers (e.g. after switching to a smaller model) use speaker 0.
+    const args = chosen.speakers > 1 && speaker !== null && speaker < chosen.speakers ? ['--speaker', String(speaker)] : [];
 
     await this.slot();
     try {
-      return wav(await this.run(model, text), audio.sample_rate);
+      return wav(await this.run(model, text, args), audio.sample_rate);
     } finally {
       // Hand the slot straight to the next waiting line, so a newcomer can't jump in between.
       const next = this.waiting.shift();
@@ -74,9 +90,11 @@ export class Piper {
     await new Promise<void>((resolve) => this.waiting.push(resolve)); // resolved with a slot already held
   }
 
-  private run(model: string, text: string): Promise<Buffer> {
+  private run(model: string, text: string, args: string[]): Promise<Buffer> {
     return new Promise((resolve, reject) => {
-      const child = spawn(this.bin!, [...this.binArgs, '--model', model, '--output_raw'], { stdio: ['pipe', 'pipe', 'pipe'] });
+      const child = spawn(this.bin!, [...this.binArgs, '--model', model, ...args, '--output_raw'], {
+        stdio: ['pipe', 'pipe', 'pipe'],
+      });
       const out: Buffer[] = [];
       let err = '';
       const timer = setTimeout(() => child.kill('SIGKILL'), TIMEOUT_MS);

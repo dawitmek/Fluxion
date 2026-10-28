@@ -85,6 +85,8 @@ export async function authRoutes(app: FastifyInstance) {
         ttsEngine: hosts.ttsEngine,
         ttsEspeakVoice: hosts.ttsEspeakVoice,
         ttsPiperVoice: hosts.ttsPiperVoice,
+        ttsPiperSpeaker: hosts.ttsPiperSpeaker,
+        ttsEffect: hosts.ttsEffect,
         ttsCloudProvider: hosts.ttsCloudProvider,
         ttsCloudRegion: hosts.ttsCloudRegion,
         ttsCloudVoice: hosts.ttsCloudVoice,

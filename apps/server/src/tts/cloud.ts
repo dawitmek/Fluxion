@@ -94,3 +94,47 @@ export async function synthesizeCloud(
     }
   }
 }
+
+export interface CloudVoiceOption {
+  id: string; // what goes in the voice setting
+  label: string;
+}
+
+// The voices the host's account can use, for the dashboard's picker. ElevenLabs includes the host's own
+// library (premade, cloned and community voices they added).
+export async function listCloudVoices(
+  cfg: Omit<CloudVoice, 'voice'>,
+  fetchImpl: typeof fetch = fetch,
+): Promise<CloudVoiceOption[]> {
+  const signal = AbortSignal.timeout(TIMEOUT_MS);
+  switch (cfg.provider) {
+    case 'google': {
+      const res = await fetchImpl(`https://texttospeech.googleapis.com/v1/voices?key=${encodeURIComponent(cfg.key)}`, { signal });
+      await check(res, 'Google');
+      const { voices = [] } = (await res.json()) as { voices?: { name: string; ssmlGender?: string }[] };
+      return voices
+        .map((v) => ({ id: v.name, label: `${v.name}${v.ssmlGender ? ` (${v.ssmlGender.toLowerCase()})` : ''}` }))
+        .sort((a, b) => a.id.localeCompare(b.id));
+    }
+    case 'azure': {
+      if (!cfg.region) throw new Error('Azure TTS needs a region, e.g. eastus');
+      const res = await fetchImpl(`https://${encodeURIComponent(cfg.region)}.tts.speech.microsoft.com/cognitiveservices/voices/list`, {
+        headers: { 'Ocp-Apim-Subscription-Key': cfg.key },
+        signal,
+      });
+      await check(res, 'Azure');
+      const voices = (await res.json()) as { ShortName: string; LocalName?: string; Gender?: string; Locale?: string }[];
+      return voices
+        .map((v) => ({ id: v.ShortName, label: `${v.ShortName} — ${v.LocalName ?? ''}${v.Gender ? ` (${v.Gender.toLowerCase()})` : ''}` }))
+        .sort((a, b) => a.id.localeCompare(b.id));
+    }
+    case 'elevenlabs': {
+      const res = await fetchImpl('https://api.elevenlabs.io/v1/voices', { headers: { 'xi-api-key': cfg.key }, signal });
+      await check(res, 'ElevenLabs');
+      const { voices = [] } = (await res.json()) as { voices?: { voice_id: string; name: string; category?: string }[] };
+      return voices
+        .map((v) => ({ id: v.voice_id, label: `${v.name}${v.category ? ` (${v.category})` : ''}` }))
+        .sort((a, b) => a.label.localeCompare(b.label));
+    }
+  }
+}

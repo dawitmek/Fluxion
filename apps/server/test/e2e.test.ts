@@ -19,6 +19,7 @@ const fakeFetch = (async (url: string | URL, init: RequestInit = {}) => {
   cloudRequests.push({ url: String(url), init });
   if (String(url).includes('bad-key')) return new Response('{"error":"API key not valid"}', { status: 403 });
   const mp3 = new Uint8Array([0xff, 0xfb, 0x90, 0x00]);
+  if (String(url).includes('googleapis.com/v1/voices')) return Response.json({ voices: [{ name: 'en-GB-Neural2-A', ssmlGender: 'FEMALE' }] });
   // Google wraps audio in JSON; Azure and ElevenLabs return the bytes.
   if (String(url).includes('googleapis')) return Response.json({ audioContent: Buffer.from(mp3).toString('base64') });
   return new Response(mp3, { status: 200 });
@@ -437,7 +438,7 @@ describe('alerts and text-to-speech', () => {
     };
     expect(await nextAlert()).toMatchObject({ type: 'alert', text: 'alice followed!' });
     await sim({ gift: 'Lion' });
-    expect(await nextAlert()).toEqual({ type: 'alert', text: 'ROAR alice', sound: 'fanfare', speech: { kind: 'espeak', text: 'ROAR alice', voice: 'en-gb' } });
+    expect(await nextAlert()).toEqual({ type: 'alert', text: 'ROAR alice', sound: 'fanfare', speech: { kind: 'espeak', text: 'ROAR alice', voice: 'en-gb', effect: 'none' } });
     await sim({ event: 'like', count: 1000 });
     expect(await nextAlert()).toMatchObject({ type: 'alert', text: '1000 likes! Thanks alice' });
 
@@ -446,7 +447,7 @@ describe('alerts and text-to-speech', () => {
       type: 'tts',
       viewer: 'alice',
       text: 'hello chat',
-      speech: { kind: 'espeak', text: 'alice says hello chat', voice: 'en-gb' },
+      speech: { kind: 'espeak', text: 'alice says hello chat', voice: 'en-gb', effect: 'none' },
     });
     await sim({ text: 'hello chat' });
     expect(withoutLeaderboard(await overlay.drain())).toEqual([]);
@@ -467,12 +468,19 @@ describe('alerts and text-to-speech', () => {
     const { cookie } = await signUp();
     expect((await api(cookie, 'GET', '/api/tts/options')).json()).toMatchObject({ piperVoices: [], espeakVoices: expect.arrayContaining(['en-us']) });
 
-    await api(cookie, 'PATCH', '/api/settings', { ttsEngine: 'browser', ttsVoice: 'Microsoft Zira' });
-    expect((await api(cookie, 'POST', '/api/tts/preview', { text: 'hi' })).json()).toEqual({ kind: 'browser', text: 'hi', voice: 'Microsoft Zira' });
+    await api(cookie, 'PATCH', '/api/settings', { ttsEngine: 'browser', ttsVoice: 'Microsoft Zira', ttsEffect: 'chipmunk' });
+    expect((await api(cookie, 'POST', '/api/tts/preview', { text: 'hi' })).json()).toEqual({
+      kind: 'browser',
+      text: 'hi',
+      voice: 'Microsoft Zira',
+      effect: 'chipmunk',
+    });
+    expect((await api(cookie, 'PATCH', '/api/settings', { ttsEffect: 'kazoo' })).statusCode).toBe(400);
 
     // Cloud without a key is an error on preview (live speech would fall back to eSpeak instead).
     await api(cookie, 'PATCH', '/api/settings', { ttsEngine: 'cloud' });
     expect((await api(cookie, 'POST', '/api/tts/preview')).statusCode).toBe(502);
+    expect((await api(cookie, 'GET', '/api/tts/cloud-voices')).statusCode).toBe(400);
 
     const res = await api(cookie, 'PATCH', '/api/settings', { ttsCloudProvider: 'google', ttsCloudKey: 'secret-123', ttsCloudVoice: 'en-GB-Neural2-A' });
     expect(res.statusCode).toBe(200);
@@ -481,7 +489,8 @@ describe('alerts and text-to-speech', () => {
     expect(JSON.stringify(me)).not.toContain('secret-123');
 
     cloudRequests.length = 0;
-    expect((await api(cookie, 'POST', '/api/tts/preview', { text: 'hi' })).json()).toEqual({ kind: 'audio', data: '//uQAA==', mime: 'audio/mpeg' });
+    expect((await api(cookie, 'POST', '/api/tts/preview', { text: 'hi' })).json()).toEqual({ kind: 'audio', data: '//uQAA==', mime: 'audio/mpeg', effect: 'chipmunk' });
+    expect((await api(cookie, 'GET', '/api/tts/cloud-voices')).json()).toEqual([{ id: 'en-GB-Neural2-A', label: 'en-GB-Neural2-A (female)' }]);
     expect(cloudRequests[0]!.url).toBe('https://texttospeech.googleapis.com/v1/text:synthesize?key=secret-123');
     expect(JSON.parse(String(cloudRequests[0]!.init.body))).toMatchObject({ input: { text: 'hi' }, voice: { languageCode: 'en-GB', name: 'en-GB-Neural2-A' } });
 

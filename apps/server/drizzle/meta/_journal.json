@@ -43,6 +43,13 @@
       "when": 1793199048309,
       "tag": "0005_tts_engines",
       "breakpoints": true
+    },
+    {
+      "idx": 6,
+      "version": "7",
+      "when": 1793202298844,
+      "tag": "0006_voice_variety",
+      "breakpoints": true
     }
   ]
 }

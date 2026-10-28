@@ -86,11 +86,16 @@ export type TtsEngine = (typeof TTS_ENGINES)[number];
 export const CLOUD_PROVIDERS = ['google', 'azure', 'elevenlabs'] as const;
 export type CloudProvider = (typeof CLOUD_PROVIDERS)[number];
 
+// Applied by the overlay to any voice. Browser voices only get the pitch/speed part.
+export const VOICE_EFFECTS = ['none', 'chipmunk', 'deep', 'monster', 'robot', 'radio', 'echo'] as const;
+export type VoiceEffect = (typeof VOICE_EFFECTS)[number];
+
 // How the overlay should say something.
-export type Speech =
+export type Speech = (
   | { kind: 'audio'; data: string; mime: string } // base64, from Piper or a cloud provider
   | { kind: 'espeak'; text: string; voice: string }
-  | { kind: 'browser'; text: string; voice: string | null };
+  | { kind: 'browser'; text: string; voice: string | null }
+) & { effect?: VoiceEffect };
 
 // Server -> overlay, over /ws/overlay. Read-only.
 export type ServerToOverlay =

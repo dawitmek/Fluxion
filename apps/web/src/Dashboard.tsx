@@ -1,5 +1,5 @@
 import { useCallback, useEffect, useRef, useState, type FormEvent } from 'react';
-import { ALERT_EVENTS, ALERT_SOUNDS, ALLOWED_KEYS, CLOUD_PROVIDERS, levelForXp, MAX_LEVEL, MODES, QUEUE_JOIN, xpForLevel } from '@fluxion/shared';
+import { ALERT_EVENTS, ALERT_SOUNDS, ALLOWED_KEYS, CLOUD_PROVIDERS, VOICE_EFFECTS, levelForXp, MAX_LEVEL, MODES, QUEUE_JOIN, xpForLevel } from '@fluxion/shared';
 import { playSound } from './sounds';
 import { SpeechPlayer } from './speech-player';
 import {
@@ -11,6 +11,7 @@ import {
   type CloudProvider,
   type Speech,
   type TtsEngine,
+  type VoiceEffect,
   type Command,
   type Companion,
   type GiftTrigger,
@@ -552,12 +553,29 @@ const CLOUD_VOICE_HINTS: Record<CloudProvider, string> = {
   elevenlabs: 'a voice ID, e.g. 21m00Tcm4TlvDq8ikWAM',
 };
 
+const EFFECT_LABELS: Record<VoiceEffect, string> = {
+  none: 'None',
+  chipmunk: 'Chipmunk',
+  deep: 'Deep',
+  monster: 'Monster',
+  robot: 'Robot',
+  radio: 'Radio',
+  echo: 'Echo',
+};
+
 let previewPlayer: SpeechPlayer | null = null;
 
 function TtsSection({ host, refreshHost }: { host: Host; refreshHost: () => Promise<unknown> }) {
   const { error, guard, setError } = useError();
   const voices = useVoices();
-  const [options, setOptions] = useState<{ piperVoices: string[]; espeakVoices: string[] }>({ piperVoices: [], espeakVoices: [] });
+  const [options, setOptions] = useState<{ piperVoices: { name: string; speakers: number }[]; espeakVoices: string[] }>({
+    piperVoices: [],
+    espeakVoices: [],
+  });
+  const [cloudVoices, setCloudVoices] = useState<{ id: string; label: string }[] | null>(null);
+  const loadCloudVoices = guard(() => api<{ id: string; label: string }[]>('GET', '/tts/cloud-voices').then(setCloudVoices));
+  // A list from another provider or key would offer voices this account can't use.
+  useEffect(() => setCloudVoices(null), [host.ttsCloudProvider, host.ttsCloudKeySet]);
   const [cloudKey, setCloudKey] = useState('');
   const [previewing, setPreviewing] = useState(false);
   useEffect(() => void api<typeof options>('GET', '/tts/options').then(setOptions), []);
@@ -578,6 +596,7 @@ function TtsSection({ host, refreshHost }: { host: Host; refreshHost: () => Prom
     }
   };
   const piperMissing = host.ttsEngine === 'piper' && options.piperVoices.length === 0;
+  const piperVoice = options.piperVoices.find((v) => v.name === host.ttsPiperVoice) ?? options.piperVoices[0];
 
   return (
     <section className="card">
@@ -621,13 +640,28 @@ function TtsSection({ host, refreshHost }: { host: Host; refreshHost: () => Prom
           <label>
             Piper voice
             <select value={host.ttsPiperVoice ?? ''} onChange={(e) => save({ ttsPiperVoice: e.target.value || null })}>
-              <option value="">Default ({options.piperVoices[0]})</option>
+              <option value="">Default ({options.piperVoices[0]!.name})</option>
               {options.piperVoices.map((v) => (
-                <option key={v} value={v}>
-                  {v}
+                <option key={v.name} value={v.name}>
+                  {v.name}
+                  {v.speakers > 1 ? ` (${v.speakers} speakers)` : ''}
                 </option>
               ))}
             </select>
+          </label>
+        )}
+        {host.ttsEngine === 'piper' && piperVoice && piperVoice.speakers > 1 && (
+          <label>
+            Speaker (0–{piperVoice.speakers - 1}; each one sounds different)
+            <span className="inline">
+              <NumberCell
+                value={host.ttsPiperSpeaker ?? 0}
+                min={0}
+                max={piperVoice.speakers - 1}
+                onSave={(ttsPiperSpeaker) => save({ ttsPiperSpeaker })}
+              />
+              <button onClick={() => save({ ttsPiperSpeaker: Math.floor(Math.random() * piperVoice.speakers) })}>Random</button>
+            </span>
           </label>
         )}
         {(host.ttsEngine === 'espeak' || piperMissing || host.ttsEngine === 'cloud') && (
@@ -695,12 +729,26 @@ function TtsSection({ host, refreshHost }: { host: Host; refreshHost: () => Prom
             {host.ttsCloudProvider && (
               <label>
                 Voice
-                <TextCell
-                  value={host.ttsCloudVoice ?? ''}
-                  placeholder={CLOUD_VOICE_HINTS[host.ttsCloudProvider]}
-                  label="Cloud voice"
-                  onSave={(v) => save({ ttsCloudVoice: v || null })}
-                />
+                <span className="inline">
+                  {cloudVoices ? (
+                    <select value={host.ttsCloudVoice ?? ''} onChange={(e) => save({ ttsCloudVoice: e.target.value || null })}>
+                      <option value="">Default</option>
+                      {cloudVoices.map((v) => (
+                        <option key={v.id} value={v.id}>
+                          {v.label}
+                        </option>
+                      ))}
+                    </select>
+                  ) : (
+                    <TextCell
+                      value={host.ttsCloudVoice ?? ''}
+                      placeholder={CLOUD_VOICE_HINTS[host.ttsCloudProvider]}
+                      label="Cloud voice"
+                      onSave={(v) => save({ ttsCloudVoice: v || null })}
+                    />
+                  )}
+                  {host.ttsCloudKeySet && !cloudVoices && <button onClick={loadCloudVoices}>List my voices</button>}
+                </span>
               </label>
             )}
             {host.ttsCloudProvider === 'azure' && (
@@ -717,6 +765,16 @@ function TtsSection({ host, refreshHost }: { host: Host; refreshHost: () => Prom
           </>
         )}
       </div>
+      <label>
+        Voice effect (any engine; browser voices only get pitch and speed)
+        <select value={host.ttsEffect} onChange={(e) => save({ ttsEffect: e.target.value as VoiceEffect })}>
+          {VOICE_EFFECTS.map((effect) => (
+            <option key={effect} value={effect}>
+              {EFFECT_LABELS[effect]}
+            </option>
+          ))}
+        </select>
+      </label>
       <button onClick={() => void preview()} disabled={previewing}>
         {previewing ? 'Speaking…' : 'Preview voice'}
       </button>

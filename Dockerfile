@@ -13,19 +13,21 @@ COPY apps/server apps/server
 COPY apps/web apps/web
 RUN npm run build
 
-# Piper (MIT, https://github.com/rhasspy/piper) for server-side text-to-speech, plus two CC BY 4.0 voices.
-# Build with --build-arg WITH_PIPER=false for a ~170 MB smaller image; TTS then falls back to eSpeak.
+# Piper (MIT, https://github.com/rhasspy/piper) for server-side text-to-speech, plus voices whose licenses
+# allow commercial use (see THIRD_PARTY_NOTICES.md). PIPER_VOICES picks which; each adds 60–80 MB.
+# Build with --build-arg WITH_PIPER=false to leave Piper out; TTS then falls back to eSpeak.
 FROM debian:bookworm-slim AS piper
 ARG TARGETARCH
 ARG WITH_PIPER=true
 ARG PIPER_RELEASE=2023.11.14-2
 ARG VOICES_URL=https://huggingface.co/rhasspy/piper-voices/resolve/v1.0.0/en
+ARG PIPER_VOICES="en_GB/alba/medium/en_GB-alba-medium en_US/libritts_r/medium/en_US-libritts_r-medium en_GB/vctk/medium/en_GB-vctk-medium en_US/kristin/medium/en_US-kristin-medium en_GB/northern_english_male/medium/en_GB-northern_english_male-medium"
 RUN mkdir -p /opt/piper /opt/piper-voices && if [ "$WITH_PIPER" = "true" ]; then \
       apt-get update && apt-get install -y --no-install-recommends ca-certificates curl && \
       case "$TARGETARCH" in arm64) arch=aarch64 ;; *) arch=x86_64 ;; esac && \
       curl -fsSL "https://github.com/rhasspy/piper/releases/download/$PIPER_RELEASE/piper_linux_$arch.tar.gz" | tar xz -C /opt && \
       cd /opt/piper-voices && \
-      for v in en_GB/alba/medium/en_GB-alba-medium en_US/libritts_r/medium/en_US-libritts_r-medium; do \
+      for v in $PIPER_VOICES; do \
         curl -fsSLO "$VOICES_URL/$v.onnx" && curl -fsSLO "$VOICES_URL/$v.onnx.json"; \
       done; \
     fi

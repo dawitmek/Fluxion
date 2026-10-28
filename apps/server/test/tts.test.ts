@@ -1,7 +1,7 @@
 import { describe, expect, it } from 'vitest';
 import { fileURLToPath } from 'node:url';
 import { Piper, wav } from '../src/tts/piper.js';
-import { errorMessage, synthesizeCloud } from '../src/tts/cloud.js';
+import { errorMessage, listCloudVoices, synthesizeCloud } from '../src/tts/cloud.js';
 import { SpeechService, type VoiceConfig } from '../src/tts/speech.js';
 
 const fixture = (p: string) => fileURLToPath(new URL(`./fixtures/${p}`, import.meta.url));
@@ -13,13 +13,19 @@ const voice = (cfg: Partial<VoiceConfig>): VoiceConfig => ({
   browserVoice: null,
   espeakVoice: 'en-us',
   piperVoice: null,
+  piperSpeaker: null,
   cloud: null,
+  effect: 'none',
   ...cfg,
 });
 
 describe('piper', () => {
-  it('lists voices that have a model and a config', async () => {
-    expect(await fakePiper().voices()).toEqual(['another_voice', 'test_voice']);
+  it('lists voices that have a model and a config, with their speaker counts', async () => {
+    expect(await fakePiper().voices()).toEqual([
+      { name: 'another_voice', speakers: 1 },
+      { name: 'many_voices', speakers: 3 },
+      { name: 'test_voice', speakers: 1 },
+    ]);
     expect(await new Piper(undefined, fixture('piper-voices')).voices()).toEqual([]);
   });
 
@@ -29,6 +35,14 @@ describe('piper', () => {
     expect(audio.readUInt32LE(24)).toBe(16000);
     expect(audio.length).toBe(44 + 10); // fake Piper writes 2 bytes per character
     expect((await fakePiper().synthesize('hi', 'missing')).readUInt32LE(24)).toBe(22050); // first voice
+  });
+
+  it('passes the speaker to multi-speaker voices only, and only when it exists', async () => {
+    const speakerOf = async (voice: string, speaker: number | null) => (await fakePiper().synthesize('hi', voice, speaker))[44];
+    expect(await speakerOf('many_voices', 2)).toBe(2);
+    expect(await speakerOf('many_voices', 3)).toBe(0); // out of range
+    expect(await speakerOf('many_voices', null)).toBe(0);
+    expect(await speakerOf('test_voice', 2)).toBe(0); // single-speaker model
   });
 
   it('reports Piper failures', async () => {
@@ -79,6 +93,31 @@ describe('cloud TTS', () => {
     expect(errorMessage('Unauthorized')).toBe('Unauthorized');
   });
 
+  it("lists each provider's voices for the picker", async () => {
+    const respond = (body: unknown) => (async () => Response.json(body)) as unknown as typeof fetch;
+    expect(
+      await listCloudVoices(
+        { provider: 'google', key: 'k', region: null },
+        respond({ voices: [{ name: 'en-US-Neural2-F', ssmlGender: 'FEMALE' }, { name: 'de-DE-Neural2-B' }] }),
+      ),
+    ).toEqual([
+      { id: 'de-DE-Neural2-B', label: 'de-DE-Neural2-B' },
+      { id: 'en-US-Neural2-F', label: 'en-US-Neural2-F (female)' },
+    ]);
+    expect(
+      await listCloudVoices(
+        { provider: 'azure', key: 'k', region: 'eastus' },
+        respond([{ ShortName: 'en-US-AriaNeural', LocalName: 'Aria', Gender: 'Female' }]),
+      ),
+    ).toEqual([{ id: 'en-US-AriaNeural', label: 'en-US-AriaNeural — Aria (female)' }]);
+    expect(
+      await listCloudVoices(
+        { provider: 'elevenlabs', key: 'k', region: null },
+        respond({ voices: [{ voice_id: 'x1', name: 'Rachel', category: 'premade' }] }),
+      ),
+    ).toEqual([{ id: 'x1', label: 'Rachel (premade)' }]);
+  });
+
   it('calls ElevenLabs with the voice id in the path', async () => {
     const { calls, fetchImpl } = recorder();
     await synthesizeCloud({ provider: 'elevenlabs', key: 'k', region: null, voice: 'abc/../x' }, 'hi', fetchImpl);
@@ -93,7 +132,7 @@ describe('speech service', () => {
     const failing = (async () => new Response('nope', { status: 500 })) as unknown as typeof fetch;
     const service = new SpeechService(fakePiper(), (e) => errors.push(e), failing);
     const cloud = voice({ engine: 'cloud', espeakVoice: 'de', cloud: { provider: 'google', key: 'k', region: null, voice: null } });
-    expect(await service.speak(cloud, 'hallo')).toEqual({ kind: 'espeak', text: 'hallo', voice: 'de' });
+    expect(await service.speak({ ...cloud, effect: 'echo' }, 'hallo')).toEqual({ kind: 'espeak', text: 'hallo', voice: 'de', effect: 'echo' });
     expect(String(errors[0])).toContain('Google TTS failed (500)');
     await expect(service.speakStrict(cloud, 'hallo')).rejects.toThrow('500');
     expect(await service.speak(voice({ engine: 'piper' }), 'FAIL')).toMatchObject({ kind: 'espeak' });
@@ -102,8 +141,18 @@ describe('speech service', () => {
   it('returns Piper audio, browser voices and eSpeak as asked', async () => {
     const service = new SpeechService(fakePiper());
     expect(await service.speak(voice({ engine: 'piper', piperVoice: 'test_voice' }), 'hi')).toMatchObject({ kind: 'audio', mime: 'audio/wav' });
-    expect(await service.speak(voice({ engine: 'browser', browserVoice: 'Zira' }), 'hi')).toEqual({ kind: 'browser', text: 'hi', voice: 'Zira' });
-    expect(await service.speak(voice({ engine: 'espeak', espeakVoice: 'fr' }), 'hi')).toEqual({ kind: 'espeak', text: 'hi', voice: 'fr' });
+    expect(await service.speak(voice({ engine: 'browser', browserVoice: 'Zira' }), 'hi')).toEqual({
+      kind: 'browser',
+      text: 'hi',
+      voice: 'Zira',
+      effect: 'none',
+    });
+    expect(await service.speak(voice({ engine: 'espeak', espeakVoice: 'fr', effect: 'robot' }), 'hi')).toEqual({
+      kind: 'espeak',
+      text: 'hi',
+      voice: 'fr',
+      effect: 'robot',
+    });
     // Piper selected on a server without Piper: eSpeak, no error.
     expect(await new SpeechService(new Piper(undefined, undefined)).speakStrict(voice({}), 'hi')).toMatchObject({ kind: 'espeak' });
   });

@@ -1,5 +1,5 @@
 import { boolean, integer, pgTable, primaryKey, text, timestamp, unique, uuid, type AnyPgColumn } from 'drizzle-orm/pg-core';
-import type { AlertEvent, AlertSound, CloudProvider, Mode, TtsEngine, TtsMode } from '@fluxion/shared';
+import type { AlertEvent, AlertSound, CloudProvider, Mode, TtsEngine, TtsMode, VoiceEffect } from '@fluxion/shared';
 
 export const hosts = pgTable('hosts', {
   id: uuid('id').primaryKey().defaultRandom(),
@@ -23,6 +23,8 @@ export const hosts = pgTable('hosts', {
   ttsVoice: text('tts_voice'), // browser engine: a browser voice name; null means the overlay's default
   ttsEspeakVoice: text('tts_espeak_voice').notNull().default('en-us'),
   ttsPiperVoice: text('tts_piper_voice'), // a model name; null means the server's first voice
+  ttsPiperSpeaker: integer('tts_piper_speaker'), // multi-speaker models only; null means speaker 0
+  ttsEffect: text('tts_effect').$type<VoiceEffect>().notNull().default('none'),
   ttsCloudProvider: text('tts_cloud_provider').$type<CloudProvider>(),
   ttsCloudKey: text('tts_cloud_key'), // the host's own API key; never sent back to the browser
   ttsCloudRegion: text('tts_cloud_region'), // Azure only

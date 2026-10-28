@@ -42,11 +42,12 @@ Browsers share cookies between servers on the same host name regardless of port,
 
 ## Text-to-speech
 
-The image includes [Piper](https://github.com/rhasspy/piper) and two English voices, so the "Piper" voice engine
+The image includes [Piper](https://github.com/rhasspy/piper) and five English voices (two of them multi-speaker, with 904 and 109 speakers), so the "Piper" voice engine
 works out of the box. Each spoken line costs a little server CPU (about half a second for a short line).
 
-- Smaller image without Piper (about 170 MB less): add `args: { WITH_PIPER: "false" }` under `build:` in
-  `docker/compose.yml`. Hosts who pick Piper then get the in-overlay eSpeak voice instead.
+- Smaller image: under `build:` in `docker/compose.yml`, add `args: { WITH_PIPER: "false" }` to leave Piper out
+  (about 360 MB less; hosts who pick Piper get the in-overlay eSpeak voice instead), or
+  `args: { PIPER_VOICES: "en_GB/alba/medium/en_GB-alba-medium" }` to bundle fewer voices (each is 60–80 MB).
 - More voices: mount a folder of Piper voices (`.onnx` + `.onnx.json` pairs) at `/opt/piper-voices`. Check each
   voice's license first; see `THIRD_PARTY_NOTICES.md`.
 - Running without Docker: set `PIPER_BIN` (the `piper` executable) and `PIPER_VOICES_DIR` in `.env`.

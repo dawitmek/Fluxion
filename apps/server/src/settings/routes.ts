@@ -1,7 +1,18 @@
 import type { FastifyInstance } from 'fastify';
 import { eq } from 'drizzle-orm';
 import { hosts, profiles } from '../db/schema.js';
-import { CLOUD_PROVIDERS, MODES, TTS_ENGINES, TTS_MODES, type CloudProvider, type Mode, type TtsEngine, type TtsMode } from '@fluxion/shared';
+import {
+  CLOUD_PROVIDERS,
+  MODES,
+  TTS_ENGINES,
+  TTS_MODES,
+  VOICE_EFFECTS,
+  type CloudProvider,
+  type Mode,
+  type TtsEngine,
+  type TtsMode,
+  type VoiceEffect,
+} from '@fluxion/shared';
 import { requireHost } from '../auth/session.js';
 import { activeProfile } from '../profiles/active.js';
 
@@ -24,6 +35,8 @@ type Body = {
   ttsEngine?: TtsEngine;
   ttsEspeakVoice?: string;
   ttsPiperVoice?: string | null;
+  ttsPiperSpeaker?: number | null;
+  ttsEffect?: VoiceEffect;
   ttsCloudProvider?: CloudProvider | null;
   ttsCloudKey?: string | null;
   ttsCloudRegion?: string | null;
@@ -62,6 +75,8 @@ export async function settingsRoutes(app: FastifyInstance) {
             ttsEngine: { enum: TTS_ENGINES },
             ttsEspeakVoice: { type: 'string', pattern: '^[a-z]{2,3}(-[a-z0-9]{2,8})*$' },
             ttsPiperVoice: { type: ['string', 'null'], pattern: '^[A-Za-z0-9_.-]{1,100}$' },
+            ttsPiperSpeaker: { type: ['integer', 'null'], minimum: 0, maximum: 100000 },
+            ttsEffect: { enum: VOICE_EFFECTS },
             ttsCloudProvider: { enum: [...CLOUD_PROVIDERS, null] },
             ttsCloudKey: { type: ['string', 'null'], maxLength: 300 },
             ttsCloudRegion: { type: ['string', 'null'], pattern: '^[a-z0-9]{1,40}$' },
