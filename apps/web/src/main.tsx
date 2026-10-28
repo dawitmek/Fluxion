@@ -3,7 +3,8 @@ import { createRoot } from 'react-dom/client';
 import '@fluxion/theme/theme.css';
 import { Auth } from './Auth';
 import { Dashboard } from './dashboard/Dashboard';
-import { Home } from './Home';
+import { HomePage } from './site/HomePage';
+import { FaqPage, FeaturesPage, HowItWorksPage, SelfHostingPage } from './site/pages';
 import { Overlay } from './Overlay';
 import { usePath } from './router';
 import './app.css';
@@ -18,7 +19,11 @@ function App() {
   if (path.startsWith('/dashboard')) return <Dashboard />;
   if (path === '/login') return <Auth key="login" mode="login" />;
   if (path === '/signup') return <Auth key="signup" mode="signup" />;
-  return <Home />;
+  if (path === '/features') return <FeaturesPage />;
+  if (path === '/how-it-works') return <HowItWorksPage />;
+  if (path === '/self-hosting') return <SelfHostingPage />;
+  if (path === '/faq') return <FaqPage />;
+  return <HomePage />;
 }
 
 createRoot(document.getElementById('root')!).render(

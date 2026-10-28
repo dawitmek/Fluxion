@@ -90,7 +90,8 @@ function Shell({ host, refreshHost }: { host: Host; refreshHost: () => Promise<u
         </button>
       </div>
       <nav id="sidebar" className={`sidebar ${menuOpen ? 'open' : ''}`} aria-label="Dashboard">
-        <Link href="/" className="brand">
+        {/* The logo keeps you in the app; the public site is reached by its own address. */}
+        <Link href="/dashboard" className="brand">
           <Logo />
           Fluxion
         </Link>
