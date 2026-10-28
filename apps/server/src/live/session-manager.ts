@@ -76,7 +76,8 @@ export class SessionManager {
 
   status(hostId: string) {
     const session = this.sessions.get(hostId);
-    return session ? { live: true, source: session.source } : { live: false };
+    const companionsOnline = this.hub.companionCount(hostId);
+    return session ? { live: true, source: session.source, companionsOnline } : { live: false, companionsOnline };
   }
 
   // Returns false when the host has no simulated session running.

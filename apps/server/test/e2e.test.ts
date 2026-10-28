@@ -160,7 +160,11 @@ describe('live pipeline (simulated source)', () => {
     const overlay = connect(`/ws/overlay?token=${me.overlayToken}`);
     await overlay.opened;
 
-    expect((await api(cookie, 'POST', '/api/live/start', { source: 'simulated' })).json()).toEqual({ live: true, source: 'simulated' });
+    expect((await api(cookie, 'POST', '/api/live/start', { source: 'simulated' })).json()).toEqual({
+      live: true,
+      source: 'simulated',
+      companionsOnline: 1,
+    });
     expect(await overlay.next()).toEqual({ type: 'live', state: 'started' });
 
     await api(cookie, 'POST', '/api/live/simulate', { viewer: 'alice', text: 'LEFT' });

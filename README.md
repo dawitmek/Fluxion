@@ -29,6 +29,8 @@ npm run tauri dev -w apps/companion
 npm test                              # unit + end-to-end tests (needs db:up)
 ```
 
+The companion pairs with whatever server address you give it (e.g. `http://127.0.0.1:3000`). Key input currently works on Windows only; see `docs/WINDOWS_VERIFICATION.md` for the full Windows test run.
+
 After changing `apps/server/src/db/schema.ts`, run `npm run db:generate -w apps/server` to create a migration.
 
 Production: `npm run build && npm start` serves everything from one address.

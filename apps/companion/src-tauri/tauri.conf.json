@@ -1,6 +1,6 @@
 {
   "$schema": "https://schema.tauri.app/config/2",
-  "productName": "companion",
+  "productName": "Fluxion Companion",
   "version": "0.1.0",
   "identifier": "app.fluxion.companion",
   "build": {
@@ -12,13 +12,13 @@
   "app": {
     "windows": [
       {
-        "title": "companion",
-        "width": 800,
-        "height": 600
+        "title": "Fluxion Companion",
+        "width": 520,
+        "height": 720
       }
     ],
     "security": {
-      "csp": null
+      "csp": "default-src 'self'; style-src 'self' 'unsafe-inline'"
     }
   },
   "bundle": {

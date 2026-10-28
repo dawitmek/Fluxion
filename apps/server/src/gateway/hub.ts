@@ -23,6 +23,10 @@ export class Hub {
     socket.on('close', () => sockets.delete(socket));
   }
 
+  companionCount(hostId: string) {
+    return this.companions.get(hostId)?.size ?? 0;
+  }
+
   disconnectCompanion(companionId: string) {
     for (const sockets of this.companions.values()) {
       sockets.get(companionId)?.close(4003, 'Companion revoked');

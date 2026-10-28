@@ -1,0 +1,80 @@
+:root {
+  --bg: #f6f7f9;
+  --card: #ffffff;
+  --border: #e1e4e8;
+  --text: #1f2328;
+  --muted: #6b7280;
+  --accent: #e8175d;
+  --ok-bg: #d8f3dc;
+  --ok-text: #1b5e20;
+  --bad-bg: #fde2e1;
+  --bad-text: #8a1c17;
+  font-family: system-ui, -apple-system, 'Segoe UI', sans-serif;
+  font-size: 14px;
+  color: var(--text);
+  background: var(--bg);
+  color-scheme: light dark;
+}
+@media (prefers-color-scheme: dark) {
+  :root {
+    --bg: #16181c;
+    --card: #1f2227;
+    --border: #2e3238;
+    --text: #e6e8eb;
+    --muted: #9aa1ab;
+    --ok-bg: #1e3a24;
+    --ok-text: #9be3a8;
+    --bad-bg: #3d1f1f;
+    --bad-text: #f3a6a2;
+  }
+}
+body { margin: 0; background: var(--bg); }
+main { max-width: 880px; margin: 0 auto; padding: 16px; }
+main.narrow { max-width: 420px; padding-top: 48px; }
+h1 { font-size: 22px; margin: 0; }
+h2 { font-size: 16px; margin: 0 0 8px; }
+.topbar { display: flex; align-items: center; gap: 12px; margin-bottom: 16px; }
+.topbar h1 { flex: 1; }
+.card { background: var(--card); border: 1px solid var(--border); border-radius: 10px; padding: 16px; margin-bottom: 14px; }
+.muted { color: var(--muted); font-size: 13px; }
+.error { background: var(--bad-bg); color: var(--bad-text); padding: 8px 10px; border-radius: 8px; }
+label { display: block; font-size: 13px; margin-bottom: 10px; }
+input, select { display: block; width: 100%; box-sizing: border-box; padding: 7px 9px; margin-top: 4px; border: 1px solid var(--border); border-radius: 6px; background: var(--bg); color: var(--text); font: inherit; }
+button, a.button { display: inline-block; padding: 7px 14px; border: 1px solid var(--border); border-radius: 6px; background: var(--card); color: var(--text); font: inherit; cursor: pointer; text-decoration: none; white-space: nowrap; }
+button:disabled { opacity: 0.55; cursor: default; }
+button.primary { background: var(--accent); border-color: var(--accent); color: #fff; font-weight: 600; }
+button.danger { background: #c62828; border-color: #c62828; color: #fff; font-weight: 600; }
+button.link { background: none; border: none; color: var(--muted); text-decoration: underline; padding: 4px; }
+.pill { display: inline-block; padding: 3px 10px; border-radius: 99px; font-size: 12px; font-weight: 600; background: var(--bg); border: 1px solid var(--border); }
+.pill.ok { background: var(--ok-bg); color: var(--ok-text); border-color: transparent; }
+.pill.bad { background: var(--bad-bg); color: var(--bad-text); border-color: transparent; }
+.status-row { display: flex; gap: 8px; flex-wrap: wrap; margin-bottom: 14px; }
+.grid2 { display: grid; grid-template-columns: 1fr 1fr; gap: 12px; }
+.actions { display: flex; gap: 8px; margin-top: 14px; flex-wrap: wrap; }
+.inline { display: flex; gap: 8px; align-items: center; }
+.inline input, .inline select { margin: 0; }
+.test-console { margin-top: 14px; padding-top: 12px; border-top: 1px solid var(--border); }
+.table-wrap { overflow-x: auto; }
+table { width: 100%; border-collapse: collapse; }
+th, td { text-align: left; padding: 6px 8px; border-bottom: 1px solid var(--border); font-size: 13px; }
+th { color: var(--muted); font-weight: 500; }
+td input[type='checkbox'] { width: auto; margin: 0; }
+td select, td input.num { margin: 0; min-width: 90px; }
+.add-command { margin-top: 12px; }
+.pairing-code strong { font-family: ui-monospace, Consolas, monospace; font-size: 26px; letter-spacing: 4px; }
+.list { list-style: none; padding: 0; margin: 12px 0 0; }
+.list li { display: flex; gap: 12px; align-items: center; padding: 6px 0; border-bottom: 1px solid var(--border); }
+.list li span:first-child { font-weight: 600; }
+code { font-family: ui-monospace, Consolas, monospace; }
+@media (max-width: 600px) {
+  .grid2 { grid-template-columns: 1fr; }
+  .inline { flex-wrap: wrap; }
+}
+
+/* Overlay: transparent so it sits on top of the stream. */
+html:has(body.overlay-body), body.overlay-body { background: transparent; }
+.overlay { position: fixed; left: 16px; bottom: 16px; display: flex; flex-direction: column-reverse; gap: 8px; font-family: system-ui, sans-serif; }
+.overlay-item, .overlay-hint { background: rgba(0, 0, 0, 0.7); color: #fff; padding: 8px 14px; border-radius: 10px; font-size: 22px; animation: pop 0.25s ease-out; }
+.overlay-viewer { font-weight: 700; margin-right: 10px; }
+.overlay-keyword { text-transform: uppercase; color: #ffd166; font-weight: 800; letter-spacing: 1px; }
+@keyframes pop { from { transform: translateY(8px); opacity: 0; } to { transform: none; opacity: 1; } }
