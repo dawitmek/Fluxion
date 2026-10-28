@@ -69,6 +69,9 @@
 .status-tiles { display: grid; grid-template-columns: repeat(auto-fit, minmax(220px, 1fr)); gap: 14px; margin-bottom: 22px; }
 .tile-big-text { font-weight: 600; font-size: 17px; margin-top: 8px; }
 .tile-actions { display: flex; flex-direction: column; gap: 8px; justify-content: center; }
+@media (min-width: 1100px) {
+  .status-tiles { grid-template-columns: repeat(3, minmax(0, 1fr)) 190px; }
+}
 .tile-actions .btn { width: 100%; }
 .rate-bar { display: flex; gap: 4px; margin-top: 8px; }
 .rate-bar div { flex: 1; height: 6px; border-radius: 6px; background: var(--meter); }

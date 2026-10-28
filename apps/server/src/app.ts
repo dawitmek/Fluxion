@@ -94,6 +94,8 @@ export async function buildApp(config: Config, options: Options = {}) {
     // Client-side routes (/dashboard, /overlay/:token) fall back to index.html.
     app.setNotFoundHandler((req, reply) => {
       if (req.url.startsWith('/api/')) return reply.code(404).send({ error: 'Not found' });
+      // A tab opened before an update asks for old bundle files; a 404 lets it notice, where index.html would not.
+      if (req.url.startsWith('/assets/')) return reply.code(404).send('Not found');
       return reply.sendFile('index.html');
     });
   }

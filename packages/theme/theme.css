@@ -157,6 +157,8 @@ code { font-family: ui-monospace, 'SF Mono', Consolas, monospace; font-size: 0.9
 select.input, .field select { padding-right: 32px; }
 .input:focus, .field input:focus, .field select:focus { outline: none; border-color: var(--indigo-fill); box-shadow: 0 0 0 3px var(--indigo-soft); }
 .form-grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(220px, 1fr)); gap: 14px 16px; }
+/* Hints sit under the control in a grid, so labels and controls line up whether or not a field has one. */
+.form-grid .field > .hint { order: 1; }
 .row { display: flex; flex-wrap: wrap; align-items: center; gap: 8px; }
 .row > .input { flex: 1; width: auto; min-width: 120px; }
 .stack { display: flex; flex-direction: column; gap: 16px; }

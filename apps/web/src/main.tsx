@@ -10,6 +10,20 @@ import { usePath } from './router';
 import './app.css';
 import './overlay.css';
 
+// After an update, a tab that is still open asks for bundle files that no longer exist. Reload once to pick up
+// the new version, but not again within a minute, so a genuinely missing file can't cause a reload loop.
+window.addEventListener('vite:preloadError', (event) => {
+  try {
+    const last = Number(sessionStorage.getItem('fluxion-reloaded-at'));
+    if (Date.now() - last < 60_000) return;
+    sessionStorage.setItem('fluxion-reloaded-at', String(Date.now()));
+  } catch {
+    return;
+  }
+  event.preventDefault();
+  location.reload();
+});
+
 const overlayToken = location.pathname.match(/^\/overlay\/([^/]+)/)?.[1];
 // Set before the first paint so the overlay never flashes the dashboard background.
 if (overlayToken) document.documentElement.classList.add('overlay-page');
