@@ -1,6 +1,7 @@
 import { useEffect, useState } from "react";
 import { invoke } from "@tauri-apps/api/core";
 import { listen } from "@tauri-apps/api/event";
+import "@fluxion/theme/theme.css";
 import "./App.css";
 
 interface LogEntry {
@@ -31,6 +32,14 @@ interface GameWindow {
   process: string;
 }
 
+type Run = (command: string, args?: Record<string, unknown>) => Promise<void>;
+
+// Key codes as people know them: KeyA -> A, ArrowLeft -> ←, Digit1 -> 1.
+function keyLabel(code: string) {
+  const arrows: Record<string, string> = { ArrowLeft: "←", ArrowRight: "→", ArrowUp: "↑", ArrowDown: "↓" };
+  return arrows[code] ?? code.replace(/^Key/, "").replace(/^Digit/, "").replace(/(Left|Right)$/, " $1");
+}
+
 export default function App() {
   const [state, setState] = useState<Snapshot | null>(null);
   const [error, setError] = useState<string | null>(null);
@@ -42,7 +51,7 @@ export default function App() {
   }, []);
 
   // Runs a Rust command and shows its error, if any.
-  const run = (command: string, args?: Record<string, unknown>) =>
+  const run: Run = (command, args) =>
     invoke(command, args)
       .then(() => setError(null))
       .catch((e) => setError(String(e)));
@@ -50,30 +59,56 @@ export default function App() {
   if (!state) return null;
 
   return (
-    <main>
-      <h1>Fluxion Companion</h1>
+    <main className="companion">
+      <header className="top">
+        <span className="logo-mark" aria-hidden="true">
+          <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.4" strokeLinecap="round">
+            <path d="M4 16c3-8 6-8 8 0s5 8 8 0" />
+          </svg>
+        </span>
+        <h1>Fluxion Companion</h1>
+        {state.paired && <ConnectionTag connection={state.connection} />}
+      </header>
       {!state.platformSupported && (
-        <p className="warning">Key input only works on Windows and macOS so far. This build can pair and connect, but refuses every action.</p>
+        <p className="notice warning">Key input only works on Windows and macOS so far. This build can pair and connect, but refuses every action.</p>
       )}
       {state.permissionProblem && (
-        <div className="warning">
+        <div className="notice warning">
           <p>
             {state.permissionProblem}. Click below, then in System Settings → Privacy &amp; Security → Accessibility turn on
             Fluxion Companion.
           </p>
-          <div className="row">
-            <button onClick={() => run("request_permission")}>Open Accessibility settings</button>
-            <button onClick={() => invoke<Snapshot>("get_state").then(setState)}>Check again</button>
+          <div className="row" style={{ marginTop: 10 }}>
+            <button className="btn btn-sm" onClick={() => run("request_permission")}>
+              Open Accessibility settings
+            </button>
+            <button className="btn btn-sm" onClick={() => invoke<Snapshot>("get_state").then(setState)}>
+              Check again
+            </button>
           </div>
         </div>
       )}
-      {error && <p className="error">{error}</p>}
+      {error && (
+        <p className="notice error" role="alert">
+          {error}
+        </p>
+      )}
       {state.paired ? <Paired state={state} run={run} /> : <PairForm run={run} defaultServer={state.serverUrl} />}
     </main>
   );
 }
 
-function PairForm({ run, defaultServer }: { run: (c: string, a?: Record<string, unknown>) => Promise<void>; defaultServer: string | null }) {
+function ConnectionTag({ connection }: { connection: string }) {
+  const hue = connection === "connected" ? "green" : connection === "connecting" ? "amber" : "red";
+  return (
+    <span className={`tag ${hue} connection`} title={connection}>
+      <span className="dot" aria-hidden="true" />
+      {connection[0]!.toUpperCase() + connection.slice(1)}
+    </span>
+  );
+}
+
+function PairForm({ run, defaultServer }: { run: Run; defaultServer: string | null }) {
   const [serverUrl, setServerUrl] = useState(defaultServer ?? "http://127.0.0.1:3000");
   const [code, setCode] = useState("");
   const [name, setName] = useState("My PC");
@@ -81,33 +116,37 @@ function PairForm({ run, defaultServer }: { run: (c: string, a?: Record<string, 
 
   return (
     <form
-      className="card"
+      className="card stack"
       onSubmit={(e) => {
         e.preventDefault();
         setBusy(true);
         run("pair", { serverUrl, code, name }).finally(() => setBusy(false));
       }}
     >
-      <h2>Pair this PC</h2>
-      <p className="hint">On the Fluxion dashboard, open Companions and create a pairing code.</p>
-      <label>
-        Server
+      <div>
+        <h2>Pair this PC</h2>
+        <p className="muted">On the Fluxion dashboard, open Companion and create a pairing code. It shows the server address too.</p>
+      </div>
+      <label className="field">
+        Server address
         <input value={serverUrl} onChange={(e) => setServerUrl(e.target.value)} required />
       </label>
-      <label>
+      <label className="field">
         Pairing code
-        <input value={code} onChange={(e) => setCode(e.target.value.toUpperCase())} maxLength={6} required />
+        <input className="code-input" value={code} onChange={(e) => setCode(e.target.value.toUpperCase())} maxLength={6} required />
       </label>
-      <label>
+      <label className="field">
         Device name
         <input value={name} onChange={(e) => setName(e.target.value)} required />
       </label>
-      <button disabled={busy}>{busy ? "Pairing…" : "Pair"}</button>
+      <button className="btn btn-primary btn-lg" disabled={busy}>
+        {busy ? "Pairing…" : "Pair"}
+      </button>
     </form>
   );
 }
 
-function Paired({ state, run }: { state: Snapshot; run: (c: string, a?: Record<string, unknown>) => Promise<void> }) {
+function Paired({ state, run }: { state: Snapshot; run: Run }) {
   const [windows, setWindows] = useState<GameWindow[]>([]);
   const refreshWindows = () => invoke<GameWindow[]>("list_windows").then(setWindows);
   useEffect(() => void refreshWindows(), []);
@@ -121,77 +160,101 @@ function Paired({ state, run }: { state: Snapshot; run: (c: string, a?: Record<s
 
   return (
     <>
-      <section className="card">
-        <div className="row">
-          <span className={`pill ${connected ? "ok" : "bad"}`}>{state.connection}</span>
-          <span className="hint">
-            {state.deviceName} · {state.serverUrl}
-          </span>
+      <section className={`tile ${state.paused ? "amber" : "green"} control`} aria-label="Input">
+        <div className="tile-title" style={{ color: state.paused ? "var(--amber)" : "var(--green)" }}>
+          <span className="dot" aria-hidden="true" />
+          {state.paused ? "Input paused" : "Ready to press keys"}
         </div>
-        <button className={state.paused ? "resume" : "pause"} onClick={() => run("set_paused", { paused: !state.paused })}>
+        <p className="muted small">
+          {state.deviceName} on {state.serverUrl}
+        </p>
+        <button
+          className={`btn btn-lg ${state.paused ? "btn-success" : "btn-danger"}`}
+          onClick={() => run("set_paused", { paused: !state.paused })}
+        >
           {state.paused ? "Resume input" : "Pause input"}
         </button>
-        <p className="hint">Panic hotkey: {state.panicHotkey} pauses instantly and releases every held key.</p>
+        <p className="muted small">
+          Panic hotkey: <kbd className="kbd">{state.panicHotkey}</kbd> pauses instantly and lets go of every held key.
+        </p>
         <div className="row">
-          {!connected && <button onClick={() => run("reconnect")}>Reconnect</button>}
-          <button className="link" onClick={() => run("unpair")}>
+          {!connected && (
+            <button className="btn btn-sm" onClick={() => run("reconnect")}>
+              Reconnect
+            </button>
+          )}
+          <button className="btn btn-ghost btn-sm" onClick={() => run("unpair")}>
             Unpair
           </button>
         </div>
       </section>
 
-      <section className="card">
-        <h2>Game</h2>
-        <p className="hint">Keys are only pressed while this program's window is focused.</p>
+      <section className="card stack" aria-labelledby="game-title">
+        <div>
+          <h2 id="game-title">Game</h2>
+          <p className="muted">Keys are only pressed while this program's window is in focus.</p>
+        </div>
         {state.profileName && (
-          <p className="hint">
-            Dashboard profile: <strong>{state.profileName}</strong>. Switching profiles on the dashboard picks its game here
-            when the profile names one.
+          <p className="muted small">
+            Dashboard profile: <span className="tag teal">{state.profileName}</span> Switching profiles on the dashboard picks its
+            game here when the profile names one.
           </p>
         )}
         {state.profileGame && state.targetProcess !== state.profileGame && (
-          <p className="warning">
+          <p className="notice warning">
             The {state.profileName} profile is for {state.profileGame}, but this PC is targeting {state.targetProcess ?? "nothing"}.
           </p>
         )}
         <div className="row">
-          <select value={state.targetProcess ?? ""} onChange={(e) => run("set_target", { process: e.target.value || null })}>
+          <select className="input" value={state.targetProcess ?? ""} onChange={(e) => run("set_target", { process: e.target.value || null })}>
             <option value="">Select a game…</option>
             {state.targetProcess && !windows.some((w) => w.process === state.targetProcess) && (
               <option value={state.targetProcess}>{state.targetProcess} (not running)</option>
             )}
             {windows.map((w) => (
               <option key={w.process} value={w.process}>
-                {w.process} · {w.title.slice(0, 40)}
+                {w.process}: {w.title.slice(0, 40)}
               </option>
             ))}
           </select>
-          <button onClick={refreshWindows}>Refresh</button>
+          <button className="btn" onClick={refreshWindows}>
+            Refresh
+          </button>
         </div>
       </section>
 
-      <section className="card">
-        <h2>Allowed keys on this PC</h2>
-        <p className="hint">The server can only press keys checked here.</p>
+      <section className="card stack" aria-labelledby="keys-title">
+        <div>
+          <h2 id="keys-title">Allowed keys on this PC</h2>
+          <p className="muted">The server can only press the keys lit up here. Click a key to allow or block it.</p>
+        </div>
         <div className="keys">
           {state.allKeys.map((key) => (
-            <label key={key} className="key">
-              <input type="checkbox" checked={allowed.has(key)} onChange={() => toggleKey(key)} />
-              {key.replace(/^Key|^Digit/, "")}
-            </label>
+            <button
+              key={key}
+              className={`keycap ${allowed.has(key) ? "on" : ""} ${["Space", "Enter", "ShiftLeft", "ShiftRight"].includes(key) ? "wide" : ""}`}
+              aria-pressed={allowed.has(key)}
+              onClick={() => toggleKey(key)}
+            >
+              {keyLabel(key)}
+            </button>
           ))}
         </div>
       </section>
 
-      <section className="card">
-        <h2>Activity</h2>
+      <section className="card" aria-labelledby="activity-title">
+        <h2 id="activity-title" style={{ marginBottom: 8 }}>
+          Activity
+        </h2>
         {state.log.length === 0 ? (
-          <p className="hint">No actions yet.</p>
+          <p className="muted">Keys appear here as chat presses them.</p>
         ) : (
           <ul className="log">
             {state.log.map((entry, i) => (
-              <li key={i} className={entry.ok ? "ok" : "bad"}>
-                {entry.key} {entry.ok ? "pressed" : `refused: ${entry.reason}`}
+              <li key={i}>
+                <span className={`tag ${entry.ok ? "indigo" : "red"}`}>{entry.ok ? "Pressed" : "Refused"}</span>
+                <kbd className="kbd">{keyLabel(entry.key)}</kbd>
+                {!entry.ok && <span className="muted small">{entry.reason}</span>}
               </li>
             ))}
           </ul>

@@ -18,6 +18,7 @@ const STATS_FLUSH_MS = 5000;
 
 interface LiveSession {
   source: Source;
+  startedAt: number;
   adapter: PlatformAdapter;
   mode: Mode;
   progression: boolean;
@@ -85,6 +86,7 @@ export class SessionManager {
     };
     const session: LiveSession = {
       source,
+      startedAt: Date.now(),
       adapter,
       mode,
       progression: host.progression,
@@ -131,7 +133,7 @@ export class SessionManager {
     const session = this.sessions.get(hostId);
     const companionsOnline = this.hub.companionCount(hostId);
     return session
-      ? { live: true, source: session.source, mode: session.mode, companionsOnline }
+      ? { live: true, source: session.source, mode: session.mode, startedAt: session.startedAt, companionsOnline }
       : { live: false, companionsOnline };
   }
 

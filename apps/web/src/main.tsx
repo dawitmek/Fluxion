@@ -1,14 +1,26 @@
 import { StrictMode } from 'react';
 import { createRoot } from 'react-dom/client';
-import { Dashboard } from './Dashboard';
+import '@fluxion/theme/theme.css';
+import { Auth } from './Auth';
+import { Dashboard } from './dashboard/Dashboard';
+import { Home } from './Home';
 import { Overlay } from './Overlay';
-import './styles.css';
+import { usePath } from './router';
+import './app.css';
+import './overlay.css';
 
-// Two pages, no router needed: the overlay (a browser source in the streaming app) and the dashboard.
 const overlayToken = location.pathname.match(/^\/overlay\/([^/]+)/)?.[1];
 // Set before the first paint so the overlay never flashes the dashboard background.
 if (overlayToken) document.documentElement.classList.add('overlay-page');
 
+function App() {
+  const path = usePath();
+  if (path.startsWith('/dashboard')) return <Dashboard />;
+  if (path === '/login') return <Auth key="login" mode="login" />;
+  if (path === '/signup') return <Auth key="signup" mode="signup" />;
+  return <Home />;
+}
+
 createRoot(document.getElementById('root')!).render(
-  <StrictMode>{overlayToken ? <Overlay token={decodeURIComponent(overlayToken)} /> : <Dashboard />}</StrictMode>,
+  <StrictMode>{overlayToken ? <Overlay token={decodeURIComponent(overlayToken)} /> : <App />}</StrictMode>,
 );

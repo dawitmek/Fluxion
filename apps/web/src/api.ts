@@ -102,5 +102,6 @@ export interface LiveStatus {
   live: boolean;
   source?: 'tiktok' | 'simulated';
   mode?: Mode;
+  startedAt?: number; // server clock, ms
   companionsOnline: number;
 }

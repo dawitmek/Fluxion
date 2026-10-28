@@ -9,8 +9,9 @@ Let a TikTok LIVE audience play the host's game together. Viewers type commands 
 | Path | What |
 | --- | --- |
 | `apps/server` | Fastify + WebSockets: TikTok connection, mode engine, API. Serves the built web app in production. |
-| `apps/web` | React + Vite: host dashboard and stream overlay |
+| `apps/web` | React + Vite: home page, host dashboard (`/dashboard`) and stream overlay |
 | `apps/companion` | Tauri 2 desktop agent: presses whitelisted keys in the host's game |
+| `packages/theme` | Design system (colours, type, components) shared by the dashboard and companion |
 | `packages/shared` | Protocol types shared by all three |
 | `docker/compose.yml`, `Dockerfile` | Self-hosting (server + Postgres) |
 

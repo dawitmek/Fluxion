@@ -181,6 +181,7 @@ describe('live pipeline (simulated source)', () => {
       live: true,
       source: 'simulated',
       mode: 'anarchy',
+      startedAt: expect.any(Number),
       companionsOnline: 1,
     });
     expect(await overlay.next()).toEqual({ type: 'live', state: 'started' });

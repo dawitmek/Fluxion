@@ -5,6 +5,7 @@
   "type": "module",
   "workspaces": [
     "packages/shared",
+    "packages/theme",
     "apps/server",
     "apps/web",
     "apps/companion"
