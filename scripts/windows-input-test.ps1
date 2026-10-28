@@ -33,14 +33,35 @@ if (-not $status.live -or $status.source -ne "simulated") {
 Write-Host "Test mode on. Companions online: $($status.companionsOnline)"
 if ($status.companionsOnline -lt 1) { Write-Warning "No companion connected; keys will not be pressed." }
 
+Add-Type @"
+using System;
+using System.Text;
+using System.Runtime.InteropServices;
+public static class Fg {
+  [DllImport("user32.dll")] static extern IntPtr GetForegroundWindow();
+  [DllImport("user32.dll", CharSet = CharSet.Unicode)] static extern int GetWindowText(IntPtr h, StringBuilder s, int n);
+  public static string Title() { var s = new StringBuilder(512); GetWindowText(GetForegroundWindow(), s, 512); return s.ToString(); }
+}
+"@
+
+# Only check the title when we know what it should be: AppActivate, or manual focus with an explicit -WindowTitle.
+$checkTitle = $true
 if ($ManualFocusSeconds -gt 0) {
-  Write-Host "Click the '$WindowTitle' window now; sending in $ManualFocusSeconds s..."
+  $checkTitle = $PSBoundParameters.ContainsKey("WindowTitle")
+  $target = if ($checkTitle) { "the '$WindowTitle' window" } else { "the target window" }
+  Write-Host "Click $target now; sending in $ManualFocusSeconds s..."
   Start-Sleep -Seconds $ManualFocusSeconds
 } else {
+  # AppActivate can return True while Windows' foreground lock keeps the old window in front; the check below catches that.
   $shell = New-Object -ComObject WScript.Shell
   if (-not $shell.AppActivate($WindowTitle)) { throw "Could not focus a window titled '$WindowTitle'. Is it open?" }
   Start-Sleep -Milliseconds 700
 }
+$foreground = [Fg]::Title()
+if ($checkTitle -and $foreground -notlike "*$WindowTitle*") {
+  throw "Foreground window is '$foreground', not '$WindowTitle'. Re-run with -ManualFocusSeconds 5 and click it."
+}
+Write-Host "Foreground window: $foreground"
 
 foreach ($comment in $Comments) {
   Post "/live/simulate" @{ viewer = $Viewer; text = $comment } | Out-Null
@@ -51,7 +72,7 @@ foreach ($comment in $Comments) {
 if ($ReadBack) {
   Add-Type -AssemblyName System.Windows.Forms
   Start-Sleep -Milliseconds 500
-  [System.Windows.Forms.SendKeys]::SendWait("^a^c")
+  [System.Windows.Forms.SendKeys]::SendWait("^a^c^{END}")   # Ctrl+End deselects so the next key doesn't replace the text
   Start-Sleep -Milliseconds 300
   Write-Host "Window text now: [$(Get-Clipboard -Raw)]"
 }
