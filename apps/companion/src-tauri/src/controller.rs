@@ -84,6 +84,8 @@ impl Controller {
 
     pub fn snapshot(&self) -> Snapshot {
         let config = self.config();
+        // Lock once: std's Mutex isn't reentrant, and two locks in one expression deadlock.
+        let (profile_name, profile_game) = self.profile.lock().unwrap().clone();
         Snapshot {
             paired: config.device_token.is_some(),
             server_url: config.server_url,
@@ -91,8 +93,8 @@ impl Controller {
             connection: self.connection.lock().unwrap().clone(),
             paused: self.paused.load(Ordering::SeqCst),
             target_process: config.target_process,
-            profile_name: self.profile.lock().unwrap().0.clone(),
-            profile_game: self.profile.lock().unwrap().1.clone(),
+            profile_name,
+            profile_game,
             allowed_keys: allowed_keys(&config.allowed_keys),
             all_keys: ALL_KEYS.iter().map(|k| k.to_string()).collect(),
             log: self.log.lock().unwrap().iter().cloned().collect(),
