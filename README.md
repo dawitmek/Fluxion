@@ -107,6 +107,18 @@ What `npm run dev` starts:
 If another program uses port 3000, set `PORT=3001` in `.env`. To start the server and dashboard separately, use
 `npm run dev:server` and `npm run dev:web`.
 
+Without Piper, the Piper voice engine falls back to eSpeak. To use it in development, install the `piper-tts` Python
+package and download a voice (an `.onnx` model and its `.onnx.json`) from
+[piper-voices](https://huggingface.co/rhasspy/piper-voices). Then set `PIPER_BIN` and `PIPER_VOICES_DIR` in `.env`.
+The `piper-tts` package works on macOS; the older standalone macOS build is missing its libraries.
+
+```sh
+uv venv .local/piper-venv && uv pip install --python .local/piper-venv/bin/python piper-tts
+# .env
+PIPER_BIN=/absolute/path/to/Fluxion/.local/piper-venv/bin/piper
+PIPER_VOICES_DIR=/absolute/path/to/voices
+```
+
 After changing `apps/server/src/db/schema.ts`, run `npm run db:generate -w apps/server` to create a migration.
 
 For production, `npm run build && npm start` serves everything from one address.
