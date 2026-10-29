@@ -144,8 +144,13 @@ code { font-family: ui-monospace, 'SF Mono', Consolas, monospace; font-size: 0.9
 .btn-primary:hover { opacity: 0.88; }
 .btn-ghost { border-color: transparent; background: transparent; color: var(--muted); }
 .btn-ghost:hover { color: var(--ink); background: var(--panel2); border-color: transparent; }
-/* Ghost buttons that delete or revoke something turn red on hover. */
+/* Ghost buttons that delete or revoke something are red, and fill in on hover. */
+.btn-ghost.btn-delete { color: color-mix(in srgb, var(--red) 80%, var(--muted)); }
 .btn-ghost.btn-delete:hover { color: var(--red); background: var(--red-soft); }
+/* Buttons that try something out without changing it (Preview, Test) share one color across the dashboard. */
+.btn-try { color: var(--teal); background: var(--teal-soft); border-color: color-mix(in srgb, var(--teal) 30%, transparent); }
+.btn-try:hover { border-color: var(--teal); }
+.btn-try[aria-expanded='true'] { color: #fff; background: var(--teal-fill); border-color: var(--teal-fill); }
 .btn-sm { min-height: 32px; padding: 0 12px; border-radius: 10px; font-size: 13px; }
 .btn-lg { min-height: 48px; padding: 0 22px; border-radius: 12px; font-size: 15px; }
 
@@ -211,6 +216,18 @@ select.input, .field select { padding-right: 32px; }
 .choice:focus-within { outline: 2px solid var(--indigo-fill); outline-offset: 2px; }
 
 /* Small things */
+/* An icon on a tinted tile (HueIcon), one per hue. */
+.hue-icon { display: inline-grid; place-items: center; flex: none; width: 32px; height: 32px; border-radius: 9px; }
+.hue-icon.sm { width: 26px; height: 26px; border-radius: 7px; }
+.hue-icon.red { color: var(--red); background: var(--red-soft); }
+.hue-icon.green { color: var(--green); background: var(--green-soft); }
+.hue-icon.amber { color: var(--amber); background: var(--amber-soft); }
+.hue-icon.indigo { color: var(--indigo); background: var(--indigo-soft); }
+.hue-icon.sky { color: var(--sky); background: var(--sky-soft); }
+.hue-icon.pink { color: var(--pink); background: var(--pink-soft); }
+.hue-icon.violet { color: var(--violet); background: var(--violet-soft); }
+.hue-icon.teal { color: var(--teal); background: var(--teal-soft); }
+.hue-icon.orange { color: var(--orange); background: var(--orange-soft); }
 .tag { display: inline-flex; align-items: center; gap: 6px; padding: 3px 10px; border-radius: 999px; font-size: 13px; font-weight: 600; background: var(--panel2); color: var(--muted); white-space: nowrap; }
 .tag.red { background: var(--red-soft); color: var(--red); }
 .tag.green { background: var(--green-soft); color: var(--green); }

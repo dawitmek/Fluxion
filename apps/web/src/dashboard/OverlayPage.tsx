@@ -1,7 +1,8 @@
 import { useCallback, useEffect, useState, type FormEvent } from 'react';
 import { ALERT_POSITIONS, GOAL_METRICS, MAX_WIDGETS, WIDGET_SPOTS, WIDGET_TYPES, type GoalMetric, type ScreenWidget, type WidgetSpot, type WidgetType } from '@fluxion/shared';
 import { api, type AlertPosition, type Goal, type Screen } from '../api';
-import { Card, ErrorNotice, NumberCell, Seg, Switch, TextCell, useError } from '../ui';
+import { Card, ErrorNotice, HueIcon, NumberCell, Seg, TextCell, useError, type Hue } from '../ui';
+import type { IconName } from '../icons';
 import { DEFAULT_FIREWORK_DIAMONDS, Fireworks, GiftBus, usePreview, Widget } from '../overlay-widgets';
 
 const POSITION_LABELS: Record<AlertPosition, string> = { top: 'Top', middle: 'Middle', bottom: 'Bottom' };
@@ -41,16 +42,17 @@ export function OverlayPage() {
   );
 }
 
-const WIDGETS: Record<WidgetType, { label: string; help: string; spot: WidgetSpot }> = {
-  goals: { label: 'Goals', help: 'Progress bars for your goals below.', spot: 'top' },
-  top_gift: { label: 'Top gift', help: "The stream's most valuable gift and who sent it.", spot: 'top-right' },
-  top_streak: { label: 'Longest streak', help: 'The biggest gift combo so far.', spot: 'top-right' },
-  last_follower: { label: 'Latest follower', help: 'Who followed last.', spot: 'bottom-right' },
-  last_gifter: { label: 'Latest gift', help: 'Who sent the last gift, and what.', spot: 'bottom-right' },
-  stats: { label: 'Stream stats', help: 'Viewers, likes, follows and diamonds this stream.', spot: 'top' },
-  chat: { label: 'Chat', help: 'The last few chat messages.', spot: 'bottom-right' },
-  coin_jar: { label: 'Coin jar', help: 'Gifts drop coins into a jar that fills toward a diamond target.', spot: 'bottom-right' },
-  firework: { label: 'Gift fireworks', help: 'Fireworks across the screen for big gifts.', spot: 'top' },
+// Colored by what they show: gifts amber, followers sky, chat indigo, numbers teal, goals violet.
+const WIDGETS: Record<WidgetType, { label: string; help: string; spot: WidgetSpot; icon: IconName; hue: Hue }> = {
+  goals: { label: 'Goals', help: 'Progress bars for your goals below.', spot: 'top', icon: 'target', hue: 'violet' },
+  top_gift: { label: 'Top gift', help: "The stream's most valuable gift and who sent it.", spot: 'top-right', icon: 'trophy', hue: 'amber' },
+  top_streak: { label: 'Longest streak', help: 'The biggest gift combo so far.', spot: 'top-right', icon: 'flame', hue: 'orange' },
+  last_follower: { label: 'Latest follower', help: 'Who followed last.', spot: 'bottom-right', icon: 'follower', hue: 'sky' },
+  last_gifter: { label: 'Latest gift', help: 'Who sent the last gift, and what.', spot: 'bottom-right', icon: 'gift', hue: 'amber' },
+  stats: { label: 'Stream stats', help: 'Viewers, likes, follows and diamonds this stream.', spot: 'top', icon: 'analytics', hue: 'teal' },
+  chat: { label: 'Chat', help: 'The last few chat messages.', spot: 'bottom-right', icon: 'chat', hue: 'indigo' },
+  coin_jar: { label: 'Coin jar', help: 'Gifts drop coins into a jar that fills toward a diamond target.', spot: 'bottom-right', icon: 'coin', hue: 'amber' },
+  firework: { label: 'Gift fireworks', help: 'Fireworks across the screen for big gifts.', spot: 'top', icon: 'sparkle', hue: 'pink' },
 };
 const SPOT_LABELS: Record<WidgetSpot, string> = {
   'top-left': 'Top left',
@@ -60,6 +62,17 @@ const SPOT_LABELS: Record<WidgetSpot, string> = {
   bottom: 'Bottom',
   'bottom-right': 'Bottom right',
 };
+
+// A tiny map of the screen with the widget's spot lit; every spot for one that covers the whole screen.
+function SpotMap({ spot, hue }: { spot: WidgetSpot | null; hue: Hue }) {
+  return (
+    <span className={`spot-map ${hue}`} aria-hidden="true">
+      {WIDGET_SPOTS.map((s) => (
+        <span key={s} className={spot === null || spot === s ? 'lit' : ''} />
+      ))}
+    </span>
+  );
+}
 
 function WidgetsEditor({ widgets, onSave }: { widgets: ScreenWidget[]; onSave: (widgets: ScreenWidget[]) => void }) {
   const [type, setType] = useState<WidgetType>('goals');
@@ -71,13 +84,16 @@ function WidgetsEditor({ widgets, onSave }: { widgets: ScreenWidget[]; onSave: (
 
   return (
     <div className="stack">
-      <h3>Widgets</h3>
+      <h3>
+        Widgets {widgets.length > 0 && <span className="tag">{widgets.length}</span>}
+      </h3>
       {widgets.length === 0 ? (
         <p className="muted small">None yet. They show while you're live or in test mode, in the spot you pick. Widgets in the same spot stack.</p>
       ) : (
         <ul className="list">
           {widgets.map((w, i) => (
             <li key={w.type}>
+              <HueIcon name={WIDGETS[w.type].icon} hue={WIDGETS[w.type].hue} />
               <span className="widget-name">
                 <strong>{WIDGETS[w.type].label}</strong>
                 <span className="muted small">{WIDGETS[w.type].help}</span>
@@ -96,6 +112,7 @@ function WidgetsEditor({ widgets, onSave }: { widgets: ScreenWidget[]; onSave: (
                   <span className="muted small">diamonds</span>
                 </label>
               ) : null}
+              <SpotMap spot={w.type === 'firework' ? null : w.spot} hue={WIDGETS[w.type].hue} />
               {w.type !== 'firework' && (
                 <select className="input widget-spot" value={w.spot} aria-label={`Where ${WIDGETS[w.type].label} goes`} onChange={(e) => change(i, { spot: e.target.value as WidgetSpot })}>
                   {WIDGET_SPOTS.map((s) => (
@@ -105,7 +122,7 @@ function WidgetsEditor({ widgets, onSave }: { widgets: ScreenWidget[]; onSave: (
                   ))}
                 </select>
               )}
-              <button className="btn btn-sm" aria-expanded={previewing === w.type} onClick={() => setPreviewing(previewing === w.type ? null : w.type)}>
+              <button className="btn btn-sm btn-try" aria-expanded={previewing === w.type} onClick={() => setPreviewing(previewing === w.type ? null : w.type)}>
                 {previewing === w.type ? 'Hide preview' : 'Preview'}
               </button>
               <button className="btn btn-ghost btn-sm btn-delete" onClick={() => onSave(widgets.filter((_, j) => j !== i))}>
@@ -156,6 +173,13 @@ function WidgetPreview({ widget }: { widget: ScreenWidget }) {
 }
 
 const METRIC_LABELS: Record<GoalMetric, string> = { likes: 'Likes', follows: 'Follows', shares: 'Shares', diamonds: 'Diamonds', subscriptions: 'Subscriptions' };
+const METRIC_ICONS: Record<GoalMetric, { icon: IconName; hue: Hue }> = {
+  likes: { icon: 'heart', hue: 'pink' },
+  follows: { icon: 'follower', hue: 'sky' },
+  shares: { icon: 'share', hue: 'green' },
+  diamonds: { icon: 'diamond', hue: 'amber' },
+  subscriptions: { icon: 'star', hue: 'violet' },
+};
 
 function GoalsCard() {
   const [goals, setGoals] = useState<Goal[]>([]);
@@ -199,13 +223,16 @@ function GoalsCard() {
                     <TextCell value={g.name} required label="Goal name" onSave={(name) => update(g.id, { name })} />
                   </td>
                   <td>
-                    <select className="input" value={g.metric} aria-label="What it counts" onChange={(e) => update(g.id, { metric: e.target.value as GoalMetric })}>
-                      {GOAL_METRICS.map((m) => (
-                        <option key={m} value={m}>
-                          {METRIC_LABELS[m]}
-                        </option>
-                      ))}
-                    </select>
+                    <span className="with-icon">
+                      <HueIcon name={METRIC_ICONS[g.metric].icon} hue={METRIC_ICONS[g.metric].hue} size="sm" />
+                      <select className="input" value={g.metric} aria-label="What it counts" onChange={(e) => update(g.id, { metric: e.target.value as GoalMetric })}>
+                        {GOAL_METRICS.map((m) => (
+                          <option key={m} value={m}>
+                            {METRIC_LABELS[m]}
+                          </option>
+                        ))}
+                      </select>
+                    </span>
                   </td>
                   <td>
                     <NumberCell value={g.target} min={1} max={100_000_000} label="Target" onSave={(target) => update(g.id, { target })} />
@@ -269,7 +296,7 @@ function ScreenCard({ screen, reload }: { screen: Screen; reload: () => Promise<
         <button className="btn btn-primary" onClick={() => navigator.clipboard.writeText(url).then(() => setCopied(true))}>
           {copied ? 'Copied' : 'Copy'}
         </button>
-        <a className="btn" href={`${url}?preview`} target="_blank" rel="noreferrer" title="Shows your widgets and goals with sample numbers until you go live">
+        <a className="btn btn-try" href={`${url}?preview`} target="_blank" rel="noreferrer" title="Shows your widgets and goals with sample numbers until you go live">
           Open preview
         </a>
       </div>
@@ -289,23 +316,35 @@ function ScreenCard({ screen, reload }: { screen: Screen; reload: () => Promise<
         </label>
       </div>
       <div className="screen-switches">
-        <Switch checked={screen.alerts} onChange={(alerts) => save({ alerts })} hint="From your actions, unless an action picks another screen.">
-          Alerts
-        </Switch>
-        <Switch checked={screen.feed} onChange={(feed) => save({ feed })} hint="Who pressed what, level-ups and !points answers.">
-          Command feed
-        </Switch>
-        <Switch checked={screen.leaderboard} onChange={(leaderboard) => save({ leaderboard })}>
-          Leaderboard
-        </Switch>
-        <Switch checked={screen.mode} onChange={(mode) => save({ mode })} hint="Votes, the queue, or the gift-mode banner.">
-          Crowd mode panel
-        </Switch>
-        <Switch checked={screen.audio} onChange={(audio) => save({ audio })} hint="Alert sounds, voices and read-aloud chat.">
-          Sound
-        </Switch>
+        {SCREEN_PARTS.map((part) => (
+          <PartToggle key={part.part} {...part} checked={screen[part.part]} onChange={(on) => save({ [part.part]: on })} />
+        ))}
       </div>
       <WidgetsEditor widgets={screen.widgets} onSave={(widgets) => save({ widgets })} />
     </Card>
+  );
+}
+
+// What a screen shows, each in the color of the dashboard page it comes from (Actions pink, Commands indigo, and so on).
+const SCREEN_PARTS: { part: 'alerts' | 'feed' | 'leaderboard' | 'mode' | 'audio'; label: string; hint?: string; icon: IconName; hue: Hue }[] = [
+  { part: 'alerts', label: 'Alerts', hint: 'From your actions, unless an action picks another screen.', icon: 'bell', hue: 'pink' },
+  { part: 'feed', label: 'Command feed', hint: 'Who pressed what, level-ups and !points answers.', icon: 'feed', hue: 'indigo' },
+  { part: 'leaderboard', label: 'Leaderboard', hint: 'The top players, by level or commands.', icon: 'leaderboard', hue: 'sky' },
+  { part: 'mode', label: 'Crowd mode panel', hint: 'Votes, the queue, or the gift-mode banner.', icon: 'crowd', hue: 'teal' },
+  { part: 'audio', label: 'Sound', hint: 'Alert sounds, voices and read-aloud chat.', icon: 'voice', hue: 'violet' },
+];
+
+function PartToggle({ label, hint, icon, hue, checked, onChange }: (typeof SCREEN_PARTS)[number] & { checked: boolean; onChange: (on: boolean) => void }) {
+  return (
+    <label className={`part-toggle ${hue} ${checked ? 'on' : ''}`}>
+      <HueIcon name={icon} hue={hue} />
+      <span className="part-toggle-text">
+        <strong>{label}</strong>
+        {hint && <small>{hint}</small>}
+      </span>
+      <span className="switch">
+        <input type="checkbox" checked={checked} onChange={(e) => onChange(e.target.checked)} />
+      </span>
+    </label>
   );
 }

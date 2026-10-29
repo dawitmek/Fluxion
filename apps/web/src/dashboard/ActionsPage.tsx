@@ -133,7 +133,7 @@ function ActionsCard({ host, media }: { host: Host; media: MediaItem[] }) {
                 <span className="action-does">{describeDoes(a, commands, media, host).map((d) => <span key={d} className="tag">{d}</span>)}</span>
               </div>
               <span className="action-buttons">
-                <button className="btn btn-sm" onClick={() => test(a.id)} title="Show this alert on your open overlays">
+                <button className="btn btn-sm btn-try" onClick={() => test(a.id)} title="Show this alert on your open overlays">
                   Test
                 </button>
                 <button className="btn btn-ghost btn-sm" onClick={() => setEditing(editing === a.id ? null : a.id)} aria-expanded={editing === a.id}>

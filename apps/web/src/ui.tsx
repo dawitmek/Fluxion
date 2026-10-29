@@ -1,6 +1,7 @@
 import { useEffect, useLayoutEffect, useRef, useState, type ReactNode } from 'react';
 import { formatKey, keyProblem, type Modifier } from '@fluxion/shared';
 import { ApiError } from './api';
+import { Icon, type IconName } from './icons';
 
 export function useError() {
   const [error, setError] = useState<string | null>(null);
@@ -10,6 +11,18 @@ export function useError() {
     return action().catch((e) => setError(e instanceof ApiError ? e.message : String(e)));
   };
   return { error, guard, setError };
+}
+
+// The theme's hues; each has an ink, a soft background and a fill (see theme.css).
+export type Hue = 'red' | 'green' | 'amber' | 'indigo' | 'sky' | 'pink' | 'violet' | 'teal' | 'orange';
+
+// An icon on a tinted tile, so a row can be told apart at a glance.
+export function HueIcon({ name, hue, size = 'md' }: { name: IconName; hue: Hue; size?: 'sm' | 'md' }) {
+  return (
+    <span className={`hue-icon ${hue} ${size}`} aria-hidden="true">
+      <Icon name={name} size={size === 'sm' ? 14 : 16} />
+    </span>
+  );
 }
 
 export function ErrorNotice({ error }: { error: string | null }) {
