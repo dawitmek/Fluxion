@@ -251,6 +251,7 @@ fieldset:disabled * { cursor: not-allowed; }
 .chip { min-height: 32px; padding: 0 12px; border-radius: 999px; border: 1px solid var(--line-strong); background: transparent; color: var(--muted);
   font: 600 13px var(--font); cursor: pointer; transition: background 0.15s, color 0.15s, border-color 0.15s; }
 .chip.on { border-color: var(--indigo-fill); background: var(--indigo-soft); color: var(--ink); }
+.activity-status { display: flex; flex-wrap: wrap; align-items: center; justify-content: space-between; gap: 8px; }
 .activity-list { list-style: none; margin: 0; padding: 0; max-height: 520px; overflow-y: auto; border-top: 1px solid var(--line); }
 .activity-list li { display: grid; grid-template-columns: 74px 64px minmax(0, 1fr); align-items: baseline; gap: 10px; padding: 9px 2px; border-bottom: 1px solid var(--line); }
 .activity-list time { font-size: 12px; font-variant-numeric: tabular-nums; }

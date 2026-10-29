@@ -79,6 +79,9 @@ export function ActivityFeed({ status, stream: fixed, storageKey = 'fluxion-acti
   const [hasOlder, setHasOlder] = useState(false);
   const [loadingOlder, setLoadingOlder] = useState(false);
   const newest = useRef<number | undefined>(undefined);
+  // Paused: the list holds still while new activity waits here, newest first, until it resumes.
+  const [paused, setPaused] = useState(false);
+  const [held, setHeld] = useState<Page['events']>([]);
 
   const toggle = () => {
     setOpen(!open);
@@ -110,6 +113,7 @@ export function ActivityFeed({ status, stream: fixed, storageKey = 'fluxion-acti
     api<Page>('GET', query(`&stream=${selected}&limit=${PAGE}`)).then((p) => {
       if (cancelled) return;
       setPage(p);
+      setHeld([]);
       setHasOlder(p.events.length === PAGE);
       newest.current = p.events[0]?.id;
     });
@@ -125,11 +129,23 @@ export function ActivityFeed({ status, stream: fixed, storageKey = 'fluxion-acti
       api<Page>('GET', query(`&stream=${page.stream!.id}&after=${newest.current ?? 0}&limit=200`)).then((p) => {
         if (p.events.length === 0) return;
         newest.current = p.events[p.events.length - 1]!.id;
-        setPage((current) => current && { ...current, events: [...[...p.events].reverse(), ...current.events] });
+        const fresh = [...p.events].reverse();
+        if (pausedRef.current) setHeld((h) => [...fresh, ...h]);
+        else setPage((current) => current && { ...current, events: [...fresh, ...current.events] });
       });
     }, POLL_MS);
     return () => clearInterval(timer);
   }, [open, page?.stream?.id, page?.stream?.live, kinds, viewer]);
+
+  const pausedRef = useRef(paused);
+  pausedRef.current = paused;
+  const togglePaused = () => {
+    if (paused) {
+      setPage((current) => current && { ...current, events: [...held, ...current.events] });
+      setHeld([]);
+    }
+    setPaused(!paused);
+  };
 
   const loadOlder = () => {
     if (!page?.stream || page.events.length === 0) return;
@@ -192,14 +208,24 @@ export function ActivityFeed({ status, stream: fixed, storageKey = 'fluxion-acti
               </select>
             )}
           </div>
-          {stream && !fixed && (
-            <p className="muted small">
-              {stream.live
-                ? stream.source === 'simulated'
-                  ? 'Test mode, updating live.'
-                  : 'This stream, updating live.'
-                : `Your last ${stream.source === 'simulated' ? 'test session' : 'stream'}, ${new Date(stream.startedAt).toLocaleString()}.`}
-            </p>
+          {stream && (!fixed || stream.live) && (
+            <div className="activity-status">
+              <p className="muted small">
+                {stream.live
+                  ? paused
+                    ? 'Paused. New activity waits until you resume.'
+                    : stream.source === 'simulated'
+                      ? 'Test mode, updating live.'
+                      : 'This stream, updating live.'
+                  : `Your last ${stream.source === 'simulated' ? 'test session' : 'stream'}, ${new Date(stream.startedAt).toLocaleString()}.`}
+              </p>
+              {stream.live && (
+                <button className="btn btn-sm" aria-pressed={paused} onClick={togglePaused}>
+                  <Icon name={paused ? 'play' : 'pause'} size={14} />
+                  {paused ? `Resume${held.length ? ` (${held.length} new)` : ''}` : 'Pause'}
+                </button>
+              )}
+            </div>
           )}
           {kinds.length === 0 ? (
             <p className="empty">Pick at least one kind of activity to show.</p>
