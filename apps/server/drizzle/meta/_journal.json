@@ -92,6 +92,13 @@
       "when": 1793238325567,
       "tag": "0012_stream_tiktok_account",
       "breakpoints": true
+    },
+    {
+      "idx": 13,
+      "version": "7",
+      "when": 1793246352609,
+      "tag": "0013_companion_device",
+      "breakpoints": true
     }
   ]
 }

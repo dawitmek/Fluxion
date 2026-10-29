@@ -98,6 +98,8 @@ export interface Companion {
   id: string;
   name: string;
   lastSeenAt: string | null;
+  hostname: string | null; // the PC's own name, as the companion reports it
+  platform: string | null;
 }
 
 export interface LiveStatus {

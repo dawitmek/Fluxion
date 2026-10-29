@@ -9,6 +9,9 @@ import { synthesizeTiktok, TiktokError } from '../tts/tiktok.js';
 const PAIRING_TTL_MS = 10 * 60 * 1000;
 const CODE_ALPHABET = 'ABCDEFGHJKLMNPQRSTUVWXYZ23456789'; // no 0/O or 1/I
 
+// The PC's own name and OS, as the companion reports them.
+export const DEVICE_FIELD = { type: 'string', minLength: 1, maxLength: 128 };
+
 const newPairingCode = () => Array.from({ length: 6 }, () => CODE_ALPHABET[randomInt(CODE_ALPHABET.length)]).join('');
 
 export async function companionRoutes(app: FastifyInstance) {
@@ -22,15 +25,17 @@ export async function companionRoutes(app: FastifyInstance) {
     return companion?.hostId ?? null;
   };
 
+  // A new code replaces the host's earlier ones, so only the latest can pair.
   app.post('/pairing-code', { preHandler: requireHost }, async (req) => {
     const code = newPairingCode();
     const expiresAt = new Date(Date.now() + PAIRING_TTL_MS);
+    await db.delete(pairingCodes).where(eq(pairingCodes.hostId, req.hostId));
     await db.insert(pairingCodes).values({ codeHash: sha256(code), hostId: req.hostId, expiresAt });
     return { code, expiresAt };
   });
 
   // Called by the companion app, which has no session: the one-time code is the credential.
-  app.post<{ Body: { code: string; name: string } }>(
+  app.post<{ Body: { code: string; name: string; hostname?: string; platform?: string } }>(
     '/pair',
     {
       config: { rateLimit: { max: 10, timeWindow: '1 minute' } },
@@ -42,6 +47,8 @@ export async function companionRoutes(app: FastifyInstance) {
           properties: {
             code: { type: 'string', minLength: 6, maxLength: 6 },
             name: { type: 'string', minLength: 1, maxLength: 64 },
+            hostname: DEVICE_FIELD,
+            platform: DEVICE_FIELD,
           },
         },
       },
@@ -55,7 +62,13 @@ export async function companionRoutes(app: FastifyInstance) {
       const token = newToken();
       const [companion] = await db
         .insert(companions)
-        .values({ hostId: pairing.hostId, name: req.body.name, tokenHash: sha256(token) })
+        .values({
+          hostId: pairing.hostId,
+          name: req.body.name,
+          tokenHash: sha256(token),
+          hostname: req.body.hostname,
+          platform: req.body.platform,
+        })
         .returning({ id: companions.id });
       return reply.code(201).send({ id: companion!.id, token });
     },
@@ -102,7 +115,7 @@ export async function companionRoutes(app: FastifyInstance) {
 
   app.get('/', { preHandler: requireHost }, async (req) =>
     db
-      .select({ id: companions.id, name: companions.name, lastSeenAt: companions.lastSeenAt })
+      .select({ id: companions.id, name: companions.name, lastSeenAt: companions.lastSeenAt, hostname: companions.hostname, platform: companions.platform })
       .from(companions)
       .where(eq(companions.hostId, req.hostId)),
   );

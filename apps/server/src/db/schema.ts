@@ -120,6 +120,9 @@ export const companions = pgTable('companions', {
   name: text('name').notNull(),
   tokenHash: text('token_hash').notNull().unique(),
   lastSeenAt: timestamp('last_seen_at', { withTimezone: true }),
+  // What the companion reports about its PC, refreshed on every connect: its own name for itself and OS.
+  hostname: text('hostname'),
+  platform: text('platform'), // "windows", "macos", "linux"
 });
 
 export const pairingCodes = pgTable('pairing_codes', {

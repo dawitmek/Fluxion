@@ -243,6 +243,24 @@ describe('live pipeline (simulated source)', () => {
     expect(await companion.next()).toMatchObject({ type: 'action', action: { key: 'Control+Shift+KeyE' } });
   });
 
+  it("records the PC's own name and OS, and only the latest pairing code works", async () => {
+    const { cookie } = await signUp();
+    const first = (await api(cookie, 'POST', '/api/companions/pairing-code')).json().code;
+    const second = (await api(cookie, 'POST', '/api/companions/pairing-code')).json().code;
+    const pair = (code: string) =>
+      app.inject({ method: 'POST', url: '/api/companions/pair', payload: { code, name: 'Gaming PC', hostname: 'DESKTOP-7F3K2', platform: 'windows' }, remoteAddress: nextAddress() });
+    expect((await pair(first)).statusCode).toBe(400); // replaced by the second
+    const { token } = (await pair(second)).json();
+    expect((await api(cookie, 'GET', '/api/companions')).json()).toMatchObject([{ name: 'Gaming PC', hostname: 'DESKTOP-7F3K2', platform: 'windows' }]);
+
+    // The companion reports the PC again on every connect, so a rename shows up.
+    const companion = connect('/ws/companion', ['commands']);
+    await companion.opened;
+    companion.send({ type: 'hello', token, protocol: PROTOCOL_VERSION, hostname: 'Streaming-Rig', platform: 'windows' });
+    await companion.next(); // ready
+    expect((await api(cookie, 'GET', '/api/companions')).json()[0]).toMatchObject({ hostname: 'Streaming-Rig' });
+  });
+
   it('tells the companion what each command presses, on connect and whenever commands change', async () => {
     const { cookie } = await signUp();
     const companion = await connectCompanion((await pairCompanion(cookie)).token);

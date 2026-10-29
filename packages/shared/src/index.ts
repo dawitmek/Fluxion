@@ -21,7 +21,8 @@ export interface KeyAction {
 
 // Companion <-> server, over /ws/companion.
 export type CompanionToServer =
-  | { type: 'hello'; token: string; protocol: number }
+  // hostname and platform describe the PC (older companions leave them out).
+  | { type: 'hello'; token: string; protocol: number; hostname?: string; platform?: string }
   | { type: 'ack'; id: string; status: 'done' | 'rejected'; reason?: string };
 
 // `profile` tells the companion which game to target (null: keep the host's own choice).

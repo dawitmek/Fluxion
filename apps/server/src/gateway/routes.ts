@@ -31,9 +31,11 @@ export async function gatewayRoutes(app: FastifyInstance) {
         return socket.close(4001, 'Protocol mismatch');
       }
 
+      // The PC's name and OS come along with every connect, so a renamed PC shows its new name.
+      const device = (value: unknown) => (typeof value === 'string' && value.trim() ? value.trim().slice(0, 128) : undefined);
       const [companion] = await db
         .update(companions)
-        .set({ lastSeenAt: new Date() })
+        .set({ lastSeenAt: new Date(), hostname: device(hello.hostname), platform: device(hello.platform) })
         .where(eq(companions.tokenHash, sha256(hello.token)))
         .returning({ id: companions.id, hostId: companions.hostId });
       if (!companion) {

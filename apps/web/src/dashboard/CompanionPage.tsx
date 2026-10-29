@@ -4,10 +4,20 @@ import { Icon } from '../icons';
 import { Card, ErrorNotice, useError } from '../ui';
 import type { PageProps } from './Dashboard';
 
+const PLATFORMS: Record<string, string> = { windows: 'Windows', macos: 'macOS', linux: 'Linux' };
+
 export function CompanionPage({ status }: PageProps) {
   const [companions, setCompanions] = useState<Companion[]>([]);
   const [pairing, setPairing] = useState<{ code: string; expiresAt: string } | null>(null);
   const { error, guard } = useError();
+  // A new code replaces the previous one on the server.
+  const newCode = guard(() => api<typeof pairing>('POST', '/companions/pairing-code').then(setPairing));
+  const [now, setNow] = useState(Date.now());
+  useEffect(() => {
+    const timer = setInterval(() => setNow(Date.now()), 5000);
+    return () => clearInterval(timer);
+  }, []);
+  const expired = pairing !== null && new Date(pairing.expiresAt).getTime() <= now;
   const load = useCallback(() => api<Companion[]>('GET', '/companions').then(setCompanions), []);
   // A device that just paired shows up as online; list it without a manual refresh.
   useEffect(() => void load(), [load, status.companionsOnline]);
@@ -34,11 +44,18 @@ export function CompanionPage({ status }: PageProps) {
             <div className="muted small">Pairing code</div>
             {pairing ? (
               <>
-                <strong className="pairing-code">{pairing.code}</strong>
-                <div className="muted small">Valid until {new Date(pairing.expiresAt).toLocaleTimeString()}</div>
+                <strong className={`pairing-code ${expired ? 'expired' : ''}`}>{pairing.code}</strong>
+                <div className="row">
+                  <span className="muted small">
+                    {expired ? 'Expired. Make a new one.' : `Valid until ${new Date(pairing.expiresAt).toLocaleTimeString()}`}
+                  </span>
+                  <button className="btn btn-ghost btn-sm" onClick={newCode}>
+                    New code
+                  </button>
+                </div>
               </>
             ) : (
-              <button className="btn btn-primary" style={{ marginTop: 6 }} onClick={guard(() => api<typeof pairing>('POST', '/companions/pairing-code').then(setPairing))}>
+              <button className="btn btn-primary" style={{ marginTop: 6 }} onClick={newCode}>
                 Create pairing code
               </button>
             )}
@@ -60,7 +77,12 @@ export function CompanionPage({ status }: PageProps) {
           <ul className="list">
             {companions.map((c) => (
               <li key={c.id}>
-                <strong>{c.name}</strong>
+                <span className="device-name">
+                  <strong>{c.name}</strong>
+                  {(c.hostname || c.platform) && (
+                    <span className="muted small">{[c.hostname, PLATFORMS[c.platform ?? ''] ?? c.platform].filter(Boolean).join(' · ')}</span>
+                  )}
+                </span>
                 <span className="muted">{c.lastSeenAt ? `last seen ${new Date(c.lastSeenAt).toLocaleString()}` : 'never connected'}</span>
                 <span className="spacer" />
                 <button className="btn btn-ghost btn-sm btn-delete" onClick={guard(() => api('DELETE', `/companions/${c.id}`).then(load))}>

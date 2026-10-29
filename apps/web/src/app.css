@@ -303,3 +303,5 @@ fieldset:disabled * { cursor: not-allowed; }
 @media (prefers-reduced-motion: reduce) {
   .viewer-backdrop, .viewer-panel { animation: none; }
 }
+.device-name { display: flex; flex-direction: column; gap: 2px; }
+.pairing-code.expired { opacity: 0.4; text-decoration: line-through; }
