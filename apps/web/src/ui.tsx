@@ -1,5 +1,5 @@
 import { useEffect, useRef, useState, type ReactNode } from 'react';
-import { ALLOWED_KEYS } from '@fluxion/shared';
+import { formatKey, keyProblem, type Modifier } from '@fluxion/shared';
 import { ApiError } from './api';
 
 export function useError() {
@@ -126,21 +126,120 @@ export function NumberCell({
 }
 
 // Key codes as people know them: KeyA -> A, ArrowLeft -> ←, Digit1 -> 1.
-export function keyLabel(code: string) {
-  const arrows: Record<string, string> = { ArrowLeft: '←', ArrowRight: '→', ArrowUp: '↑', ArrowDown: '↓' };
-  if (arrows[code]) return arrows[code];
-  return code.replace(/^Key/, '').replace(/^Digit/, '').replace(/(Left|Right)$/, ' $1');
+// Key codes as people know them: KeyA -> A, ArrowLeft -> ←, Digit1 -> 1, Control+Shift+KeyE -> Ctrl+Shift+E.
+export function keyLabel(code: string): string {
+  if (code.includes('+')) return code.split('+').map(keyLabel).join('+');
+  const names: Record<string, string> = { ArrowLeft: '←', ArrowRight: '→', ArrowUp: '↑', ArrowDown: '↓', Control: 'Ctrl' };
+  return names[code] ?? code.replace(/^Key/, '').replace(/^Digit/, '').replace(/(Left|Right)$/, ' $1');
 }
 
-export function KeySelect({ value, onChange }: { value: string; onChange: (key: string) => void }) {
+function Keycaps({ value }: { value: string }) {
+  const parts = value.split('+');
   return (
-    <select className="input" value={value} onChange={(e) => onChange(e.target.value)} aria-label="Key">
-      {ALLOWED_KEYS.map((key) => (
-        <option key={key} value={key}>
-          {keyLabel(key)}
-        </option>
+    <>
+      {parts.map((part, i) => (
+        <span key={i}>
+          {i > 0 && <span className="key-plus">+</span>}
+          <kbd className="kbd">{keyLabel(part)}</kbd>
+        </span>
       ))}
-    </select>
+    </>
+  );
+}
+
+const MODIFIER_CODES: Record<string, Modifier> = {
+  ControlLeft: 'Control',
+  ControlRight: 'Control',
+  AltLeft: 'Alt',
+  AltRight: 'Alt',
+  ShiftLeft: 'Shift',
+  ShiftRight: 'Shift',
+};
+
+const heldModifiers = (e: KeyboardEvent | React.KeyboardEvent): Modifier[] =>
+  [e.ctrlKey && 'Control', e.altKey && 'Alt', e.shiftKey && 'Shift'].filter(Boolean) as Modifier[];
+
+// Records a key or combination by pressing it. Click (or focus and press Enter), then press the keys; Escape cancels.
+export function KeyCapture({ value, onChange, label = 'Key' }: { value: string; onChange: (key: string) => void; label?: string }) {
+  const [listening, setListening] = useState(false);
+  const [held, setHeld] = useState<Modifier[]>([]);
+  const [problem, setProblem] = useState<string | null>(null);
+  const shiftAlone = useRef<string | null>(null); // a Shift key pressed with nothing else yet
+
+  const stop = () => {
+    setListening(false);
+    setHeld([]);
+    shiftAlone.current = null;
+  };
+  const accept = (key: string) => {
+    const reason = keyProblem(key);
+    if (reason) return setProblem(reason);
+    setProblem(null);
+    stop();
+    if (key !== value) onChange(key);
+  };
+
+  const onKeyDown = (e: React.KeyboardEvent) => {
+    if (!listening) {
+      if (e.key === 'Enter' || e.key === ' ') {
+        e.preventDefault();
+        setListening(true);
+        setProblem(null);
+      }
+      return;
+    }
+    e.preventDefault();
+    e.stopPropagation();
+    if (e.repeat) return;
+    if (e.code === 'Escape' && heldModifiers(e).length === 0) return stop();
+    if (e.metaKey || e.code.startsWith('Meta') || e.code.startsWith('OS')) {
+      return setProblem("Win and Cmd can't be part of a command");
+    }
+    const modifier = MODIFIER_CODES[e.code];
+    if (modifier) {
+      setHeld(heldModifiers(e));
+      shiftAlone.current = modifier === 'Shift' && !e.ctrlKey && !e.altKey ? e.code : null;
+      return;
+    }
+    shiftAlone.current = null;
+    accept(formatKey({ modifiers: heldModifiers(e), key: e.code }));
+  };
+
+  const onKeyUp = (e: React.KeyboardEvent) => {
+    if (!listening) return;
+    e.preventDefault();
+    // Shift pressed and let go on its own means Shift is the key.
+    if (shiftAlone.current && e.code === shiftAlone.current) return accept(shiftAlone.current);
+    setHeld(heldModifiers(e));
+  };
+
+  return (
+    <span className="key-capture-wrap">
+      <button
+        type="button"
+        className={`input key-capture ${listening ? 'listening' : ''}`}
+        aria-label={`${label}: ${keyLabel(value)}. ${listening ? 'Press the keys, or Escape to cancel.' : 'Press Enter to change.'}`}
+        onClick={() => (setListening(!listening), setProblem(null), setHeld([]))}
+        onKeyDown={onKeyDown}
+        onKeyUp={onKeyUp}
+        onBlur={() => (stop(), setProblem(null))}
+      >
+        {listening ? (
+          held.length > 0 ? (
+            <span className="muted">{held.map((m) => keyLabel(m)).join('+')}+…</span>
+          ) : (
+            <span className="muted">Press keys…</span>
+          )
+        ) : (
+          <Keycaps value={value} />
+        )}
+      </button>
+      {problem && (
+        <span className="key-capture-problem" role="alert">
+          {problem}
+        </span>
+      )}
+    </span>
   );
 }
 

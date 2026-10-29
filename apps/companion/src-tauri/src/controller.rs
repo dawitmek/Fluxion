@@ -2,11 +2,11 @@
 
 use crate::config::Config;
 use crate::input::{self, GameWindow};
-use crate::keys::{self, ALL_KEYS};
+use crate::keys::{self, ALL_KEYS, Combo, MODIFIER_TOGGLES};
 use serde::Serialize;
 use std::collections::{HashMap, VecDeque};
 use std::path::PathBuf;
-use std::sync::atomic::{AtomicBool, Ordering};
+use std::sync::atomic::{AtomicBool, AtomicU64, Ordering};
 use std::sync::{Arc, Mutex};
 use std::time::Duration;
 use tauri::{AppHandle, Emitter};
@@ -50,6 +50,10 @@ pub struct Controller {
     profile: Mutex<(Option<String>, Option<String>)>, // active dashboard profile: (name, game process)
     log: Mutex<VecDeque<LogEntry>>,
     held: Mutex<HashMap<String, u32>>, // key -> number of actions currently holding it
+    // A combination being held, and which press it is (so a finished press doesn't release a newer one).
+    // While one is held nothing else is pressed, so viewers' overlapping holds can't add up to another combination.
+    combo: Mutex<Option<(u64, Combo)>>,
+    combo_count: AtomicU64,
     pub connection_task: Mutex<Option<tauri::async_runtime::JoinHandle<()>>>,
 }
 
@@ -65,6 +69,8 @@ impl Controller {
             profile: Mutex::new((None, None)),
             log: Mutex::new(VecDeque::new()),
             held: Mutex::new(HashMap::new()),
+            combo: Mutex::new(None),
+            combo_count: AtomicU64::new(0),
             connection_task: Mutex::new(None),
         })
     }
@@ -96,7 +102,7 @@ impl Controller {
             profile_name,
             profile_game,
             allowed_keys: allowed_keys(&config.allowed_keys),
-            all_keys: ALL_KEYS.iter().map(|k| k.to_string()).collect(),
+            all_keys: ALL_KEYS.iter().chain(MODIFIER_TOGGLES).map(|k| k.to_string()).collect(),
             log: self.log.lock().unwrap().iter().cloned().collect(),
             platform_supported: cfg!(any(windows, target_os = "macos")),
             permission_problem: input::permission_problem(),
@@ -138,26 +144,39 @@ impl Controller {
         input::list_windows()
     }
 
-    /// Runs the safety checks, then holds the key. Returns why an action was refused.
+    /// Runs the safety checks, then holds the key or combination. Returns why an action was refused.
     pub fn perform(self: &Arc<Self>, key: &str, hold_ms: u64) -> Result<(), String> {
-        let result = self.check(key).and_then(|()| self.press(key, hold_ms.min(MAX_HOLD_MS)));
+        let result = Combo::parse(key)
+            .ok_or_else(|| "key not supported".to_string())
+            .and_then(|combo| {
+                self.check(&combo)?;
+                let hold_ms = hold_ms.min(MAX_HOLD_MS);
+                if combo.modifiers.is_empty() { self.press(&combo.key, hold_ms) } else { self.press_combo(combo, hold_ms) }
+            });
         self.record(key, &result);
         result
     }
 
-    fn check(&self, key: &str) -> Result<(), String> {
+    fn check(&self, combo: &Combo) -> Result<(), String> {
         if self.paused.load(Ordering::SeqCst) {
             return Err("paused".into());
         }
-        if keys::scan_code(key).is_none() {
+        if let Some(reason) = combo.blocked() {
+            return Err(reason.into());
+        }
+        if keys::scan_code(&combo.key).is_none() {
             return Err("key not supported".into());
         }
         if let Some(problem) = input::permission_problem() {
             return Err(problem.into());
         }
         let config = self.config();
-        if !allowed_keys(&config.allowed_keys).iter().any(|k| k == key) {
+        let allowed = allowed_keys(&config.allowed_keys);
+        if !allowed.iter().any(|k| *k == combo.key) {
             return Err("key disabled on this PC".into());
+        }
+        if let Some(m) = combo.modifiers.iter().find(|m| !m.allowed_by(&allowed)) {
+            return Err(format!("{m:?} disabled on this PC"));
         }
         let target = config.target_process.ok_or("no game selected")?;
         if input::foreground_process().as_deref() != Some(target.as_str()) {
@@ -169,10 +188,14 @@ impl Controller {
     fn press(self: &Arc<Self>, key: &str, hold_ms: u64) -> Result<(), String> {
         let scan = keys::scan_code(key).ok_or("key not supported")?;
         {
+            let combo = self.combo.lock().unwrap();
+            if combo.is_some() {
+                return Err("a key combination is being pressed".into());
+            }
             let mut held = self.held.lock().unwrap();
             let count = held.entry(key.to_string()).or_insert(0);
             if *count == 0 {
-                input::send_key(&scan, false)?;
+                input::send_key(&scan, false, &[])?;
             }
             *count += 1;
         }
@@ -185,6 +208,35 @@ impl Controller {
         Ok(())
     }
 
+    /// Holds a combination on its own: lets go of other held keys first, and refuses other presses until done.
+    fn press_combo(self: &Arc<Self>, combo: Combo, hold_ms: u64) -> Result<(), String> {
+        let scan = keys::scan_code(&combo.key).ok_or("key not supported")?;
+        let id = {
+            let mut current = self.combo.lock().unwrap();
+            if current.is_some() {
+                return Err("a key combination is being pressed".into());
+            }
+            self.release_held();
+            for (i, m) in combo.modifiers.iter().enumerate() {
+                input::send_key(&m.scan_code(), false, &combo.modifiers[..=i])?;
+            }
+            input::send_key(&scan, false, &combo.modifiers)?;
+            let id = self.combo_count.fetch_add(1, Ordering::SeqCst);
+            *current = Some((id, combo));
+            id
+        };
+        let this = self.clone();
+        tauri::async_runtime::spawn(async move {
+            tokio::time::sleep(Duration::from_millis(hold_ms)).await;
+            let mut current = this.combo.lock().unwrap();
+            // Gone or replaced means release_all already let go of this one.
+            if current.as_ref().is_some_and(|(held, _)| *held == id) {
+                release_combo(&current.take().unwrap().1);
+            }
+        });
+        Ok(())
+    }
+
     fn release(&self, key: &str) {
         let mut held = self.held.lock().unwrap();
         // Missing means release_all already let go of it.
@@ -193,19 +245,28 @@ impl Controller {
         if *count == 0 {
             held.remove(key);
             if let Some(scan) = keys::scan_code(key) {
-                let _ = input::send_key(&scan, true);
+                let _ = input::send_key(&scan, true, &[]);
             }
         }
     }
 
-    pub fn release_all(&self) {
+    fn release_held(&self) {
         let mut held = self.held.lock().unwrap();
         for key in held.keys() {
             if let Some(scan) = keys::scan_code(key) {
-                let _ = input::send_key(&scan, true);
+                let _ = input::send_key(&scan, true, &[]);
             }
         }
         held.clear();
+    }
+
+    pub fn release_all(&self) {
+        // Same lock order as press_combo: combo, then held.
+        let mut combo = self.combo.lock().unwrap();
+        if let Some((_, held)) = combo.take() {
+            release_combo(&held);
+        }
+        self.release_held();
     }
 
     fn record(&self, key: &str, result: &Result<(), String>) {
@@ -217,9 +278,21 @@ impl Controller {
     }
 }
 
+/// Lets go of a combination's key, then its modifiers in reverse order.
+fn release_combo(combo: &Combo) {
+    if let Some(scan) = keys::scan_code(&combo.key) {
+        let _ = input::send_key(&scan, true, &combo.modifiers);
+    }
+    for (i, m) in combo.modifiers.iter().enumerate().rev() {
+        let _ = input::send_key(&m.scan_code(), true, &combo.modifiers[..i]);
+    }
+}
+
+/// Keys and modifier toggles this PC allows. Nothing saved yet means everything.
 fn allowed_keys(saved: &Option<Vec<String>>) -> Vec<String> {
+    let known = |k: &str| keys::scan_code(k).is_some() || MODIFIER_TOGGLES.contains(&k);
     match saved {
-        Some(keys) => keys.iter().filter(|k| keys::scan_code(k).is_some()).cloned().collect(),
-        None => ALL_KEYS.iter().map(|k| k.to_string()).collect(),
+        Some(keys) => keys.iter().filter(|k| known(k)).cloned().collect(),
+        None => ALL_KEYS.iter().chain(MODIFIER_TOGGLES).map(|k| k.to_string()).collect(),
     }
 }

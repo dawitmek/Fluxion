@@ -39,6 +39,7 @@ TikTok LIVE chat ──▶ Fluxion server ──▶ Companion app on your gaming
 
   Voice effects are available too.
 - **Levels and a leaderboard:** viewers earn XP, and level-ups and top players can show on stream.
+- **Key combinations:** a command can press a key or a combination like Ctrl+Shift+E. Set it by pressing the keys.
 - **Game profiles:** each game keeps its own commands, gift triggers and mode. The companion targets the game's
   process automatically.
 - **Test mode:** type as a pretend viewer and watch the keys press before you go live.
@@ -47,8 +48,11 @@ TikTok LIVE chat ──▶ Fluxion server ──▶ Companion app on your gaming
 
 Chat is unpredictable, so the companion is built so it can't take over your PC:
 
-- **Allowed keys only:** each PC keeps its own list. Alt, Control, Escape, Tab, the Windows key and the F-keys are
-  never pressed.
+- **Allowed keys only:** each PC keeps its own list. The Windows/Cmd key, Escape, Tab and the F-keys are never
+  pressed. Ctrl and Alt are only pressed as part of a command's combination.
+- **Blocked combinations:** shortcuts that act outside the game, like Ctrl+Alt+Del, Ctrl+W, Alt+F4 and Alt+Enter, are
+  refused by both the server and the companion. A combination is pressed on its own, so viewers' overlapping key
+  holds can't add up to one.
 - **Focus check:** keys go to your game only while its window is in front.
 - **Rate limit and cooldowns:** you set a cap on presses per second, and each command has a cooldown per viewer.
 - **Panic hotkey:** <kbd>Ctrl</kbd>+<kbd>Shift</kbd>+<kbd>Backspace</kbd> pauses the companion and lets go of every

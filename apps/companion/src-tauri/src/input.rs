@@ -11,7 +11,7 @@ pub struct GameWindow {
 #[cfg(windows)]
 mod imp {
     use super::GameWindow;
-    use crate::keys::ScanCode;
+    use crate::keys::{Modifier, ScanCode};
     use std::path::Path;
     use windows::Win32::Foundation::{CloseHandle, HWND, LPARAM};
     use windows::Win32::System::Threading::{
@@ -27,7 +27,8 @@ mod imp {
     };
     use windows::core::{BOOL, PWSTR};
 
-    pub fn send_key(scan: &ScanCode, up: bool) -> Result<(), String> {
+    // Windows tracks modifier state from the modifier key events themselves, so `_held` isn't needed here.
+    pub fn send_key(scan: &ScanCode, up: bool, _held: &[Modifier]) -> Result<(), String> {
         let mut flags = KEYEVENTF_SCANCODE;
         if scan.extended {
             flags |= KEYEVENTF_EXTENDEDKEY;
@@ -110,12 +111,12 @@ mod imp {
 #[cfg(target_os = "macos")]
 mod imp {
     use super::GameWindow;
-    use crate::keys::ScanCode;
+    use crate::keys::{Modifier, ScanCode};
     use core_foundation::base::TCFType;
     use core_foundation::boolean::CFBoolean;
     use core_foundation::dictionary::{CFDictionary, CFDictionaryRef};
     use core_foundation::string::CFString;
-    use core_graphics::event::{CGEvent, CGEventTapLocation};
+    use core_graphics::event::{CGEvent, CGEventFlags, CGEventTapLocation};
     use core_graphics::event_source::{CGEventSource, CGEventSourceStateID};
     use objc2_app_kit::{NSApplicationActivationPolicy, NSWorkspace};
     use std::path::Path;
@@ -147,12 +148,23 @@ mod imp {
             .spawn();
     }
 
-    pub fn send_key(scan: &ScanCode, up: bool) -> Result<(), String> {
+    // macOS doesn't apply posted modifier key events to later events by itself, so each event carries the
+    // modifiers held at that moment as flags.
+    pub fn send_key(scan: &ScanCode, up: bool, held: &[Modifier]) -> Result<(), String> {
         if let Some(problem) = permission_problem() {
             return Err(problem.into());
         }
         let source = CGEventSource::new(CGEventSourceStateID::HIDSystemState).map_err(|()| "could not create an input source")?;
         let event = CGEvent::new_keyboard_event(source, scan.mac, !up).map_err(|()| "could not create a key event")?;
+        let flags = held.iter().fold(CGEventFlags::CGEventFlagNull, |flags, m| {
+            flags
+                | match m {
+                    Modifier::Control => CGEventFlags::CGEventFlagControl,
+                    Modifier::Alt => CGEventFlags::CGEventFlagAlternate,
+                    Modifier::Shift => CGEventFlags::CGEventFlagShift,
+                }
+        });
+        event.set_flags(flags);
         event.post(CGEventTapLocation::HID);
         Ok(())
     }
@@ -193,9 +205,9 @@ mod imp {
 #[cfg(not(any(windows, target_os = "macos")))]
 mod imp {
     use super::GameWindow;
-    use crate::keys::ScanCode;
+    use crate::keys::{Modifier, ScanCode};
 
-    pub fn send_key(_scan: &ScanCode, _up: bool) -> Result<(), String> {
+    pub fn send_key(_scan: &ScanCode, _up: bool, _held: &[Modifier]) -> Result<(), String> {
         Err("Key input is only supported on Windows and macOS so far".into())
     }
 

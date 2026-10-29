@@ -64,6 +64,13 @@
       "when": 1793232585936,
       "tag": "0008_service_status",
       "breakpoints": true
+    },
+    {
+      "idx": 9,
+      "version": "7",
+      "when": 1793235020345,
+      "tag": "0009_command_order",
+      "breakpoints": true
     }
   ]
 }

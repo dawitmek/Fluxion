@@ -51,7 +51,7 @@ function Carousel() {
 }
 
 const SAFETY: { icon: IconName; title: string; text: string }[] = [
-  { icon: 'commands', title: 'Allowed keys', text: 'Each PC keeps its own list. Alt, Escape, the Windows key and F-keys are never pressed.' },
+  { icon: 'commands', title: 'Allowed keys', text: 'Each PC keeps its own list. The Windows key and Escape are never pressed, and combinations like Ctrl+W are blocked.' },
   { icon: 'overlay', title: 'Focus check', text: 'Keys go to your game only while its window is in front. Alt-tab and input stops.' },
   { icon: 'leaderboard', title: 'Rate limit', text: 'A cap on key presses per second, so a flood of chat never floods your game.' },
   { icon: 'shield', title: 'Panic hotkey', text: 'Ctrl+Shift+Backspace pauses the companion and lets go of every held key.' },

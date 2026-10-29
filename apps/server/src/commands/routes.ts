@@ -1,6 +1,6 @@
 import type { FastifyInstance } from 'fastify';
 import { and, eq } from 'drizzle-orm';
-import { isAllowedKey, MAX_LEVEL, QUEUE_JOIN } from '@fluxion/shared';
+import { keyProblem, MAX_LEVEL, QUEUE_JOIN } from '@fluxion/shared';
 import { commands } from '../db/schema.js';
 import { requireHost } from '../auth/session.js';
 import { isUniqueViolation } from '../db/client.js';
@@ -10,7 +10,7 @@ type CommandBody = { keyword: string; key: string; holdMs: number; cooldownMs: n
 
 const fields = {
   keyword: { type: 'string', pattern: '^\\S{1,32}$' },
-  key: { type: 'string' },
+  key: { type: 'string', maxLength: 64 }, // a key or combination; keyProblem() checks it
   holdMs: { type: 'integer', minimum: 10, maximum: 5000 },
   cooldownMs: { type: 'integer', minimum: 0, maximum: 600000 },
   enabled: { type: 'boolean' },
@@ -29,7 +29,7 @@ export async function commandRoutes(app: FastifyInstance) {
   // Commands of the active profile; switching profiles switches the list.
   app.get('/', async (req) => {
     const profile = await activeProfile(db, req.hostId);
-    return db.select().from(commands).where(eq(commands.profileId, profile.id));
+    return db.select().from(commands).where(eq(commands.profileId, profile.id)).orderBy(commands.position);
   });
 
   app.post<{ Body: CommandBody }>(
@@ -45,7 +45,8 @@ export async function commandRoutes(app: FastifyInstance) {
       },
     },
     async (req, reply) => {
-      if (!isAllowedKey(req.body.key)) return reply.code(400).send({ error: `Key not allowed: ${req.body.key}` });
+      const problem = keyProblem(req.body.key);
+      if (problem) return reply.code(400).send({ error: problem });
       const reserved = reservedKeyword(req.body.keyword);
       if (reserved) return reply.code(400).send({ error: reserved });
       const [created] = await db
@@ -74,7 +75,8 @@ export async function commandRoutes(app: FastifyInstance) {
     },
     async (req, reply) => {
       const { key, keyword } = req.body;
-      if (key !== undefined && !isAllowedKey(key)) return reply.code(400).send({ error: `Key not allowed: ${key}` });
+      const problem = key === undefined ? null : keyProblem(key);
+      if (problem) return reply.code(400).send({ error: problem });
       const reserved = reservedKeyword(keyword);
       if (reserved) return reply.code(400).send({ error: reserved });
       const patch = { ...req.body, ...(keyword !== undefined && { keyword: keyword.toLowerCase() }) };

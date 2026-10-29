@@ -89,7 +89,7 @@ const FEATURES: { title: string; text: string; points: string[]; art: ReactNode 
     points: [
       'A cap on key presses per second, set by you.',
       'A cooldown per viewer on each command.',
-      'No Alt, Control, Escape, Tab, Windows key or F-keys, so no Alt+F4 surprises.',
+      'No Windows key, Escape, Tab or F-keys, and combinations like Ctrl+Alt+Del, Ctrl+W and Alt+F4 are blocked.',
     ],
     art: <SafetyArt />,
   },
@@ -292,7 +292,7 @@ const QUESTIONS: [string, ReactNode][] = [
     'Which games work?',
     'Games on Windows or macOS that you control with the keyboard. The companion presses real keys in the game window you choose. Some games with anti-cheat may ignore simulated key presses.',
   ],
-  ['Can viewers mess up my PC?', 'The companion only presses keys you have allowed, only while your game is in front, and never system keys like Alt, Escape or the Windows key. Ctrl+Shift+Backspace pauses everything instantly.'],
+  ['Can viewers mess up my PC?', 'The companion only presses keys you have allowed, only while your game is in front, never the Windows key or Escape, and never combinations like Ctrl+W or Alt+F4. Ctrl+Shift+Backspace pauses everything instantly.'],
   ['Do I need OBS?', 'No. The overlay works as a browser source in TikTok LIVE Studio or in OBS. Its background is transparent.'],
   ['Does it work on Mac?', 'Yes. The companion runs on Windows and macOS. On a Mac it needs Accessibility permission to press keys, and it walks you through granting it.'],
   [

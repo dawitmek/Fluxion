@@ -1,7 +1,7 @@
 import { useCallback, useEffect, useState, type FormEvent } from 'react';
-import { MAX_LEVEL, MODES } from '@fluxion/shared';
+import { BLOCKED_COMBOS, MAX_LEVEL, MODES } from '@fluxion/shared';
 import { api, type Command, type Host } from '../api';
-import { Card, Choices, ErrorNotice, KeySelect, NumberCell, Switch, useError } from '../ui';
+import { Card, Choices, ErrorNotice, KeyCapture, NumberCell, Switch, useError } from '../ui';
 import type { PageProps } from './Dashboard';
 import { MODE_INFO } from './modes';
 
@@ -34,7 +34,7 @@ function CommandsCard({ host }: { host: Host }) {
   return (
     <Card
       title="Commands"
-      description={`For the ${host.profileName} profile. A comment fires a command when it is exactly the keyword, in any capitalization.`}
+      description={`For the ${host.profileName} profile. A comment fires a command when it is exactly the keyword, in any capitalization. To set a key, click it and press the key or combination, like Ctrl+Shift+E.`}
     >
       <ErrorNotice error={error} />
       <div className="table-wrap">
@@ -67,7 +67,7 @@ function CommandsCard({ host }: { host: Host }) {
                   <strong>{c.keyword}</strong>
                 </td>
                 <td>
-                  <KeySelect value={c.key} onChange={(key) => update(c.id, { key })} />
+                  <KeyCapture value={c.key} label={`Key for ${c.keyword}`} onChange={(key) => update(c.id, { key })} />
                 </td>
                 <td>
                   <NumberCell value={c.holdMs} min={10} max={5000} label="Hold (ms)" onSave={(holdMs) => update(c.id, { holdMs })} />
@@ -107,10 +107,32 @@ function CommandsCard({ host }: { host: Host }) {
           maxLength={32}
           aria-label="New keyword"
         />
-        <KeySelect value={draft.key} onChange={(key) => setDraft({ ...draft, key })} />
+        <KeyCapture value={draft.key} label="Key for the new command" onChange={(key) => setDraft({ ...draft, key })} />
         <button className="btn btn-primary">Add command</button>
       </form>
+      <BlockedCombos />
     </Card>
+  );
+}
+
+// Combinations Fluxion refuses, so hosts know before they try one. The companion refuses them too.
+function BlockedCombos() {
+  return (
+    <details className="blocked-combos">
+      <summary>Blocked key combinations</summary>
+      <p className="muted small">
+        These do something outside the game, so Fluxion never presses them, even with extra modifiers. Win and Cmd are never
+        pressed either, so shortcuts like Win+R can't happen. Your browser may act on some of them, like Ctrl+W, before
+        Fluxion sees the keys.
+      </p>
+      <ul>
+        {BLOCKED_COMBOS.map((c) => (
+          <li key={c.label}>
+            <kbd className="kbd">{c.label}</kbd> <span className="muted">{c.reason}</span>
+          </li>
+        ))}
+      </ul>
+    </details>
   );
 }
 

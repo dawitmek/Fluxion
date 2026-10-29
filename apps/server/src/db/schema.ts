@@ -1,4 +1,4 @@
-import { boolean, integer, pgTable, primaryKey, text, timestamp, unique, uuid, type AnyPgColumn } from 'drizzle-orm/pg-core';
+import { boolean, integer, pgTable, primaryKey, serial, text, timestamp, unique, uuid, type AnyPgColumn } from 'drizzle-orm/pg-core';
 import type { AlertEvent, AlertSound, CloudProvider, Mode, TtsEngine, TtsMode, VoiceEffect } from '@fluxion/shared';
 
 export const hosts = pgTable('hosts', {
@@ -70,6 +70,7 @@ export const commands = pgTable(
     cooldownMs: integer('cooldown_ms').notNull(),
     enabled: boolean('enabled').notNull().default(true),
     minLevel: integer('min_level').notNull().default(1), // only enforced when the host turns on level gating
+    position: serial('position').notNull(), // creation order, so the list doesn't reshuffle when one is edited
   },
   (t) => [unique().on(t.profileId, t.keyword)],
 );

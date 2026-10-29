@@ -35,10 +35,11 @@ interface GameWindow {
 
 type Run = (command: string, args?: Record<string, unknown>) => Promise<void>;
 
-// Key codes as people know them: KeyA -> A, ArrowLeft -> ←, Digit1 -> 1.
-function keyLabel(code: string) {
-  const arrows: Record<string, string> = { ArrowLeft: "←", ArrowRight: "→", ArrowUp: "↑", ArrowDown: "↓" };
-  return arrows[code] ?? code.replace(/^Key/, "").replace(/^Digit/, "").replace(/(Left|Right)$/, " $1");
+// Key codes as people know them: KeyA -> A, ArrowLeft -> ←, Digit1 -> 1, Control+Shift+KeyE -> Ctrl+Shift+E.
+function keyLabel(code: string): string {
+  if (code.includes("+")) return code.split("+").map(keyLabel).join("+");
+  const names: Record<string, string> = { ArrowLeft: "←", ArrowRight: "→", ArrowUp: "↑", ArrowDown: "↓", Control: "Ctrl" };
+  return names[code] ?? code.replace(/^Key/, "").replace(/^Digit/, "").replace(/(Left|Right)$/, " $1");
 }
 
 export default function App() {
@@ -227,7 +228,10 @@ function Paired({ state, run }: { state: Snapshot; run: Run }) {
       <section className="card stack" aria-labelledby="keys-title">
         <div>
           <h2 id="keys-title">Allowed keys on this PC</h2>
-          <p className="muted">The server can only press the keys lit up here. Click a key to allow or block it.</p>
+          <p className="muted">
+            The server can only press the keys lit up here. Click a key to allow or block it. Ctrl and Alt are only ever
+            pressed as part of a combination, like Ctrl+E.
+          </p>
         </div>
         <div className="keys">
           {state.allKeys.map((key) => (

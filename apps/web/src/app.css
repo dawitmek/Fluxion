@@ -161,3 +161,16 @@
   .countdown circle, .command-card .kbd { transition: none; }
 }
 .table select.input { max-width: 200px; }
+
+/* Key capture (ui.tsx KeyCapture) and the blocked combinations list */
+.key-capture-wrap { display: inline-flex; flex-direction: column; gap: 4px; min-width: 0; }
+.key-capture { display: inline-flex; align-items: center; gap: 2px; min-width: 150px; min-height: 40px; cursor: pointer; text-align: left; }
+.key-capture .kbd { font-size: 12px; }
+.key-capture .key-plus { margin: 0 3px; color: var(--muted); font-size: 12px; }
+.key-capture.listening { border-color: var(--indigo-fill); box-shadow: 0 0 0 3px var(--indigo-soft); }
+.key-capture-problem { max-width: 240px; color: var(--red); font-size: 12px; line-height: 1.35; }
+.blocked-combos { margin-top: 18px; border-top: 1px solid var(--line); padding-top: 14px; }
+.blocked-combos summary { cursor: pointer; font-weight: 500; }
+.blocked-combos p { margin: 10px 0; max-width: 70ch; }
+.blocked-combos ul { list-style: none; margin: 0; padding: 0; display: grid; grid-template-columns: repeat(auto-fill, minmax(280px, 1fr)); gap: 8px 20px; }
+.blocked-combos li { font-size: 13px; }

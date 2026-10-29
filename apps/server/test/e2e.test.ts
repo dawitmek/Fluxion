@@ -164,6 +164,12 @@ describe('accounts', () => {
     const { cookie } = await signUp();
     const res = await api(cookie, 'POST', '/api/commands', { keyword: 'quit', key: 'AltLeft', holdMs: 100, cooldownMs: 0 });
     expect(res.statusCode).toBe(400);
+    const blocked = await api(cookie, 'POST', '/api/commands', { keyword: 'close', key: 'Control+Shift+KeyW', holdMs: 100, cooldownMs: 0 });
+    expect([blocked.statusCode, blocked.json().error]).toEqual([400, 'Ctrl+W closes windows and tabs']);
+    const win = await api(cookie, 'POST', '/api/commands', { keyword: 'run', key: 'Meta+KeyR', holdMs: 100, cooldownMs: 0 });
+    expect(win.statusCode).toBe(400);
+    const combo = await api(cookie, 'POST', '/api/commands', { keyword: 'emote', key: 'Control+Shift+KeyE', holdMs: 100, cooldownMs: 0 });
+    expect(combo.statusCode).toBe(201);
     const join = await api(cookie, 'POST', '/api/commands', { keyword: 'Join', key: 'KeyJ', holdMs: 100, cooldownMs: 0 });
     expect(join.statusCode).toBe(400);
   });
@@ -224,6 +230,11 @@ describe('live pipeline (simulated source)', () => {
     expect(created.statusCode).toBe(201);
     await api(cookie, 'POST', '/api/live/simulate', { viewer: 'alice', text: 'shoot' });
     expect(await companion.next()).toMatchObject({ type: 'action', action: { key: 'KeyF', holdMs: 50 } });
+
+    // Combinations travel to the companion as written; it presses them.
+    await api(cookie, 'POST', '/api/commands', { keyword: 'emote', key: 'Control+Shift+KeyE', holdMs: 50, cooldownMs: 0 });
+    await api(cookie, 'POST', '/api/live/simulate', { viewer: 'alice', text: 'emote' });
+    expect(await companion.next()).toMatchObject({ type: 'action', action: { key: 'Control+Shift+KeyE' } });
   });
 
   it("keeps hosts isolated from each other's sessions", async () => {

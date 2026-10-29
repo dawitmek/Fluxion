@@ -280,7 +280,7 @@ export function SafetyArt() {
       <div className="art-shield">
         <kbd className="kbd">W</kbd>
         <kbd className="kbd">A</kbd>
-        <kbd className="kbd off">Alt</kbd>
+        <kbd className="kbd off">Win</kbd>
         <kbd className="kbd off">Esc</kbd>
       </div>
       <div className="art-panel art-line">

@@ -49,9 +49,131 @@ pub const ALL_KEYS: &[&str] = &[
     "ArrowUp", "ArrowDown", "ArrowLeft", "ArrowRight", "Space", "Enter", "ShiftLeft", "ShiftRight",
 ];
 
+/// Ctrl, Alt and Shift, held around a combination's key. Never Win/Cmd.
+#[derive(Clone, Copy, PartialEq, Eq, Debug)]
+pub enum Modifier {
+    Control,
+    Alt,
+    Shift,
+}
+
+impl Modifier {
+    const ORDER: [Modifier; 3] = [Modifier::Control, Modifier::Alt, Modifier::Shift];
+
+    fn parse(name: &str) -> Option<Modifier> {
+        Some(match name {
+            "Control" => Modifier::Control,
+            "Alt" => Modifier::Alt,
+            "Shift" => Modifier::Shift,
+            _ => return None,
+        })
+    }
+
+    /// The left-hand key for each.
+    pub fn scan_code(self) -> ScanCode {
+        match self {
+            Modifier::Control => sc(0x1D, 0x3B),
+            Modifier::Alt => sc(0x38, 0x3A),
+            Modifier::Shift => sc(0x2A, 0x38),
+        }
+    }
+
+    /// Whether this PC allows the modifier: Control and Alt are their own toggles; Shift goes with the Shift keys.
+    pub fn allowed_by(self, allowed: &[String]) -> bool {
+        let has = |k: &str| allowed.iter().any(|a| a == k);
+        match self {
+            Modifier::Control => has("Control"),
+            Modifier::Alt => has("Alt"),
+            Modifier::Shift => has("ShiftLeft") || has("ShiftRight"),
+        }
+    }
+}
+
+/// A key, alone ("KeyE") or with modifiers ("Control+Shift+KeyE"), as in packages/shared/src/keys.ts.
+#[derive(Clone, PartialEq, Eq, Debug)]
+pub struct Combo {
+    pub modifiers: Vec<Modifier>,
+    pub key: String,
+}
+
+impl Combo {
+    /// None unless well formed: known modifiers, each once, in Control, Alt, Shift order.
+    pub fn parse(value: &str) -> Option<Combo> {
+        let mut parts: Vec<&str> = value.split('+').collect();
+        let key = parts.pop()?.to_string();
+        let modifiers = parts.into_iter().map(Modifier::parse).collect::<Option<Vec<_>>>()?;
+        let order: Vec<usize> = modifiers.iter().map(|m| Modifier::ORDER.iter().position(|o| o == m).unwrap()).collect();
+        if order.windows(2).any(|w| w[0] >= w[1]) {
+            return None;
+        }
+        Some(Combo { modifiers, key })
+    }
+
+    /// Why this combination must not be pressed, if it mustn't. Mirrors BLOCKED_COMBOS in the shared package.
+    pub fn blocked(&self) -> Option<&'static str> {
+        use Modifier::{Alt, Control};
+        const ARROWS: &[&str] = &["ArrowUp", "ArrowDown", "ArrowLeft", "ArrowRight"];
+        const SHIFTS: &[&str] = &["ShiftLeft", "ShiftRight"];
+        let rules: &[(&[Modifier], &[&str], &str)] = &[
+            (&[Control, Alt], &["Delete"], "Ctrl+Alt+Del is blocked"),
+            (&[Control, Modifier::Shift], &["Escape"], "Ctrl+Shift+Esc is blocked"),
+            (&[Alt], &["F4"], "Alt+F4 is blocked"),
+            (&[Alt], &["Tab"], "Alt+Tab is blocked"),
+            (&[Control], &["KeyW"], "Ctrl+W is blocked"),
+            (&[Control], &["KeyQ"], "Ctrl+Q is blocked"),
+            (&[Alt], &["Space"], "Alt+Space is blocked"),
+            (&[Alt], &["Enter"], "Alt+Enter is blocked"),
+            (&[Control], &["Space"], "Ctrl+Space is blocked"),
+            (&[Control], ARROWS, "Ctrl+arrow keys are blocked"),
+            (&[Control], SHIFTS, "Ctrl+Shift is blocked"),
+            (&[Alt], SHIFTS, "Alt+Shift is blocked"),
+        ];
+        if self.modifiers.contains(&Modifier::Shift) && SHIFTS.contains(&self.key.as_str()) {
+            return Some("Shift is already the key");
+        }
+        rules
+            .iter()
+            .find(|(mods, keys, _)| keys.contains(&self.key.as_str()) && mods.iter().all(|m| self.modifiers.contains(m)))
+            .map(|(_, _, reason)| *reason)
+    }
+}
+
+/// Ctrl and Alt toggles in the allowed-keys grid, after ALL_KEYS. Not pressable on their own.
+pub const MODIFIER_TOGGLES: &[&str] = &["Control", "Alt"];
+
 #[cfg(test)]
 mod tests {
     use super::*;
+
+    #[test]
+    fn parses_combinations() {
+        assert_eq!(Combo::parse("KeyE"), Some(Combo { modifiers: vec![], key: "KeyE".into() }));
+        assert_eq!(
+            Combo::parse("Control+Shift+KeyE"),
+            Some(Combo { modifiers: vec![Modifier::Control, Modifier::Shift], key: "KeyE".into() })
+        );
+        for bad in ["Shift+Control+KeyE", "Control+Control+KeyE", "Meta+KeyR", "Win+KeyR"] {
+            assert_eq!(Combo::parse(bad), None, "{bad}");
+        }
+    }
+
+    #[test]
+    fn blocks_dangerous_combinations_even_with_extra_modifiers() {
+        for blocked in ["Control+Alt+Delete", "Control+KeyW", "Control+Shift+KeyW", "Alt+F4", "Alt+Enter", "Control+ArrowUp", "Alt+ShiftLeft", "Shift+ShiftLeft"] {
+            assert!(Combo::parse(blocked).unwrap().blocked().is_some(), "{blocked}");
+        }
+        for fine in ["Control+KeyE", "Control+Shift+KeyE", "Shift+KeyW", "Alt+Digit1", "Enter"] {
+            assert_eq!(Combo::parse(fine).unwrap().blocked(), None, "{fine}");
+        }
+    }
+
+    #[test]
+    fn modifiers_have_their_own_codes() {
+        for m in Modifier::ORDER {
+            let code = m.scan_code();
+            assert!(ALL_KEYS.iter().all(|k| scan_code(k).unwrap().code != code.code || *k == "ShiftLeft"));
+        }
+    }
 
     #[test]
     fn every_listed_key_has_a_scan_code() {
