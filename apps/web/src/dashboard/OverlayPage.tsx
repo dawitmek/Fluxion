@@ -1,7 +1,7 @@
 import { useCallback, useEffect, useState, type FormEvent } from 'react';
 import { ALERT_POSITIONS, GOAL_METRICS, MAX_WIDGETS, WIDGET_SPOTS, WIDGET_TYPES, type GoalMetric, type ScreenWidget, type WidgetSpot, type WidgetType } from '@fluxion/shared';
 import { api, type AlertPosition, type Goal, type Screen } from '../api';
-import { Card, ErrorNotice, HueIcon, NumberCell, Seg, TextCell, useError, type Hue } from '../ui';
+import { Card, ErrorNotice, HueIcon, NumberCell, Scrubber, Seg, TextCell, useError, type Hue } from '../ui';
 import { Icon, type IconName } from '../icons';
 import { DEFAULT_FIREWORK_DIAMONDS, Fireworks, GiftBus, usePreview, Widget } from '../overlay-widgets';
 
@@ -315,11 +315,11 @@ function ScreenCard({ screen, reload }: { screen: Screen; reload: () => Promise<
           Alerts appear at the
           <Seg label="Alert position" value={screen.alertPosition} options={ALERT_POSITIONS.map((p) => [p, POSITION_LABELS[p]] as const)} onChange={(alertPosition) => save({ alertPosition })} />
         </div>
-        <label className="field">
-          Size, in percent
-          <span className="hint">Of everything on this screen. 100 is normal.</span>
-          <NumberCell value={screen.scale} min={50} max={200} label="Size" onSave={(scale) => save({ scale })} />
-        </label>
+        <div className="field">
+          Size
+          <span className="hint">Of everything on this screen. 100% is normal.</span>
+          <Scrubber value={screen.scale} min={50} max={200} buttonStep={5} unit="%" label="Size" onSave={(scale) => save({ scale })} />
+        </div>
       </div>
       <div className="screen-switches">
         {SCREEN_PARTS.map((part) => (

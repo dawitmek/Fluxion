@@ -138,6 +138,140 @@ export function NumberCell({
   );
 }
 
+// A number you can drag across to change, step with the buttons at each end, or click to type.
+// Saves when a drag ends, or once the buttons or arrow keys have been left alone for a moment.
+const PX_PER_STEP = 2;
+const SETTLE_MS = 400;
+export function Scrubber({
+  value,
+  min,
+  max,
+  step = 1,
+  buttonStep = step,
+  unit = '',
+  label,
+  onSave,
+}: {
+  value: number;
+  min: number;
+  max: number;
+  step?: number;
+  buttonStep?: number;
+  unit?: string;
+  label: string;
+  onSave: (n: number) => Promise<unknown> | void;
+}) {
+  const [draft, setDraft] = useState<number | null>(null); // shown until the save comes back
+  const [editing, setEditing] = useState<string | null>(null); // the typed text while typing
+  const [dragging, setDragging] = useState(false);
+  const drag = useRef<{ x: number; start: number; moved: boolean } | null>(null);
+  const latest = useRef(value);
+  const timer = useRef<number | undefined>(undefined);
+  useEffect(() => () => clearTimeout(timer.current), []);
+
+  const shown = draft ?? value;
+  const clamp = (n: number) => Math.min(max, Math.max(min, Math.round(n / step) * step));
+  const commit = (n: number) => {
+    clearTimeout(timer.current);
+    if (n === value) return setDraft(null);
+    void Promise.resolve(onSave(n)).finally(() => setDraft(null));
+  };
+  const show = (n: number) => {
+    latest.current = clamp(n);
+    setDraft(latest.current);
+  };
+  // Buttons and keys: show the new number now, save once they stop.
+  const nudge = (by: number) => {
+    show(shown + by);
+    clearTimeout(timer.current);
+    timer.current = window.setTimeout(() => commit(latest.current), SETTLE_MS);
+  };
+  const type = () => {
+    const n = Number(editing);
+    setEditing(null);
+    if (editing?.trim() && Number.isFinite(n)) commit(clamp(n));
+  };
+
+  return (
+    <div className="scrubber">
+      <button type="button" aria-label={`Decrease ${label}`} disabled={shown <= min} onClick={() => nudge(-buttonStep)}>
+        −
+      </button>
+      {editing !== null ? (
+        <input
+          className="scrubber-input"
+          type="number"
+          min={min}
+          max={max}
+          step={step}
+          value={editing}
+          aria-label={label}
+          autoFocus
+          onFocus={(e) => e.target.select()}
+          onChange={(e) => setEditing(e.target.value)}
+          onBlur={type}
+          onKeyDown={(e) => {
+            if (e.key === 'Enter') e.currentTarget.blur();
+            if (e.key === 'Escape') setEditing(null);
+          }}
+        />
+      ) : (
+        <div
+          className={`scrubber-track ${dragging ? 'dragging' : ''}`}
+          role="spinbutton"
+          tabIndex={0}
+          aria-label={label}
+          aria-valuenow={shown}
+          aria-valuemin={min}
+          aria-valuemax={max}
+          title="Drag to change, or click to type"
+          onPointerDown={(e) => {
+            if (e.button !== 0) return;
+            e.currentTarget.setPointerCapture(e.pointerId);
+            drag.current = { x: e.clientX, start: shown, moved: false };
+          }}
+          onPointerMove={(e) => {
+            const d = drag.current;
+            if (!d) return;
+            const dx = e.clientX - d.x;
+            if (!d.moved && Math.abs(dx) < 4) return; // a click wobbles a little; that's not a drag
+            if (!d.moved) (d.moved = true), setDragging(true);
+            show(d.start + Math.round(dx / PX_PER_STEP) * step);
+          }}
+          onPointerUp={() => {
+            const d = drag.current;
+            drag.current = null;
+            if (!d) return;
+            setDragging(false);
+            if (d.moved) commit(latest.current);
+            else setEditing(String(shown));
+          }}
+          onPointerCancel={() => {
+            drag.current = null;
+            setDragging(false);
+            setDraft(null);
+          }}
+          onKeyDown={(e) => {
+            const by = (e.shiftKey ? 10 : 1) * step;
+            if (e.key === 'ArrowRight' || e.key === 'ArrowUp') (e.preventDefault(), nudge(by));
+            if (e.key === 'ArrowLeft' || e.key === 'ArrowDown') (e.preventDefault(), nudge(-by));
+            if (e.key === 'Enter') setEditing(String(shown));
+          }}
+        >
+          <span className="scrubber-fill" style={{ width: `${((shown - min) / (max - min)) * 100}%` }} />
+          <span className="scrubber-value">
+            {shown}
+            {unit}
+          </span>
+        </div>
+      )}
+      <button type="button" aria-label={`Increase ${label}`} disabled={shown >= max} onClick={() => nudge(buttonStep)}>
+        +
+      </button>
+    </div>
+  );
+}
+
 // Key codes as people know them: KeyA -> A, ArrowLeft -> ←, Digit1 -> 1.
 // Key codes as people know them: KeyA -> A, ArrowLeft -> ←, Digit1 -> 1, Control+Shift+KeyE -> Ctrl+Shift+E.
 export function keyLabel(code: string): string {
