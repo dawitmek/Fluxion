@@ -1,5 +1,5 @@
 import { and, eq, isNull, sql } from 'drizzle-orm';
-import { QUEUE_JOIN, XP_PER_COMMAND, type Mode, type ServerToOverlay, type ViewerEvent } from '@fluxion/shared';
+import { POINTS_CHECK, QUEUE_JOIN, XP_PER_COMMAND, type Mode, type ServerToOverlay, type ViewerEvent } from '@fluxion/shared';
 import type { Secrets } from '../crypto.js';
 import type { Db } from '../db/client.js';
 import { alertRules, commands, giftTriggers, hosts, streamEvents, streams } from '../db/schema.js';
@@ -17,6 +17,17 @@ export type Source = 'tiktok' | 'simulated';
 
 const TICK_MS = 250;
 const STATS_FLUSH_MS = 5000;
+const CHAT_POINTS_EVERY_MS = 60_000; // chatting earns points at most this often per viewer
+const POINTS_CHECK_COOLDOWN_MS = 10_000; // per viewer, so !points can't flood the overlay
+
+// How viewers earn points, and whether they can check them. Null when the host has points off.
+interface PointsConfig {
+  perChat: number;
+  perDiamond: number;
+  perFollow: number;
+  perShare: number;
+  check: boolean;
+}
 
 interface LiveSession {
   source: Source;
@@ -24,6 +35,9 @@ interface LiveSession {
   adapter: PlatformAdapter;
   mode: Mode;
   progression: boolean;
+  points: PointsConfig | null;
+  lastEarned: Map<string, number>; // viewerId -> when chat last earned them points
+  lastChecked: Map<string, number>; // viewerId -> when they last typed !points
   ctx: EngineContext;
   engine: Engine;
   alertCtx: AlertContext;
@@ -77,7 +91,7 @@ export class SessionManager {
     await this.stop(hostId);
     const loaded = await this.loadConfig(hostId);
     if (!loaded) throw new LiveError('Host not found', 404);
-    const { host, mode, config, alertConfig, voice, profileName } = loaded;
+    const { host, mode, config, alertConfig, voice, profileName, points } = loaded;
 
     let adapter: PlatformAdapter;
     if (source === 'simulated') {
@@ -92,6 +106,7 @@ export class SessionManager {
       now: Date.now,
       newId: () => crypto.randomUUID(),
       levelOf: (viewerId) => this.stats.levelOf(hostId, viewerId),
+      pointsOf: (viewerId) => this.stats.pointsOf(hostId, viewerId),
     };
     const alertCtx: AlertContext = {
       config: alertConfig,
@@ -99,7 +114,7 @@ export class SessionManager {
       levelOf: ctx.levelOf,
       isCommand: (text) => {
         const keyword = text.trim().toLowerCase();
-        return keyword === QUEUE_JOIN || ctx.config.commands.some((c) => c.enabled && c.keyword === keyword);
+        return keyword === QUEUE_JOIN || keyword === POINTS_CHECK || ctx.config.commands.some((c) => c.enabled && c.keyword === keyword);
       },
     };
     // Real streams are kept for analytics; a test-mode session is only kept until the next session starts.
@@ -117,6 +132,9 @@ export class SessionManager {
       adapter,
       mode,
       progression: host.progression,
+      points,
+      lastEarned: new Map(),
+      lastChecked: new Map(),
       ctx,
       engine: createEngine(mode, ctx),
       alertCtx,
@@ -187,6 +205,7 @@ export class SessionManager {
     session.ctx.config = loaded.config;
     session.alertCtx.config = loaded.alertConfig;
     session.voice = loaded.voice;
+    session.points = loaded.points;
     if (loaded.mode !== session.mode) {
       session.mode = loaded.mode;
       session.engine = createEngine(session.mode, session.ctx);
@@ -236,6 +255,7 @@ export class SessionManager {
       const xp = Math.max(1, event.diamonds) * event.count;
       this.levelUp(hostId, session, event.viewerId, this.stats.record(hostId, event.viewerId, { gifts: event.count, xp }));
     }
+    if (session.points) this.earn(hostId, session, session.points, event);
     this.run(hostId, session, session.engine.handle(event));
     for (const output of session.alerts.handle(event)) {
       // speak() never throws, but a broken chain would silence every later alert, so guard anyway.
@@ -275,7 +295,7 @@ export class SessionManager {
     const via = decision.credit.length === 0 ? 'gift' : decision.credit.includes(decision.viewer) ? 'chat' : 'vote';
     session.recorder.add('command', via === 'vote' ? null : decision.viewer, { keyword: decision.keyword, via });
     const levelUps = decision.credit.map((viewerId) => {
-      const level = this.stats.record(hostId, viewerId, { commands: 1, xp: XP_PER_COMMAND });
+      const level = this.stats.record(hostId, viewerId, { commands: 1, xp: XP_PER_COMMAND, points: -decision.cost });
       return [viewerId, level] as const;
     });
     // A level badge only makes sense when the overlay names one viewer (not "3 votes").
@@ -288,6 +308,30 @@ export class SessionManager {
       ...(level !== undefined && { level }),
     });
     for (const [viewerId, newLevel] of levelUps) this.levelUp(hostId, session, viewerId, newLevel);
+  }
+
+  // Points for what a viewer did, and the answer to !points.
+  private earn(hostId: string, session: LiveSession, points: PointsConfig, event: ViewerEvent) {
+    const viewer = event.viewerId;
+    const t = Date.now();
+    let earned = 0;
+    if (event.kind === 'comment') {
+      const last = session.lastEarned.get(viewer);
+      if (last === undefined || t - last >= CHAT_POINTS_EVERY_MS) {
+        session.lastEarned.set(viewer, t);
+        earned = points.perChat;
+      }
+    } else if (event.kind === 'gift') earned = event.diamonds * event.count * points.perDiamond;
+    else if (event.kind === 'follow') earned = points.perFollow;
+    else if (event.kind === 'share') earned = points.perShare;
+    if (earned > 0) this.stats.record(hostId, viewer, { points: earned });
+
+    if (event.kind === 'comment' && points.check && event.text.trim().toLowerCase() === POINTS_CHECK) {
+      const last = session.lastChecked.get(viewer);
+      if (last !== undefined && t - last < POINTS_CHECK_COOLDOWN_MS) return;
+      session.lastChecked.set(viewer, t);
+      this.hub.sendToOverlays(hostId, { type: 'points', viewer, points: this.stats.pointsOf(hostId, viewer) });
+    }
   }
 
   private levelUp(hostId: string, session: LiveSession, viewer: string, level: number | null) {
@@ -327,6 +371,7 @@ export class SessionManager {
       turnMs: profile.turnMs,
       giftBoosts: profile.giftBoosts,
       levelGating: host.progression && host.levelGating,
+      points: host.points,
     };
     const alertConfig: AlertContext['config'] = {
       rules: alertRows,
@@ -340,7 +385,16 @@ export class SessionManager {
         blockedWords: parseBlockedWords(host.ttsBlockedWords),
       },
     };
-    return { host, mode: profile.mode, config, alertConfig, voice: voiceConfig(host, this.secrets), profileName };
+    const points: PointsConfig | null = host.points
+      ? {
+          perChat: host.pointsPerChat,
+          perDiamond: host.pointsPerDiamond,
+          perFollow: host.pointsPerFollow,
+          perShare: host.pointsPerShare,
+          check: host.pointsCheck,
+        }
+      : null;
+    return { host, mode: profile.mode, config, alertConfig, voice: voiceConfig(host, this.secrets), profileName, points };
   }
 }
 

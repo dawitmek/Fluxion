@@ -34,7 +34,7 @@ const SECTIONS: Section[][] = [
     { path: '/dashboard/commands', label: 'Commands', blurb: 'What chat types, the key it presses, and how the crowd shares control.', icon: 'commands', hue: 'indigo', page: CommandsPage },
     { path: '/dashboard/gifts', label: 'Gifts and alerts', blurb: 'Gifts that press keys, and alerts that thank people on stream.', icon: 'gift', hue: 'pink', page: GiftsPage },
     { path: '/dashboard/voice', label: 'Voice', blurb: 'What gets read aloud on your stream, and how it sounds.', icon: 'voice', hue: 'violet', page: VoicePage },
-    { path: '/dashboard/leaderboard', label: 'Leaderboard', blurb: 'Who plays the most, and the levels viewers earn.', icon: 'leaderboard', hue: 'sky', page: LeaderboardPage },
+    { path: '/dashboard/leaderboard', label: 'Leaderboard', blurb: 'Who plays the most, and the levels and points viewers earn.', icon: 'leaderboard', hue: 'sky', page: LeaderboardPage },
     { path: '/dashboard/analytics', label: 'Analytics', blurb: 'How your streams are going, and how chat plays.', icon: 'analytics', hue: 'teal', page: AnalyticsPage },
     { path: '/dashboard/profiles', label: 'Game profiles', blurb: 'A set of commands, gifts and crowd mode for each game.', icon: 'profiles', hue: 'teal', page: ProfilesPage },
   ],

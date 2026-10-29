@@ -1,50 +1,59 @@
-import { desc, eq, inArray, sql } from 'drizzle-orm';
+import { and, desc, eq, inArray, sql } from 'drizzle-orm';
 import { levelForXp, type LeaderboardEntry } from '@fluxion/shared';
 import type { Db } from '../db/client.js';
 import { hosts, viewerStats } from '../db/schema.js';
 
-type Counts = { commands: number; gifts: number; xp: number };
+type Counts = { commands: number; gifts: number; xp: number; points: number };
+type Totals = { xp: number; points: number };
 
 // Buffers per-viewer counts in memory and writes them in one upsert per flush, so a busy chat
 // doesn't turn into a database write per comment. While a host is live, it also keeps every viewer's
-// XP in memory so levels can be checked synchronously on each comment.
+// XP and points in memory so levels and balances can be checked synchronously on each comment.
 export class Stats {
   private pending = new Map<string, Map<string, Counts>>(); // hostId -> viewerId -> unflushed counts
-  private xp = new Map<string, Map<string, number>>(); // hostId -> viewerId -> total XP (live hosts only)
+  private totals = new Map<string, Map<string, Totals>>(); // hostId -> viewerId -> XP and points (live hosts only)
 
   constructor(private db: Db) {}
 
-  // Returns the viewer's new level if this pushed them up one, else null.
+  // Returns the viewer's new level if this pushed them up one, else null. Negative points spend them;
+  // a balance never goes below 0. Points only change for loaded hosts, the only ones that can earn or spend.
   record(hostId: string, viewerId: string, add: Partial<Counts>): number | null {
-    this.addPending(hostId, viewerId, { commands: 0, gifts: 0, xp: 0, ...add });
-    const totals = this.xp.get(hostId);
-    if (!totals || !add.xp) return null;
-    const before = totals.get(viewerId) ?? 0;
-    totals.set(viewerId, before + add.xp);
-    const level = levelForXp(before + add.xp);
-    return level > levelForXp(before) ? level : null;
+    const totals = this.totals.get(hostId);
+    const before = totals?.get(viewerId) ?? { xp: 0, points: 0 };
+    const points = totals ? Math.max(add.points ?? 0, -before.points) : 0;
+    this.addPending(hostId, viewerId, { commands: 0, gifts: 0, xp: 0, ...add, points });
+    if (!totals) return null;
+    const after = { xp: before.xp + (add.xp ?? 0), points: before.points + points };
+    totals.set(viewerId, after);
+    const level = levelForXp(after.xp);
+    return level > levelForXp(before.xp) ? level : null;
   }
 
-  // Levels are only known for hosts loaded with load(); others count as level 1.
+  // Levels and points are only known for hosts loaded with load(); others count as level 1 with no points.
   levelOf(hostId: string, viewerId: string): number {
-    return levelForXp(this.xp.get(hostId)?.get(viewerId) ?? 0);
+    return levelForXp(this.totals.get(hostId)?.get(viewerId)?.xp ?? 0);
   }
 
-  // Loads a host's XP totals into memory; call when they go live.
+  pointsOf(hostId: string, viewerId: string): number {
+    return this.totals.get(hostId)?.get(viewerId)?.points ?? 0;
+  }
+
+  // Loads a host's XP and points into memory; call when they go live.
   async load(hostId: string) {
     const rows = await this.db
-      .select({ viewerId: viewerStats.viewerId, xp: viewerStats.xp })
+      .select({ viewerId: viewerStats.viewerId, xp: viewerStats.xp, points: viewerStats.points })
       .from(viewerStats)
       .where(eq(viewerStats.hostId, hostId));
-    const totals = new Map(rows.map((r) => [r.viewerId, r.xp]));
+    const totals = new Map(rows.map((r) => [r.viewerId, { xp: r.xp, points: r.points }]));
     for (const [viewerId, counts] of this.pending.get(hostId) ?? []) {
-      totals.set(viewerId, (totals.get(viewerId) ?? 0) + counts.xp); // not flushed yet
+      const t = totals.get(viewerId) ?? { xp: 0, points: 0 };
+      totals.set(viewerId, { xp: t.xp + counts.xp, points: Math.max(0, t.points + counts.points) }); // not flushed yet
     }
-    this.xp.set(hostId, totals);
+    this.totals.set(hostId, totals);
   }
 
   unload(hostId: string) {
-    this.xp.delete(hostId);
+    this.totals.delete(hostId);
   }
 
   // Returns the hosts whose stats changed.
@@ -70,12 +79,13 @@ export class Stats {
             commands: sql`${viewerStats.commands} + excluded.commands`,
             gifts: sql`${viewerStats.gifts} + excluded.gifts`,
             xp: sql`${viewerStats.xp} + excluded.xp`,
+            points: sql`greatest(0, ${viewerStats.points} + excluded.points)`,
             updatedAt: sql`now()`,
           },
         });
       return [...live];
     } catch (err) {
-      // Put the counts back so the next flush retries them. The XP cache already includes them.
+      // Put the counts back so the next flush retries them. The in-memory totals already include them.
       for (const { hostId, viewerId, ...counts } of rows) this.addPending(hostId, viewerId, counts);
       throw err;
     }
@@ -83,23 +93,38 @@ export class Stats {
 
   async top(hostId: string, limit = 10): Promise<LeaderboardEntry[]> {
     return this.db
-      .select({ viewer: viewerStats.viewerId, commands: viewerStats.commands, gifts: viewerStats.gifts, xp: viewerStats.xp })
+      .select({ viewer: viewerStats.viewerId, commands: viewerStats.commands, gifts: viewerStats.gifts, xp: viewerStats.xp, points: viewerStats.points })
       .from(viewerStats)
-      .where(eq(viewerStats.hostId, hostId))
+      // Viewers who have only earned points from chat haven't played yet.
+      .where(and(eq(viewerStats.hostId, hostId), sql`(${viewerStats.commands} > 0 or ${viewerStats.gifts} > 0)`))
       .orderBy(desc(viewerStats.xp), desc(viewerStats.commands))
       .limit(limit);
   }
 
+  // Clears the leaderboard (commands, gifts, XP). Points are kept: viewers may be saving them up.
   async reset(hostId: string) {
-    this.pending.delete(hostId);
-    if (this.xp.has(hostId)) this.xp.set(hostId, new Map());
-    await this.db.delete(viewerStats).where(eq(viewerStats.hostId, hostId));
+    for (const counts of this.pending.get(hostId)?.values() ?? []) Object.assign(counts, { commands: 0, gifts: 0, xp: 0 });
+    for (const t of this.totals.get(hostId)?.values() ?? []) t.xp = 0;
+    await this.db.delete(viewerStats).where(and(eq(viewerStats.hostId, hostId), eq(viewerStats.points, 0)));
+    await this.db.update(viewerStats).set({ commands: 0, gifts: 0, xp: 0 }).where(eq(viewerStats.hostId, hostId));
+  }
+
+  // Sets every viewer's points back to 0.
+  async resetPoints(hostId: string) {
+    for (const counts of this.pending.get(hostId)?.values() ?? []) counts.points = 0;
+    for (const t of this.totals.get(hostId)?.values() ?? []) t.points = 0;
+    await this.db.update(viewerStats).set({ points: 0 }).where(eq(viewerStats.hostId, hostId));
   }
 
   private addPending(hostId: string, viewerId: string, add: Counts) {
     let viewers = this.pending.get(hostId);
     if (!viewers) this.pending.set(hostId, (viewers = new Map()));
-    const counts = viewers.get(viewerId) ?? { commands: 0, gifts: 0, xp: 0 };
-    viewers.set(viewerId, { commands: counts.commands + add.commands, gifts: counts.gifts + add.gifts, xp: counts.xp + add.xp });
+    const counts = viewers.get(viewerId) ?? { commands: 0, gifts: 0, xp: 0, points: 0 };
+    viewers.set(viewerId, {
+      commands: counts.commands + add.commands,
+      gifts: counts.gifts + add.gifts,
+      xp: counts.xp + add.xp,
+      points: counts.points + add.points,
+    });
   }
 }

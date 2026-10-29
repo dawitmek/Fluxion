@@ -12,6 +12,13 @@ export const hosts = pgTable('hosts', {
   activeProfileId: uuid('active_profile_id').references((): AnyPgColumn => profiles.id),
   progression: boolean('progression').notNull().default(false), // XP and levels on the overlay
   levelGating: boolean('level_gating').notNull().default(false), // commands may require a level
+  // Points: a balance viewers earn on the host's streams and spend on commands that cost points.
+  points: boolean('points').notNull().default(false),
+  pointsPerChat: integer('points_per_chat').notNull().default(1), // for chatting, at most once a minute per viewer
+  pointsPerDiamond: integer('points_per_diamond').notNull().default(10),
+  pointsPerFollow: integer('points_per_follow').notNull().default(20),
+  pointsPerShare: integer('points_per_share').notNull().default(5),
+  pointsCheck: boolean('points_check').notNull().default(false), // viewers may type !points
   // Text-to-speech of chat, spoken by the overlay.
   ttsMode: text('tts_mode').$type<TtsMode>().notNull().default('prefix'),
   ttsPrefix: text('tts_prefix').notNull().default('!tts'),
@@ -70,6 +77,7 @@ export const commands = pgTable(
     cooldownMs: integer('cooldown_ms').notNull(),
     enabled: boolean('enabled').notNull().default(true),
     minLevel: integer('min_level').notNull().default(1), // only enforced when the host turns on level gating
+    cost: integer('cost').notNull().default(0), // points spent each time it fires; only with points on
     position: serial('position').notNull(), // creation order, so the list doesn't reshuffle when one is edited
   },
   (t) => [unique().on(t.profileId, t.keyword)],
@@ -109,6 +117,7 @@ export const viewerStats = pgTable(
     commands: integer('commands').notNull().default(0),
     gifts: integer('gifts').notNull().default(0),
     xp: integer('xp').notNull().default(0),
+    points: integer('points').notNull().default(0), // balance: earned minus spent, never below 0
     updatedAt: timestamp('updated_at', { withTimezone: true }).notNull().defaultNow(),
   },
   (t) => [primaryKey({ columns: [t.hostId, t.viewerId] })],

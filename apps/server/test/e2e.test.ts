@@ -340,8 +340,8 @@ describe('modes, gifts and leaderboard (simulated source)', () => {
 
     await app.live.flushStats();
     expect((await api(cookie, 'GET', '/api/leaderboard')).json()).toEqual([
-      { viewer: 'alice', commands: 0, gifts: 2, xp: 2 }, // 1 diamond per simulated gift
-      { viewer: 'bob', commands: 1, gifts: 0, xp: 1 },
+      { viewer: 'alice', commands: 0, gifts: 2, xp: 2, points: 0 }, // 1 diamond per simulated gift
+      { viewer: 'bob', commands: 1, gifts: 0, xp: 1, points: 0 },
     ]);
     const me = (await api(cookie, 'GET', '/api/auth/me')).json();
     const overlay = connect(`/ws/overlay?token=${me.overlayToken}`);
@@ -450,7 +450,56 @@ describe('viewer progression', () => {
     await api(cookie, 'POST', '/api/live/simulate', { viewer: 'alice', text: 'left' });
     expect(await companion.next()).toMatchObject({ type: 'action', action: { key: 'KeyA' } });
     await app.live.flushStats();
-    expect((await api(cookie, 'GET', '/api/leaderboard')).json()).toEqual([{ viewer: 'alice', commands: 2, gifts: 1, xp: 12 }]);
+    expect((await api(cookie, 'GET', '/api/leaderboard')).json()).toEqual([{ viewer: 'alice', commands: 2, gifts: 1, xp: 12, points: 0 }]);
+  });
+});
+
+describe('points', () => {
+  it('earns points, spends them on commands, and answers !points when allowed', async () => {
+    const { cookie } = await signUp();
+    const companion = await connectCompanion((await pairCompanion(cookie)).token);
+    await companion.next(); // ready
+    await companion.next(); // profile
+    const me = (await api(cookie, 'GET', '/api/auth/me')).json();
+    expect(me).toMatchObject({ points: false, pointsPerChat: 1, pointsPerDiamond: 10, pointsCheck: false });
+    const left = (await api(cookie, 'GET', '/api/commands')).json().find((c: any) => c.keyword === 'left');
+    await api(cookie, 'PATCH', `/api/commands/${left.id}`, { cost: 25 });
+    expect((await api(cookie, 'POST', '/api/commands', { keyword: '!points', key: 'KeyB', holdMs: 100, cooldownMs: 0 })).statusCode).toBe(400);
+    await api(cookie, 'PATCH', '/api/settings', { points: true, pointsPerDiamond: 10, pointsPerFollow: 20 });
+
+    await api(cookie, 'POST', '/api/live/start', { source: 'simulated' });
+    const overlay = connect(`/ws/overlay?token=${me.overlayToken}`);
+    await overlay.next(); // live
+    await overlay.next(); // mode
+    await overlay.next(); // leaderboard
+    const sim = (body: object) => api(cookie, 'POST', '/api/live/simulate', body);
+
+    await sim({ viewer: 'alice', text: 'hi' }); // 1 point for chatting
+    await sim({ viewer: 'alice', text: 'left' }); // a minute hasn't passed: no point, and 1 < 25
+    expect(await companion.drain()).toEqual([]);
+    await sim({ viewer: 'alice', event: 'follow' }); // 21
+    await sim({ viewer: 'alice', event: 'share' }); // 26
+    await sim({ viewer: 'alice', text: 'left' });
+    expect(await companion.next()).toMatchObject({ type: 'action', action: { key: 'KeyA' } }); // 1 left
+    await sim({ viewer: 'alice', text: 'left' });
+    expect(await companion.drain()).toEqual([]);
+
+    // !points is off until the host allows it.
+    await sim({ viewer: 'alice', text: '!points' });
+    await api(cookie, 'PATCH', '/api/settings', { pointsCheck: true });
+    await sim({ viewer: 'alice', gift: 'Rose', diamonds: 1, count: 3 }); // 31
+    await sim({ viewer: 'alice', text: '!Points' });
+    const messages = await overlay.drain();
+    expect(messages.filter((m: any) => m.type === 'points')).toEqual([{ type: 'points', viewer: 'alice', points: 31 }]);
+
+    await api(cookie, 'POST', '/api/live/stop');
+    await app.live.flushStats();
+    expect((await api(cookie, 'GET', '/api/analytics/viewers/alice')).json()).toMatchObject({ points: 31 });
+    // Resetting the leaderboard keeps points; resetting points keeps the leaderboard.
+    await api(cookie, 'DELETE', '/api/leaderboard');
+    expect((await api(cookie, 'GET', '/api/analytics/viewers/alice')).json()).toMatchObject({ points: 31, xp: 0 });
+    await api(cookie, 'DELETE', '/api/leaderboard/points');
+    expect((await api(cookie, 'GET', '/api/analytics/viewers/alice')).json()).toMatchObject({ points: 0 });
   });
 });
 

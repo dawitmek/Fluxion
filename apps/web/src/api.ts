@@ -32,6 +32,12 @@ export interface Host {
   actionsPerSecond: number;
   progression: boolean;
   levelGating: boolean;
+  points: boolean;
+  pointsPerChat: number;
+  pointsPerDiamond: number;
+  pointsPerFollow: number;
+  pointsPerShare: number;
+  pointsCheck: boolean;
   ttsMode: TtsMode;
   ttsPrefix: string;
   ttsMaxLength: number;
@@ -67,6 +73,7 @@ export interface Command {
   cooldownMs: number;
   enabled: boolean;
   minLevel: number;
+  cost: number;
 }
 
 export interface AlertRule {

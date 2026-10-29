@@ -25,6 +25,12 @@ type Body = {
   giftBoosts?: boolean;
   progression?: boolean;
   levelGating?: boolean;
+  points?: boolean;
+  pointsPerChat?: number;
+  pointsPerDiamond?: number;
+  pointsPerFollow?: number;
+  pointsPerShare?: number;
+  pointsCheck?: boolean;
   ttsMode?: TtsMode;
   ttsPrefix?: string;
   ttsMaxLength?: number;
@@ -67,6 +73,12 @@ export async function settingsRoutes(app: FastifyInstance) {
             giftBoosts: { type: 'boolean' },
             progression: { type: 'boolean' },
             levelGating: { type: 'boolean' },
+            points: { type: 'boolean' },
+            pointsPerChat: { type: 'integer', minimum: 0, maximum: 10000 },
+            pointsPerDiamond: { type: 'integer', minimum: 0, maximum: 10000 },
+            pointsPerFollow: { type: 'integer', minimum: 0, maximum: 10000 },
+            pointsPerShare: { type: 'integer', minimum: 0, maximum: 10000 },
+            pointsCheck: { type: 'boolean' },
             ttsMode: { enum: TTS_MODES },
             ttsPrefix: { type: 'string', pattern: '^\\S{1,16}$' },
             ttsMaxLength: { type: 'integer', minimum: 10, maximum: 300 },
@@ -93,6 +105,7 @@ export async function settingsRoutes(app: FastifyInstance) {
     async (req, reply) => {
       const { tiktokUsername, actionsPerSecond, progression, levelGating } = req.body;
       const tts = Object.fromEntries(Object.entries(req.body).filter(([k]) => k.startsWith('tts')));
+      const points = Object.fromEntries(Object.entries(req.body).filter(([k]) => k.startsWith('points')));
       if (typeof req.body.ttsCloudKey === 'string') tts.ttsCloudKey = app.secrets.seal(req.body.ttsCloudKey);
       // Speaker numbers belong to one Piper voice: a new voice starts at its first speaker,
       // and a speaker the voice doesn't have is refused rather than silently played as speaker 0.
@@ -108,6 +121,7 @@ export async function settingsRoutes(app: FastifyInstance) {
       }
       const hostPatch = {
         ...tts,
+        ...points,
         ...(tiktokUsername !== undefined && { tiktokUsername: tiktokUsername?.replace(/^@/, '') ?? null }),
         ...(actionsPerSecond !== undefined && { actionsPerSecond }),
         ...(progression !== undefined && { progression }),

@@ -11,4 +11,9 @@ export async function leaderboardRoutes(app: FastifyInstance) {
     await app.live.pushLeaderboard(req.hostId);
     return reply.code(204).send();
   });
+
+  app.delete('/points', async (req, reply) => {
+    await app.stats.resetPoints(req.hostId);
+    return reply.code(204).send();
+  });
 }

@@ -47,6 +47,7 @@ function CommandsCard({ host }: { host: Host }) {
               <th>Hold (ms)</th>
               <th>Cooldown per viewer (ms)</th>
               {gated && <th>Min level</th>}
+              {host.points && <th>Cost (points)</th>}
               <th />
             </tr>
           </thead>
@@ -84,6 +85,11 @@ function CommandsCard({ host }: { host: Host }) {
                 {gated && (
                   <td>
                     <NumberCell value={c.minLevel} min={1} max={MAX_LEVEL} label="Minimum level" onSave={(minLevel) => update(c.id, { minLevel })} />
+                  </td>
+                )}
+                {host.points && (
+                  <td>
+                    <NumberCell value={c.cost} min={0} max={1000000} label="Cost in points" onSave={(cost) => update(c.id, { cost })} />
                   </td>
                 )}
                 <td className="actions">

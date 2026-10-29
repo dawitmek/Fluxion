@@ -42,6 +42,8 @@ export type Mode = (typeof MODES)[number];
 
 // In queue mode, a viewer types this to join the line.
 export const QUEUE_JOIN = 'join';
+// Typed in chat to see your points on the overlay, when the host allows it.
+export const POINTS_CHECK = '!points';
 
 // What the overlay shows for the current mode. Times are server-clock milliseconds.
 export type ModeState =
@@ -55,6 +57,7 @@ export interface LeaderboardEntry {
   commands: number;
   gifts: number;
   xp: number;
+  points: number; // spendable balance
 }
 
 // Viewer progression. XP: 1 per command that fires, plus each gift's diamond value (at least 1).
@@ -146,13 +149,14 @@ export type ServerToOverlay =
   | { type: 'mode'; state: ModeState; serverNow: number } // serverNow lets the overlay correct for clock skew
   | { type: 'leaderboard'; entries: LeaderboardEntry[]; progression: boolean }
   | { type: 'levelUp'; viewer: string; level: number }
+  | { type: 'points'; viewer: string; points: number } // answers a viewer's !points
   | { type: 'alert'; text: string; sound: AlertSound | null; speech: Speech | null }
   | { type: 'tts'; viewer: string; text: string; speech: Speech };
 
 // What's recorded during a stream: what viewers did, and what Fluxion did in response.
 //   comment {text}, gift {gift, count, diamonds}, like {count}, follow, share, join: viewer interactions
 //   command {keyword, via: 'chat' | 'vote' | 'gift'}: a key press fired (viewer is null for a vote's winner)
-//   refused {keyword, reason}: a command that matched but didn't fire (cooldown, rate limit, level, not their turn)
+//   refused {keyword, reason}: a command that matched but didn't fire (cooldown, rate limit, level, points, not their turn)
 //   level {level}, vote {winner, votes, total, voters, margin}, queue_join, turn {waitedMs}
 export type ActivityKind =
   | 'comment' | 'gift' | 'like' | 'follow' | 'share' | 'join'
@@ -209,6 +213,7 @@ export interface ViewerProfile {
   gifts: number;
   diamonds: number;
   xp: number; // leaderboard XP, across all of the host's streams
+  points: number; // spendable balance
   level: number;
   topCommands: { keyword: string; count: number }[];
   perStream: {

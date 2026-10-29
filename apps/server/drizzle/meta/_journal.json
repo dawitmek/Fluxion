@@ -99,6 +99,13 @@
       "when": 1793246352609,
       "tag": "0013_companion_device",
       "breakpoints": true
+    },
+    {
+      "idx": 14,
+      "version": "7",
+      "when": 1793248828406,
+      "tag": "0014_points",
+      "breakpoints": true
     }
   ]
 }

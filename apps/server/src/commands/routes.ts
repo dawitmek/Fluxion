@@ -1,12 +1,12 @@
 import type { FastifyInstance } from 'fastify';
 import { and, eq } from 'drizzle-orm';
-import { keyProblem, MAX_LEVEL, QUEUE_JOIN } from '@fluxion/shared';
+import { keyProblem, MAX_LEVEL, POINTS_CHECK, QUEUE_JOIN } from '@fluxion/shared';
 import { commands } from '../db/schema.js';
 import { requireHost } from '../auth/session.js';
 import { isUniqueViolation } from '../db/client.js';
 import { activeProfile, sendCommandsToCompanions } from '../profiles/active.js';
 
-type CommandBody = { keyword: string; key: string; holdMs: number; cooldownMs: number; enabled?: boolean; minLevel?: number };
+type CommandBody = { keyword: string; key: string; holdMs: number; cooldownMs: number; enabled?: boolean; minLevel?: number; cost?: number };
 
 const fields = {
   keyword: { type: 'string', pattern: '^\\S{1,32}$' },
@@ -15,10 +15,15 @@ const fields = {
   cooldownMs: { type: 'integer', minimum: 0, maximum: 600000 },
   enabled: { type: 'boolean' },
   minLevel: { type: 'integer', minimum: 1, maximum: MAX_LEVEL },
+  cost: { type: 'integer', minimum: 0, maximum: 1_000_000 },
 } as const;
 
 const reservedKeyword = (keyword: string | undefined) =>
-  keyword?.toLowerCase() === QUEUE_JOIN ? `"${QUEUE_JOIN}" is reserved for joining the queue` : null;
+  keyword?.toLowerCase() === QUEUE_JOIN
+    ? `"${QUEUE_JOIN}" is reserved for joining the queue`
+    : keyword?.toLowerCase() === POINTS_CHECK
+      ? `"${POINTS_CHECK}" is reserved for checking points`
+      : null;
 
 const idParam = { type: 'object', properties: { id: { type: 'string', format: 'uuid' } } } as const;
 

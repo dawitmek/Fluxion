@@ -2,8 +2,8 @@ import { useEffect, useState } from 'react';
 import { AlertPlayer } from './alert-player';
 import { levelForXp, QUEUE_JOIN, type LeaderboardEntry, type ModeState, type ServerToOverlay } from '@fluxion/shared';
 
-// A command, or a level-up shout-out.
-type FeedItem = { id: number; viewer: string } & ({ keyword: string; level?: number } | { levelUp: number });
+// A command, a level-up shout-out, or a viewer's points when they ask.
+type FeedItem = { id: number; viewer: string } & ({ keyword: string; level?: number } | { levelUp: number } | { points: number });
 
 const MAX_ITEMS = 6;
 const ITEM_TTL_MS = 8000;
@@ -48,6 +48,7 @@ export function Overlay({ token }: { token: string }) {
           add({ id: nextId++, viewer: message.viewer, keyword: message.keyword, level: message.level });
         }
         if (message.type === 'levelUp') add({ id: nextId++, viewer: message.viewer, levelUp: message.level });
+        if (message.type === 'points') add({ id: nextId++, viewer: message.viewer, points: message.points });
         if (message.type === 'alert') player.enqueue(message);
         if (message.type === 'tts') player.say(message.speech);
       };
@@ -116,6 +117,13 @@ function LiveWidgets({
           'levelUp' in item ? (
             <div key={item.id} className="overlay-item overlay-levelup">
               <span className="overlay-viewer">{item.viewer}</span> reached <span className="overlay-keyword">level {item.levelUp}</span>
+            </div>
+          ) : 'points' in item ? (
+            <div key={item.id} className="overlay-item">
+              <span className="overlay-viewer">{item.viewer}</span> has{' '}
+              <span className="overlay-keyword">
+                {item.points.toLocaleString()} point{item.points === 1 ? '' : 's'}
+              </span>
             </div>
           ) : (
             <div key={item.id} className="overlay-item">

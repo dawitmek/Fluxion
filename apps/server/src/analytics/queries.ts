@@ -214,7 +214,7 @@ export async function viewerProfile(db: Db, hostId: string, viewer: string, acco
       from stream_events e join streams s on s.id = e.stream_id
       where s.host_id = ${hostId} and e.viewer = ${viewer} and e.kind = 'command' ${onAccount(account)}
       group by 1 order by 2 desc, 1 limit 5`),
-    db.select({ xp: viewerStats.xp }).from(viewerStats).where(and(eq(viewerStats.hostId, hostId), eq(viewerStats.viewerId, viewer))),
+    db.select({ xp: viewerStats.xp, points: viewerStats.points }).from(viewerStats).where(and(eq(viewerStats.hostId, hostId), eq(viewerStats.viewerId, viewer))),
   ]);
   const sum = (key: 'comments' | 'commands' | 'gifts' | 'diamonds') => perStream.reduce((n, r) => n + Number(r[key]), 0);
   const times = perStream.flatMap((r) => [new Date(r.first_at).getTime(), new Date(r.last_at).getTime()]);
@@ -230,6 +230,7 @@ export async function viewerProfile(db: Db, hostId: string, viewer: string, acco
     diamonds: sum('diamonds'),
     xp,
     level: levelForXp(xp),
+    points: stats?.points ?? 0,
     topCommands: topCommands.map((c) => ({ keyword: c.keyword, count: Number(c.count) })),
     perStream: perStream.map((r) => ({
       streamId: r.id,

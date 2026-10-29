@@ -1,7 +1,7 @@
 import { useCallback, useEffect, useState } from 'react';
-import { levelForXp, xpForLevel } from '@fluxion/shared';
+import { levelForXp, POINTS_CHECK, xpForLevel } from '@fluxion/shared';
 import { api, type Host, type LeaderboardEntry } from '../api';
-import { Card, ErrorNotice, Switch, useError } from '../ui';
+import { Card, ErrorNotice, NumberCell, Switch, useError } from '../ui';
 import type { PageProps } from './Dashboard';
 import { ViewerLink } from './ViewerPanel';
 
@@ -9,6 +9,7 @@ export function LeaderboardPage({ host, refreshHost, feed }: PageProps) {
   return (
     <div className="stack">
       <LeaderboardCard host={host} live={feed.leaderboard} />
+      <PointsCard host={host} refreshHost={refreshHost} />
       <ProgressionCard host={host} refreshHost={refreshHost} />
     </div>
   );
@@ -32,7 +33,7 @@ function LeaderboardCard({ host, live }: { host: Host; live: LeaderboardEntry[] 
         <button
           className="btn btn-ghost"
           onClick={guard(async () => {
-            if (confirm('Reset the leaderboard? This cannot be undone.')) await api('DELETE', '/leaderboard').then(load);
+            if (confirm('Reset the leaderboard? Viewers keep their points. This cannot be undone.')) await api('DELETE', '/leaderboard').then(load);
           })}
         >
           Reset
@@ -53,6 +54,7 @@ function LeaderboardCard({ host, live }: { host: Host; live: LeaderboardEntry[] 
                 <th>Gifts</th>
                 {host.progression && <th>XP</th>}
                 {host.progression && <th>Level</th>}
+                {host.points && <th>Points</th>}
               </tr>
             </thead>
             <tbody>
@@ -68,12 +70,68 @@ function LeaderboardCard({ host, live }: { host: Host; live: LeaderboardEntry[] 
                   <td className="num">{e.gifts}</td>
                   {host.progression && <td className="num">{e.xp}</td>}
                   {host.progression && <td className="num">{levelForXp(e.xp)}</td>}
+                  {host.points && <td className="num">{e.points.toLocaleString()}</td>}
                 </tr>
               ))}
             </tbody>
           </table>
         </div>
       )}
+    </Card>
+  );
+}
+
+const EARNING = [
+  ['pointsPerChat', 'For chatting', 'At most once a minute per viewer.'],
+  ['pointsPerDiamond', 'Per gift diamond', 'A 5-diamond gift at 10 is 50 points.'],
+  ['pointsPerFollow', 'For following', 'Each time TikTok reports a follow.'],
+  ['pointsPerShare', 'For sharing', 'Each time they share the stream.'],
+] as const;
+
+function PointsCard({ host, refreshHost }: { host: Host; refreshHost: () => Promise<unknown> }) {
+  const { error, guard } = useError();
+  const save = (patch: Partial<Host>) => guard(() => api('PATCH', '/settings', patch).then(refreshHost))();
+  return (
+    <Card
+      title="Points"
+      description="A balance viewers earn on your streams and spend on commands. Set what each command costs on the Commands page. Unlike XP, points go down when spent."
+      actions={
+        <button
+          className="btn btn-ghost"
+          onClick={guard(async () => {
+            if (confirm("Set every viewer's points back to 0? This cannot be undone.")) await api('DELETE', '/leaderboard/points');
+          })}
+        >
+          Reset points
+        </button>
+      }
+    >
+      <ErrorNotice error={error} />
+      <Switch
+        checked={host.points}
+        onChange={(points) => save({ points })}
+        hint="A command a viewer can't afford is ignored. Losing votes cost nothing, and gift triggers are always free."
+      >
+        Points
+      </Switch>
+      <fieldset className="stack" disabled={!host.points}>
+        <div className="form-grid">
+          {EARNING.map(([field, label, hint]) => (
+            <label key={field} className="field">
+              {label}
+              <span className="hint">{hint}</span>
+              <NumberCell value={host[field]} min={0} max={10000} onSave={(value) => save({ [field]: value })} />
+            </label>
+          ))}
+        </div>
+        <Switch
+          checked={host.pointsCheck}
+          onChange={(pointsCheck) => save({ pointsCheck })}
+          hint={`Typing ${POINTS_CHECK} in chat shows that viewer's points on the overlay, once every 10 seconds per viewer.`}
+        >
+          Let viewers check their points
+        </Switch>
+      </fieldset>
     </Card>
   );
 }

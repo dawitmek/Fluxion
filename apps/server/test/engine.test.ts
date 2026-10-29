@@ -4,9 +4,9 @@ import { createEngine, MAX_GIFT_REPEATS, type EngineConfig } from '../src/engine
 import { IDLE_MS } from '../src/engine/queue.js';
 import type { EngineCommand } from '../src/engine/types.js';
 
-const left: EngineCommand = { keyword: 'left', key: 'KeyA', holdMs: 300, cooldownMs: 1000, enabled: true, minLevel: 1 };
-const right: EngineCommand = { keyword: 'right', key: 'KeyD', holdMs: 300, cooldownMs: 1000, enabled: true, minLevel: 1 };
-const jump: EngineCommand = { keyword: 'jump', key: 'Space', holdMs: 100, cooldownMs: 0, enabled: true, minLevel: 1 };
+const left: EngineCommand = { keyword: 'left', key: 'KeyA', holdMs: 300, cooldownMs: 1000, enabled: true, minLevel: 1, cost: 0 };
+const right: EngineCommand = { keyword: 'right', key: 'KeyD', holdMs: 300, cooldownMs: 1000, enabled: true, minLevel: 1, cost: 0 };
+const jump: EngineCommand = { keyword: 'jump', key: 'Space', holdMs: 100, cooldownMs: 0, enabled: true, minLevel: 1, cost: 0 };
 
 const comment = (viewerId: string, text: string): ViewerEvent => ({ kind: 'comment', viewerId, text, at: 0 });
 const gift = (viewerId: string, giftName: string, count = 1): ViewerEvent => ({
@@ -19,7 +19,7 @@ const gift = (viewerId: string, giftName: string, count = 1): ViewerEvent => ({
   at: 0,
 });
 
-function setup(mode: Mode, config: Partial<EngineConfig> = {}, levels: Record<string, number> = {}) {
+function setup(mode: Mode, config: Partial<EngineConfig> = {}, levels: Record<string, number> = {}, points: Record<string, number> = {}) {
   let t = 0;
   let id = 0;
   const ctx = {
@@ -31,11 +31,13 @@ function setup(mode: Mode, config: Partial<EngineConfig> = {}, levels: Record<st
       turnMs: 30000,
       giftBoosts: true,
       levelGating: false,
+      points: false,
       ...config,
     },
     now: () => t,
     newId: () => `a${++id}`,
     levelOf: (viewerId: string) => levels[viewerId] ?? 1,
+    pointsOf: (viewerId: string) => points[viewerId] ?? 0,
   };
   const engine = createEngine(mode, ctx);
   const keys = (decisions: { action: { key: string } }[]) => decisions.map((d) => d.action.key);
@@ -53,7 +55,7 @@ describe('anarchy mode', () => {
   it('turns a matching comment into a key action', () => {
     const { engine } = setup('anarchy');
     expect(engine.handle(comment('alice', 'left'))).toEqual([
-      { action: { id: 'a1', key: 'KeyA', holdMs: 300 }, keyword: 'left', viewer: 'alice', credit: ['alice'] },
+      { action: { id: 'a1', key: 'KeyA', holdMs: 300 }, keyword: 'left', viewer: 'alice', credit: ['alice'], cost: 0 },
     ]);
   });
 
@@ -248,7 +250,7 @@ describe('gift triggers', () => {
 });
 
 describe('level gating', () => {
-  const shoot: EngineCommand = { keyword: 'shoot', key: 'KeyF', holdMs: 100, cooldownMs: 0, enabled: true, minLevel: 3 };
+  const shoot: EngineCommand = { keyword: 'shoot', key: 'KeyF', holdMs: 100, cooldownMs: 0, enabled: true, minLevel: 3, cost: 0 };
   const levels = { rookie: 1, veteran: 3 };
 
   it('ignores commands above the viewer’s level, in every comment-driven mode', () => {
@@ -267,5 +269,33 @@ describe('level gating', () => {
     expect(setup('anarchy', { commands: [shoot] }, levels).press(comment('rookie', 'shoot'))).toEqual(['KeyF']);
     const gifted = setup('anarchy', { commands: [shoot], levelGating: true, giftTriggers: [{ giftName: 'rose', keyword: 'shoot' }] }, levels);
     expect(gifted.press(gift('rookie', 'Rose'))).toEqual(['KeyF']);
+  });
+});
+
+describe('point costs', () => {
+  const nuke: EngineCommand = { keyword: 'nuke', key: 'KeyN', holdMs: 100, cooldownMs: 0, enabled: true, minLevel: 1, cost: 50 };
+  const points = { broke: 10, rich: 80 };
+
+  it('ignores commands a viewer can’t afford, and charges those who can', () => {
+    const { engine } = setup('anarchy', { commands: [left, nuke], points: true }, {}, points);
+    expect(engine.handle(comment('broke', 'nuke'))).toEqual([]);
+    expect(engine.handle(comment('broke', 'left'))).toMatchObject([{ keyword: 'left', cost: 0 }]);
+    expect(engine.handle(comment('rich', 'nuke'))).toMatchObject([{ keyword: 'nuke', credit: ['rich'], cost: 50 }]);
+  });
+
+  it('charges a vote only when it wins, and only voters who could afford it', () => {
+    const { engine, advance } = setup('democracy', { commands: [left, nuke], points: true }, {}, points);
+    engine.handle(comment('broke', 'nuke')); // refused, so no vote
+    engine.handle(comment('rich', 'nuke'));
+    engine.handle(comment('other', 'left'));
+    engine.handle(comment('more', 'left'));
+    advance(3000);
+    expect(engine.tick()).toMatchObject([{ keyword: 'left', credit: ['other', 'more'], cost: 0 }]);
+  });
+
+  it('is free with points off, and for gift triggers', () => {
+    expect(setup('anarchy', { commands: [nuke] }, {}, points).engine.handle(comment('broke', 'nuke'))).toMatchObject([{ cost: 0 }]);
+    const gifted = setup('anarchy', { commands: [nuke], points: true, giftTriggers: [{ giftName: 'rose', keyword: 'nuke' }] }, {}, points);
+    expect(gifted.engine.handle(gift('broke', 'rose'))).toMatchObject([{ keyword: 'nuke', credit: [], cost: 50 }]);
   });
 });

@@ -77,6 +77,7 @@ export function ViewerPanel({ viewer, onClose }: { viewer: string; onClose: () =
             <div className="stat-tiles">
               <Tile label="Streams" value={profile.streams} />
               <Tile label="Level" value={profile.level} note={`${profile.xp.toLocaleString()} XP`} />
+              {profile.points > 0 && <Tile label="Points" value={profile.points} note="to spend" />}
               <Tile label="Chat messages" value={profile.comments} />
               <Tile label="Key presses" value={profile.commands} />
               <Tile label="Gifts" value={profile.gifts} note={`${profile.diamonds.toLocaleString()} diamonds`} />
