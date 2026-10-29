@@ -21,3 +21,9 @@ body { background: var(--aurora), var(--ground); background-repeat: no-repeat; m
 .log li:last-child { border-bottom: 0; }
 .log .tag { justify-content: center; width: 64px; border-radius: 8px; font-size: 12px; padding: 2px 0; }
 .signed-in { font-size: 14px; padding: 6px 12px; }
+.keycap.selected { outline: 2px solid var(--indigo-fill); outline-offset: 2px; color: var(--ink); }
+.selection-bar { display: flex; flex-wrap: wrap; align-items: center; gap: 8px; padding: 10px 12px; border-radius: 12px; border: 1px solid var(--indigo-fill);
+  background: color-mix(in srgb, var(--indigo-fill) 10%, var(--panel)); font-weight: 600; animation: selection-in 0.18s ease-out; }
+.selection-bar .spacer { flex: 1; }
+@keyframes selection-in { from { opacity: 0; transform: translateY(-4px); } }
+@media (prefers-reduced-motion: reduce) { .selection-bar { animation: none; } }
