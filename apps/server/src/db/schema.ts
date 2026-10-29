@@ -127,4 +127,13 @@ export const pairingCodes = pgTable('pairing_codes', {
   expiresAt: timestamp('expires_at', { withTimezone: true }).notNull(),
 });
 
+// Health of server-wide services, shared by every server process on the database. One row per service:
+// 'tiktok-account' is the TIKTOK_SESSION_ID account that TikTok voices fall back to.
+export const serviceStatus = pgTable('service_status', {
+  name: text('name').primaryKey(),
+  ok: boolean('ok').notNull(),
+  detail: text('detail'), // why it isn't ok
+  checkedAt: timestamp('checked_at', { withTimezone: true }).notNull().defaultNow(),
+});
+
 export type Command = typeof commands.$inferSelect;

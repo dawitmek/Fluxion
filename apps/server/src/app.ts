@@ -28,6 +28,7 @@ import { alertRoutes } from './alerts/routes.js';
 import { ttsRoutes } from './tts/routes.js';
 import { Piper } from './tts/piper.js';
 import { SpeechService } from './tts/speech.js';
+import { ServerTiktokAccount } from './tts/tiktok-account.js';
 import { gatewayRoutes } from './gateway/routes.js';
 
 declare module 'fastify' {
@@ -40,6 +41,7 @@ declare module 'fastify' {
     speech: SpeechService;
     piper: Piper;
     secrets: Secrets;
+    tiktokAccount: ServerTiktokAccount;
   }
 }
 
@@ -67,17 +69,23 @@ export async function buildApp(config: Config, options: Options = {}) {
   await sealStoredSecrets(db, secrets);
   const stats = new Stats(db);
   const piper = options.piper ?? new Piper(config.piperBin, config.piperVoicesDir);
+  const tiktokAccount = new ServerTiktokAccount(db, config.tiktokSessionId, options.fetch ?? fetch, (err) =>
+    app.log.warn({ err }, 'Could not save the TikTok account status'),
+  );
   const speech = new SpeechService(
     piper,
     (err) => app.log.warn({ err }, 'TTS failed; falling back to eSpeak'),
     options.fetch,
-    config.tiktokSessionId,
+    tiktokAccount,
   );
   app.decorate('stats', stats);
   app.decorate('piper', piper);
   app.decorate('speech', speech);
   app.decorate('live', new SessionManager(db, hub, stats, speech, secrets, createTikTok));
+  app.decorate('tiktokAccount', tiktokAccount);
+  tiktokAccount.start();
   app.addHook('onClose', async () => {
+    tiktokAccount.stop();
     await app.live.close();
     await close();
   });

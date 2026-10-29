@@ -91,12 +91,13 @@ export async function companionRoutes(app: FastifyInstance) {
     },
   );
 
-  // Whether the host has signed in to TikTok (the dashboard can sign them out), so the companion shows it.
+  // Whether the host has signed in to TikTok (the dashboard can sign them out), and whether they need to:
+  // while the server's own TikTok account works, the companion doesn't offer sign-in at all.
   app.get('/tiktok-session', async (req, reply) => {
     const hostId = await deviceHost(req.headers.authorization);
     if (!hostId) return reply.code(401).send({ error: 'This companion is not paired. Pair it again.' });
     const [host] = await db.select({ session: hosts.ttsTiktokSession }).from(hosts).where(eq(hosts.id, hostId));
-    return { signedIn: host?.session != null };
+    return { signedIn: host?.session != null, needed: (await app.tiktokAccount.state()) !== 'ok' };
   });
 
   app.get('/', { preHandler: requireHost }, async (req) =>

@@ -4,6 +4,7 @@ import type { hosts } from '../db/schema.js';
 import { synthesizeCloud, type CloudVoice } from './cloud.js';
 import type { Piper } from './piper.js';
 import { synthesizeTiktok } from './tiktok.js';
+import type { ServerTiktokAccount } from './tiktok-account.js';
 
 export interface VoiceConfig {
   engine: TtsEngine;
@@ -42,11 +43,12 @@ export class SpeechService {
     private piper: Piper,
     private onError: (err: unknown) => void = () => {},
     readonly fetchImpl: typeof fetch = fetch, // tests swap in a fake provider
-    private tiktokSession?: string, // the server's own TikTok account (TIKTOK_SESSION_ID), if set
+    private tiktokAccount?: ServerTiktokAccount, // the server's own TikTok account (TIKTOK_SESSION_ID)
   ) {}
 
-  get hasServerTiktokAccount() {
-    return Boolean(this.tiktokSession);
+  // Whether hosts who haven't signed in to TikTok themselves still get TikTok voices.
+  async serverTiktokWorking() {
+    return (await this.tiktokAccount?.state()) === 'ok';
   }
 
   async speak(cfg: VoiceConfig, text: string): Promise<Speech> {
@@ -76,10 +78,17 @@ export class SpeechService {
         return { kind: 'audio', data: audio.toString('base64'), mime: 'audio/wav' };
       }
       case 'tiktok': {
-        const session = cfg.tiktok.session ?? this.tiktokSession;
+        const server = cfg.tiktok.session ? undefined : this.tiktokAccount; // set when speaking with the server's account
+        const session = cfg.tiktok.session ?? server?.session;
         if (!session) throw new Error('Sign in to TikTok from the companion app first');
-        const audio = await synthesizeTiktok({ session, voice: cfg.tiktok.voice }, text, this.fetchImpl);
-        return { kind: 'audio', data: audio.toString('base64'), mime: 'audio/mpeg' };
+        try {
+          const audio = await synthesizeTiktok({ session, voice: cfg.tiktok.voice }, text, this.fetchImpl);
+          await server?.record(true);
+          return { kind: 'audio', data: audio.toString('base64'), mime: 'audio/mpeg' };
+        } catch (err) {
+          await server?.recordFailure(err);
+          throw err;
+        }
       }
       case 'cloud': {
         if (!cfg.cloud) throw new Error('Choose a cloud provider and enter your API key first');

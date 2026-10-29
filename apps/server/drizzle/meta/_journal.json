@@ -57,6 +57,13 @@
       "when": 1793227126873,
       "tag": "0007_tiktok_voices",
       "breakpoints": true
+    },
+    {
+      "idx": 8,
+      "version": "7",
+      "when": 1793232585936,
+      "tag": "0008_service_status",
+      "breakpoints": true
     }
   ]
 }

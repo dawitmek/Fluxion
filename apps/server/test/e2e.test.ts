@@ -9,7 +9,7 @@ import type { PlatformAdapter } from '../src/platforms/types.js';
 import { Piper } from '../src/tts/piper.js';
 import { fileURLToPath } from 'node:url';
 import { randomBytes } from 'node:crypto';
-import { hosts } from '../src/db/schema.js';
+import { hosts, serviceStatus } from '../src/db/schema.js';
 import { Secrets } from '../src/crypto.js';
 
 const databaseUrl = process.env.TEST_DATABASE_URL ?? 'postgres://fluxion:fluxion@127.0.0.1:5432/fluxion_test';
@@ -56,7 +56,7 @@ afterAll(async () => {
 beforeEach(async () => {
   for (const socket of sockets.splice(0)) socket.close();
   await app.live.stopAll();
-  await app.db.execute(sql`TRUNCATE hosts, auth_sessions, profiles, commands, companions, pairing_codes, gift_triggers, viewer_stats, alert_rules CASCADE`);
+  await app.db.execute(sql`TRUNCATE hosts, auth_sessions, profiles, commands, companions, pairing_codes, gift_triggers, viewer_stats, alert_rules, service_status CASCADE`);
 });
 
 // --- helpers ---------------------------------------------------------------
@@ -559,6 +559,45 @@ describe('alerts and text-to-speech', () => {
     await api(cookie, 'PATCH', '/api/settings', { ttsTiktokSession: null });
     expect((await api(cookie, 'GET', '/api/auth/me')).json().ttsTiktokConnected).toBe(false);
     expect(await signedIn()).toBe(false);
+  });
+
+  it("offers TikTok sign-in in the companion only while the server's own account isn't working", async () => {
+    const withAccount = (tiktokSessionId: string) =>
+      buildApp(
+        { databaseUrl, port: 0, host: '127.0.0.1', eulerApiKey: undefined, production: false, secureCookies: false, piperBin: undefined, piperVoicesDir: undefined, tiktokSessionId, secretsKey },
+        { logger: false, fetch: fakeFetch },
+      );
+    const server = await withAccount('goodsession0123456789');
+    try {
+      const signup = await server.inject({ method: 'POST', url: '/api/auth/signup', payload: { email: 'a@example.com', password: 'correct horse' }, remoteAddress: nextAddress() });
+      const session = signup.cookies.find((c) => c.name === 'fluxion_session')!;
+      const cookie = `${session.name}=${session.value}`;
+      const { code } = (await server.inject({ method: 'POST', url: '/api/companions/pairing-code', headers: { cookie } })).json();
+      const { token } = (await server.inject({ method: 'POST', url: '/api/companions/pair', payload: { code, name: 'PC' }, remoteAddress: nextAddress() })).json();
+      const companionView = async () =>
+        (await server.inject({ method: 'GET', url: '/api/companions/tiktok-session', headers: { authorization: `Bearer ${token}` } })).json();
+      const dashboardView = async () => (await server.inject({ method: 'GET', url: '/api/tts/options', headers: { cookie } })).json().tiktokServerAccount;
+
+      await server.tiktokAccount.check();
+      expect(await companionView()).toEqual({ signedIn: false, needed: false });
+      expect(await dashboardView()).toBe(true);
+
+      // The account's session expires: TikTok refuses a line, the status goes offline, sign-in appears.
+      await server.inject({ method: 'PATCH', url: '/api/settings', payload: { ttsEngine: 'tiktok' }, headers: { cookie } });
+      const expired = await withAccount('expiredsession0123456');
+      await expired.tiktokAccount.check();
+      await expired.close();
+      expect(await companionView()).toEqual({ signedIn: false, needed: true });
+      expect(await dashboardView()).toBe(false);
+      const [row] = await server.db.select().from(serviceStatus);
+      expect(row).toMatchObject({ name: 'tiktok-account', ok: false, detail: expect.stringContaining('signed you out') });
+
+      // A line that works again with the account brings it back.
+      expect((await server.inject({ method: 'POST', url: '/api/tts/preview', headers: { cookie } })).json().kind).toBe('audio');
+      expect(await companionView()).toEqual({ signedIn: false, needed: false });
+    } finally {
+      await server.close();
+    }
   });
 
   it('encrypts secrets saved before encryption existed when the server starts', async () => {

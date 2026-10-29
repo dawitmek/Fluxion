@@ -4,6 +4,7 @@ import { Piper, wav } from '../src/tts/piper.js';
 import { errorMessage, listCloudVoices, synthesizeCloud } from '../src/tts/cloud.js';
 import { SpeechService, type VoiceConfig } from '../src/tts/speech.js';
 import { synthesizeTiktok } from '../src/tts/tiktok.js';
+import type { ServerTiktokAccount } from '../src/tts/tiktok-account.js';
 
 const fixture = (p: string) => fileURLToPath(new URL(`./fixtures/${p}`, import.meta.url));
 // The fake Piper is a Node script, so it runs the same on macOS, Linux and Windows.
@@ -200,7 +201,8 @@ describe('tiktok voices', () => {
       cookies.push(new Headers(init.headers).get('cookie'));
       return ok();
     }) as typeof fetch;
-    const service = new SpeechService(fakePiper(), () => {}, fetchImpl, 'serveraccount');
+    const account = { session: 'serveraccount', record: async () => {}, recordFailure: async () => {} } as unknown as ServerTiktokAccount;
+    const service = new SpeechService(fakePiper(), () => {}, fetchImpl, account);
     await service.speakStrict(voice({ engine: 'tiktok' }), 'hi');
     await service.speakStrict(voice({ engine: 'tiktok', tiktok: { session: 'hostaccount', voice: null } }), 'hi');
     expect(cookies).toEqual(['sessionid=serveraccount', 'sessionid=hostaccount']);

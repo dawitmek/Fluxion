@@ -29,7 +29,16 @@ const STATUS_MESSAGES: Record<number, string> = {
   5: 'Sign in to TikTok from the companion app first',
 };
 
-export class TiktokError extends Error {}
+export class TiktokError extends Error {
+  constructor(
+    message: string,
+    readonly code: number | null = null, // TikTok's status code; null when TikTok couldn't be reached
+  ) {
+    super(message);
+  }
+}
+
+export const SIGNED_OUT = 1;
 
 interface TiktokResponse {
   status_code?: number;
@@ -70,7 +79,7 @@ export async function synthesizeTiktok(cfg: TiktokVoice, text: string, fetchImpl
   }
   if (refusal) {
     const code = refusal.status_code ?? -1;
-    throw new TiktokError(STATUS_MESSAGES[code] ?? `TikTok TTS failed (${code}): ${refusal.status_msg || 'no details'}`);
+    throw new TiktokError(STATUS_MESSAGES[code] ?? `TikTok TTS failed (${code}): ${refusal.status_msg || 'no details'}`, code);
   }
   throw new TiktokError(`Could not reach TikTok's voice service: ${(networkError as Error)?.message ?? 'unknown error'}`);
 }

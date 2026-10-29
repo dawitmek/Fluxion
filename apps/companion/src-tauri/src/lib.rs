@@ -85,7 +85,7 @@ async fn tiktok_sign_in(app: AppHandle, ctl: Ctl<'_>) -> Result<bool, String> {
 }
 
 #[tauri::command]
-async fn tiktok_status(ctl: Ctl<'_>) -> Result<bool, String> {
+async fn tiktok_status(ctl: Ctl<'_>) -> Result<tiktok::Status, String> {
     tiktok::status(ctl.inner().clone()).await
 }
 

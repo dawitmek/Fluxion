@@ -269,13 +269,15 @@ function Paired({ state, run }: { state: Snapshot; run: Run }) {
 
 // Signs in to TikTok in a separate window so the server can use TikTok's own voices for text-to-speech.
 function TiktokVoices({ serverUrl }: { serverUrl: string | null }) {
-  const [signedIn, setSignedIn] = useState<boolean | null>(null); // null until the server answers
+  // null until the server answers. `needed` is false while the server's own TikTok account works.
+  const [status, setStatus] = useState<{ signedIn: boolean; needed: boolean } | null>(null);
+  const signedIn = status?.signedIn ?? false;
   const [busy, setBusy] = useState(false);
   const [message, setMessage] = useState<{ ok: boolean; text: string } | null>(null);
 
   // The dashboard can sign out too, so check again whenever this window comes back into focus.
   useEffect(() => {
-    const check = () => invoke<boolean>("tiktok_status").then(setSignedIn, () => {});
+    const check = () => invoke<{ signedIn: boolean; needed: boolean }>("tiktok_status").then(setStatus, () => {});
     check();
     window.addEventListener("focus", check);
     return () => window.removeEventListener("focus", check);
@@ -287,13 +289,17 @@ function TiktokVoices({ serverUrl }: { serverUrl: string | null }) {
     invoke<boolean>("tiktok_sign_in")
       .then((done) => {
         if (done) {
-          setSignedIn(true);
+          setStatus({ signedIn: true, needed: true });
           setMessage({ ok: true, text: "Signed in to TikTok." });
         }
       })
       .catch((e) => setMessage({ ok: false, text: String(e) }))
       .finally(() => setBusy(false));
   };
+
+  // Nothing to show while the server's account covers TikTok voices (or before the server has answered),
+  // unless a message from this sign-in is still on screen.
+  if (!status?.needed && !message) return null;
 
   return (
     <section className="card stack" aria-labelledby="tiktok-title">
@@ -323,7 +329,7 @@ function TiktokVoices({ serverUrl }: { serverUrl: string | null }) {
             Signed in to TikTok
           </span>
         ) : (
-          <button className="btn" disabled={busy || signedIn === null} onClick={signIn}>
+          <button className="btn" disabled={busy} onClick={signIn}>
             {busy ? "Waiting for you to sign in…" : "Sign in to TikTok"}
           </button>
         )}

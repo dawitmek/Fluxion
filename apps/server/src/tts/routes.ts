@@ -17,7 +17,7 @@ export async function ttsRoutes(app: FastifyInstance) {
   app.get('/options', async () => ({
     piperVoices: await app.piper.voices(),
     espeakVoices: ESPEAK_VOICES,
-    tiktokServerAccount: app.speech.hasServerTiktokAccount, // TikTok voices work without the host signing in
+    tiktokServerAccount: await app.speech.serverTiktokWorking(), // TikTok voices work without the host signing in
   }));
 
   // The voices the host's cloud account offers. Uses the saved key, which never comes back to the browser.

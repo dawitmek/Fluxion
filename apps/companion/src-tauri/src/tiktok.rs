@@ -3,6 +3,7 @@
 // (capabilities only cover the main window).
 
 use crate::controller::Controller;
+use serde::{Deserialize, Serialize};
 use std::sync::Arc;
 use std::time::Duration;
 use tauri::{AppHandle, Manager, WebviewUrl, WebviewWindowBuilder};
@@ -57,11 +58,19 @@ pub async fn sign_in(app: AppHandle, controller: Arc<Controller>) -> Result<bool
     Ok(true)
 }
 
-/// Whether the server has a TikTok session for this host. The dashboard can sign out, so the server decides.
-pub async fn status(controller: Arc<Controller>) -> Result<bool, String> {
+#[derive(Serialize, Deserialize, Default)]
+#[serde(rename_all = "camelCase")]
+pub struct Status {
+    signed_in: bool,
+    /// False while the server's own TikTok account works: then there's nothing to sign in for.
+    needed: bool,
+}
+
+/// Asks the server, which decides: the dashboard can sign out, and the server's account can stop working.
+pub async fn status(controller: Arc<Controller>) -> Result<Status, String> {
     let config = controller.config();
     let (Some(server_url), Some(token)) = (config.server_url, config.device_token) else {
-        return Ok(false);
+        return Ok(Status::default());
     };
     let response = reqwest::Client::new()
         .get(format!("{server_url}/api/companions/tiktok-session"))
@@ -69,8 +78,7 @@ pub async fn status(controller: Arc<Controller>) -> Result<bool, String> {
         .send()
         .await
         .map_err(|e| format!("Could not reach the server: {e}"))?;
-    let body: serde_json::Value = response.json().await.map_err(|e| e.to_string())?;
-    Ok(body["signedIn"].as_bool().unwrap_or(false))
+    response.json().await.map_err(|e| e.to_string())
 }
 
 fn find_session(cookies: &[tauri::webview::Cookie<'static>]) -> Option<String> {
