@@ -142,7 +142,15 @@ export function ActivityFeed({ status, stream: fixed, storageKey = 'fluxion-acti
       .finally(() => setLoadingOlder(false));
   };
 
-  const toggleKind = (kind: Kind) => setKinds(kinds.includes(kind) ? kinds.filter((k) => k !== kind) : [...kinds, kind]);
+  const flip = (list: Kind[], kind: Kind) => (list.includes(kind) ? list.filter((k) => k !== kind) : [...list, kind]);
+  const toggleKind = (kind: Kind) => setKinds((current) => flip(current, kind));
+  // A double-click's first click already flipped the filter; undo that, then show only this one.
+  // Double-clicking the only one shown brings the rest back.
+  const onlyKind = (kind: Kind) =>
+    setKinds((current) => {
+      const before = flip(current, kind);
+      return before.length === 1 && before[0] === kind ? FILTERS.map((f) => f.kind) : [kind];
+    });
   const stream = page?.stream;
 
   return (
@@ -159,7 +167,13 @@ export function ActivityFeed({ status, stream: fixed, storageKey = 'fluxion-acti
           <div className="activity-filters">
             <div className="chips" role="group" aria-label="Show">
               {FILTERS.map((f) => (
-                <button key={f.kind} className={`chip ${kinds.includes(f.kind) ? 'on' : ''}`} aria-pressed={kinds.includes(f.kind)} onClick={() => toggleKind(f.kind)}>
+                <button
+                  key={f.kind}
+                  className={`chip ${kinds.includes(f.kind) ? 'on' : ''}`}
+                  aria-pressed={kinds.includes(f.kind)}
+                  title="Double-click to show only this"
+                  onClick={(e) => (e.detail === 2 ? onlyKind(f.kind) : toggleKind(f.kind))}
+                >
                   {f.label}
                 </button>
               ))}
