@@ -164,10 +164,24 @@
 
 /* Key capture (ui.tsx KeyCapture) and the blocked combinations list */
 .key-capture-wrap { display: inline-flex; flex-direction: column; gap: 4px; min-width: 0; }
-.key-capture { display: inline-flex; align-items: center; gap: 2px; min-width: 150px; min-height: 40px; cursor: pointer; text-align: left; }
+.key-capture { display: inline-flex; align-items: center; gap: 2px; min-width: 230px; min-height: 40px; cursor: pointer; text-align: left; transition: border-color 0.15s, background 0.15s; }
 .key-capture .kbd { font-size: 12px; }
 .key-capture .key-plus { margin: 0 3px; color: var(--muted); font-size: 12px; }
-.key-capture.listening { border-color: var(--indigo-fill); box-shadow: 0 0 0 3px var(--indigo-soft); }
+/* Listening: a tinted field with a pulsing ring and a blinking dot, so it's obvious keys are being recorded. */
+.key-capture.listening { gap: 6px; border-color: var(--indigo-fill); background: color-mix(in srgb, var(--indigo-fill) 12%, var(--panel));
+  animation: key-capture-ring 1.6s ease-in-out infinite; }
+.key-capture-dot { flex: none; width: 9px; height: 9px; box-shadow: 0 0 8px var(--indigo-fill); border-radius: 50%; background: var(--indigo-fill); animation: key-capture-blink 1s ease-in-out infinite; }
+.key-capture-prompt { color: var(--ink); font-weight: 500; }
+.key-capture-hint { color: var(--muted); font-size: 12px; }
+@keyframes key-capture-ring {
+  0%, 100% { box-shadow: 0 0 0 2px color-mix(in srgb, var(--indigo-fill) 55%, transparent), 0 0 14px color-mix(in srgb, var(--indigo-fill) 30%, transparent); }
+  50% { box-shadow: 0 0 0 5px color-mix(in srgb, var(--indigo-fill) 25%, transparent), 0 0 24px color-mix(in srgb, var(--indigo-fill) 45%, transparent); }
+}
+@keyframes key-capture-blink { 50% { opacity: 0.25; } }
+@media (prefers-reduced-motion: reduce) {
+  .key-capture.listening { animation: none; box-shadow: 0 0 0 3px color-mix(in srgb, var(--indigo-fill) 45%, transparent); }
+  .key-capture-dot { animation: none; }
+}
 .key-capture-problem { max-width: 240px; color: var(--red); font-size: 12px; line-height: 1.35; }
 .blocked-combos { margin-top: 18px; border-top: 1px solid var(--line); padding-top: 14px; }
 .blocked-combos summary { cursor: pointer; font-weight: 500; }

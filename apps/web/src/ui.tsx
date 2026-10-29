@@ -225,19 +225,27 @@ export function KeyCapture({ value, onChange, label = 'Key' }: { value: string; 
         onBlur={() => (stop(), setProblem(null))}
       >
         {listening ? (
-          held.length > 0 ? (
-            <span className="muted">{held.map((m) => keyLabel(m)).join('+')}+…</span>
-          ) : (
-            <span className="muted">Press keys…</span>
-          )
+          <>
+            <span className="key-capture-dot" aria-hidden="true" />
+            {held.length > 0 ? (
+              <>
+                <Keycaps value={held.join('+')} />
+                <span className="key-plus">+ …</span>
+              </>
+            ) : (
+              <span className="key-capture-prompt">Press a key or combination</span>
+            )}
+          </>
         ) : (
           <Keycaps value={value} />
         )}
       </button>
-      {problem && (
+      {problem ? (
         <span className="key-capture-problem" role="alert">
           {problem}
         </span>
+      ) : (
+        listening && <span className="key-capture-hint">Esc to cancel</span>
       )}
     </span>
   );
