@@ -150,6 +150,27 @@ function CoinJar({ diamonds, target, bus }: { diamonds: number; target: number; 
 // Fireworks over the whole screen for gifts worth at least `min` diamonds; bigger gifts launch more.
 type Particle = { x: number; y: number; vx: number; vy: number; life: number; color: string };
 const COLORS = ['#ff4d8d', '#a855f7', '#ffd166', '#60a5fa', '#ffffff'];
+const MAX_PARTICLES = 900;
+const GLOW = 16; // the glow sprite's radius, in pixels
+
+// A glowing dot per color, drawn once. Stamping it is far cheaper than shadowBlur, which blurs every spark on every frame.
+const glows = new Map<string, HTMLCanvasElement>();
+function glow(color: string) {
+  let sprite = glows.get(color);
+  if (!sprite) {
+    sprite = document.createElement('canvas');
+    sprite.width = sprite.height = GLOW * 2;
+    const g = sprite.getContext('2d')!;
+    const gradient = g.createRadialGradient(GLOW, GLOW, 0, GLOW, GLOW, GLOW);
+    gradient.addColorStop(0, '#fff');
+    gradient.addColorStop(0.2, color);
+    gradient.addColorStop(1, 'transparent');
+    g.fillStyle = gradient;
+    g.fillRect(0, 0, GLOW * 2, GLOW * 2);
+    glows.set(color, sprite);
+  }
+  return sprite;
+}
 export function Fireworks({ min, bus }: { min: number; bus: GiftBus }) {
   const canvas = useRef<HTMLCanvasElement>(null);
   const particles = useRef<Particle[]>([]);
@@ -175,12 +196,8 @@ export function Fireworks({ min, bus }: { min: number; bus: GiftBus }) {
       p.vy *= 0.985;
       p.life -= 0.011;
       g.globalAlpha = Math.max(0, p.life);
-      g.fillStyle = p.color;
-      g.shadowColor = p.color;
-      g.shadowBlur = 12;
-      g.beginPath();
-      g.arc(p.x, p.y, 1.5 + 3 * p.life, 0, Math.PI * 2);
-      g.fill();
+      const size = GLOW * (0.4 + 0.6 * p.life);
+      g.drawImage(glow(p.color), p.x - size, p.y - size, size * 2, size * 2);
     }
     if (particles.current.length > 0) frame.current = requestAnimationFrame(draw);
     else {
@@ -190,6 +207,8 @@ export function Fireworks({ min, bus }: { min: number; bus: GiftBus }) {
   };
 
   const burst = (x: number, y: number) => {
+    // A hidden tab doesn't draw, so sparks would pile up and all draw at once on return.
+    if (document.hidden || particles.current.length >= MAX_PARTICLES) return;
     const color = COLORS[Math.floor(Math.random() * COLORS.length)]!;
     for (let i = 0; i < 90; i++) {
       const angle = (i / 90) * Math.PI * 2 + Math.random() * 0.1;
