@@ -49,8 +49,8 @@ export function CompanionPage({ status }: PageProps) {
                   <span className="muted small">
                     {expired ? 'Expired. Make a new one.' : `Valid until ${new Date(pairing.expiresAt).toLocaleTimeString()}`}
                   </span>
-                  <button className="btn btn-ghost btn-sm" onClick={newCode}>
-                    New code
+                  <button className="btn btn-ghost btn-sm btn-icon" onClick={newCode} aria-label="New code" title="New code">
+                    <Icon name="refresh" />
                   </button>
                 </div>
               </>
