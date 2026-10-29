@@ -72,7 +72,9 @@ async fn session(
 ) -> Result<(), Failure> {
     let (ws, _) = connect_async(ws_url(server_url)).await.map_err(|e| Retry(e.to_string()))?;
     let (mut tx, mut rx) = ws.split();
-    let hello = serde_json::to_string(&CompanionMessage::Hello { token, protocol: PROTOCOL_VERSION }).unwrap();
+    let hostname = crate::device::name();
+    let hello = CompanionMessage::Hello { token, protocol: PROTOCOL_VERSION, hostname: hostname.as_deref(), platform: crate::device::platform() };
+    let hello = serde_json::to_string(&hello).unwrap();
     tx.send(Message::text(hello)).await.map_err(|e| Retry(e.to_string()))?;
 
     while let Some(message) = rx.next().await {

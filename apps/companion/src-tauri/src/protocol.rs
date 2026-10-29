@@ -36,7 +36,13 @@ pub enum ServerMessage {
 #[derive(Serialize)]
 #[serde(tag = "type", rename_all = "camelCase")]
 pub enum CompanionMessage<'a> {
-    Hello { token: &'a str, protocol: u32 },
+    Hello {
+        token: &'a str,
+        protocol: u32,
+        #[serde(skip_serializing_if = "Option::is_none")]
+        hostname: Option<&'a str>,
+        platform: &'a str,
+    },
     Ack { id: &'a str, status: &'a str, #[serde(skip_serializing_if = "Option::is_none")] reason: Option<&'a str> },
 }
 

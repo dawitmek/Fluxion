@@ -1,6 +1,7 @@
 mod config;
 mod connection;
 mod controller;
+mod device;
 mod input;
 mod keys;
 mod protocol;
@@ -30,7 +31,12 @@ async fn pair(ctl: Ctl<'_>, server_url: String, code: String, name: String) -> R
     let server_url = server_url.trim().trim_end_matches('/').to_string();
     let response = reqwest::Client::new()
         .post(format!("{server_url}/api/companions/pair"))
-        .json(&serde_json::json!({ "code": code.trim().to_uppercase(), "name": name }))
+        .json(&serde_json::json!({
+            "code": code.trim().to_uppercase(),
+            "name": name,
+            "hostname": device::name(),
+            "platform": device::platform(),
+        }))
         .send()
         .await
         .map_err(|e| format!("Could not reach the server: {e}"))?;
@@ -48,6 +54,12 @@ async fn pair(ctl: Ctl<'_>, server_url: String, code: String, name: String) -> R
     })?;
     connection::restart(&ctl);
     Ok(())
+}
+
+/// The PC's own name, to suggest as the device name when pairing.
+#[tauri::command]
+fn device_name() -> Option<String> {
+    device::name()
 }
 
 #[tauri::command]
@@ -130,6 +142,7 @@ pub fn run() {
         .invoke_handler(tauri::generate_handler![
             get_state,
             pair,
+            device_name,
             unpair,
             reconnect,
             list_windows,

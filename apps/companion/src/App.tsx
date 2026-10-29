@@ -126,6 +126,10 @@ function PairForm({ run, defaultServer }: { run: Run; defaultServer: string | nu
   const [serverUrl, setServerUrl] = useState(defaultServer ?? "http://127.0.0.1:3000");
   const [code, setCode] = useState("");
   const [name, setName] = useState("My PC");
+  // Suggest the PC's own name, unless the host has already typed one.
+  useEffect(() => {
+    invoke<string | null>("device_name").then((pc) => pc && setName((current) => (current === "My PC" ? pc : current)));
+  }, []);
   const [busy, setBusy] = useState(false);
 
   return (
