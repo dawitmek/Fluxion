@@ -1,7 +1,7 @@
 import type { FastifyInstance } from 'fastify';
 import { and, eq, isNull, or } from 'drizzle-orm';
 import { ACTION_TRIGGERS, ALERT_SOUNDS, AUDIENCES, POINTS_CHECK, QUEUE_JOIN, type ActionTrigger, type AlertSound, type Audience } from '@fluxion/shared';
-import { actions, commands, hosts, media, overlayScreens, profiles } from '../db/schema.js';
+import { actions, commands, goals, hosts, media, overlayScreens, profiles } from '../db/schema.js';
 import { requireHost } from '../auth/session.js';
 import { activeProfile } from '../profiles/active.js';
 import { alertMessage } from '../live/session-manager.js';
@@ -18,6 +18,7 @@ type Body = {
   minDiamonds?: number | null;
   likeStep?: number | null;
   command?: string | null;
+  goalId?: string | null;
   audience?: Audience;
   audienceViewer?: string | null;
   cooldownMs?: number;
@@ -45,6 +46,7 @@ const fields = {
   minDiamonds: { type: ['integer', 'null'], minimum: 1, maximum: 10_000_000 },
   likeStep: { type: ['integer', 'null'], minimum: 1, maximum: 1_000_000 },
   command: { type: ['string', 'null'], pattern: '^\\S{1,32}$' },
+  goalId: nullableId,
   audience: { enum: AUDIENCES },
   audienceViewer: { type: ['string', 'null'], maxLength: 64 },
   cooldownMs: { type: 'integer', minimum: 0, maximum: 3_600_000 },
@@ -78,12 +80,17 @@ export async function actionRoutes(app: FastifyInstance) {
       minDiamonds: a.trigger === 'gift' ? a.minDiamonds : null,
       likeStep: a.trigger === 'likes' ? a.likeStep : null,
       command: a.trigger === 'command' ? a.command?.trim().toLowerCase() || null : null,
+      goalId: a.trigger === 'goal' ? a.goalId : null,
       audienceViewer: a.audience === 'viewer' ? a.audienceViewer?.trim().replace(/^@/, '') || null : null,
       text: a.text?.trim() || null,
     };
     if (a.trigger === 'likes' && !fixed.likeStep) return { error: 'Likes actions need a step, e.g. every 1000 likes' };
     if (a.trigger === 'command' && !fixed.command) return { error: 'Command actions need the command, e.g. !dance' };
     if (fixed.command === QUEUE_JOIN || fixed.command === POINTS_CHECK) return { error: `"${fixed.command}" is already used by Fluxion` };
+    if (a.trigger === 'goal') {
+      const [goal] = fixed.goalId ? await db.select({ id: goals.id }).from(goals).where(and(eq(goals.id, fixed.goalId), eq(goals.hostId, hostId))) : [];
+      if (!goal) return { error: 'Pick one of your goals' };
+    }
     if (a.audience === 'viewer' && !fixed.audienceViewer) return { error: 'Name the viewer this action is for' };
     for (const [id, kinds, what] of [
       [a.soundMediaId, ['audio'], 'sound'],
@@ -135,6 +142,7 @@ export async function actionRoutes(app: FastifyInstance) {
         minDiamonds: null,
         likeStep: null,
         command: null,
+        goalId: null,
         audience: 'everyone' as const,
         audienceViewer: null,
         cooldownMs: 0,
@@ -217,6 +225,8 @@ export async function actionRoutes(app: FastifyInstance) {
           total: action.likeStep ?? 1000,
           months: 3,
           text: 'hello',
+          goal: 'Like goal',
+          target: 1000,
         })
       : '';
     const speech = action.speak && text ? await app.speech.speak(voiceConfig(host!, app.secrets), text) : null;

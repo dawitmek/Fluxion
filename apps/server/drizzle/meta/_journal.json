@@ -134,6 +134,13 @@
       "when": 1793250870430,
       "tag": "0018_alerts_top",
       "breakpoints": true
+    },
+    {
+      "idx": 19,
+      "version": "7",
+      "when": 1793252118782,
+      "tag": "0019_widgets_goals",
+      "breakpoints": true
     }
   ]
 }

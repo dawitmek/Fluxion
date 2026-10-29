@@ -2,7 +2,8 @@ import { and, eq, isNull, sql } from 'drizzle-orm';
 import { POINTS_CHECK, QUEUE_JOIN, XP_PER_COMMAND, type Mode, type RoomStats, type ServerToOverlay, type Speech, type ViewerEvent } from '@fluxion/shared';
 import type { Secrets } from '../crypto.js';
 import type { Db } from '../db/client.js';
-import { commands, hosts, streamEvents, streams } from '../db/schema.js';
+import { commands, goals, hosts, streamEvents, streams } from '../db/schema.js';
+import { StreamStatsTracker } from './stream-stats.js';
 import { StreamRecorder } from './recorder.js';
 import { createActions, parseBlockedWords, type ActionContext, type ActionOutput } from '../actions/engine.js';
 import { loadActionRules } from '../actions/load.js';
@@ -51,6 +52,8 @@ interface LiveSession {
   lastState: string;
   recorder: StreamRecorder;
   room: RoomStats; // latest from the platform; empty until it reports
+  stats: StreamStatsTracker;
+  lastStats: string; // what overlays last got, so unchanged stats aren't resent
 }
 
 export class LiveError extends Error {
@@ -94,7 +97,7 @@ export class SessionManager {
     await this.stop(hostId);
     const loaded = await this.loadConfig(hostId);
     if (!loaded) throw new LiveError('Host not found', 404);
-    const { host, mode, config, actionConfig, voice, profileName, points } = loaded;
+    const { host, mode, config, actionConfig, voice, profileName, points, goalRows } = loaded;
 
     let adapter: PlatformAdapter;
     if (source === 'simulated') {
@@ -145,14 +148,19 @@ export class SessionManager {
       actions: createActions(actionCtx),
       voice,
       outbox: Promise.resolve(),
-      ticker: setInterval(() => this.run(hostId, session, session.engine.tick()), TICK_MS),
+      ticker: setInterval(() => (this.run(hostId, session, session.engine.tick()), this.pushStats(hostId, session)), TICK_MS),
       delayed: new Set(),
       lastState: '',
       recorder,
       room: { viewers: 0, topGifters: [] },
+      stats: new StreamStatsTracker(goalRows),
+      lastStats: '',
     };
     adapter.onEvent((event) => this.onEvent(hostId, session, event));
-    adapter.onRoomStats((room) => (session.room = room));
+    adapter.onRoomStats((room) => {
+      session.room = room;
+      session.stats.room(room);
+    });
     adapter.onEnd(() => {
       if (this.sessions.get(hostId) === session) void this.stop(hostId);
     });
@@ -213,6 +221,7 @@ export class SessionManager {
     session.actionCtx.config = loaded.actionConfig;
     session.voice = loaded.voice;
     session.points = loaded.points;
+    session.stats.setGoals(loaded.goalRows);
     if (loaded.mode !== session.mode) {
       session.mode = loaded.mode;
       session.engine = createEngine(session.mode, session.ctx);
@@ -231,6 +240,7 @@ export class SessionManager {
       { type: 'live', state: 'started' },
       { type: 'mode', state: session.engine.state(), serverNow: Date.now() },
       { type: 'leaderboard', entries: await this.stats.top(hostId), progression: session.progression },
+      { type: 'stats', stats: session.stats.snapshot() },
     ];
   }
 
@@ -263,13 +273,32 @@ export class SessionManager {
       this.levelUp(hostId, session, event.viewerId, this.stats.record(hostId, event.viewerId, { gifts: event.count, xp }));
     }
     if (session.points) this.earn(hostId, session, session.points, event);
+    // Widgets: chat lines, and gifts for the coin jar and fireworks.
+    if (event.kind === 'comment') this.hub.sendToOverlays(hostId, { type: 'chat', viewer: event.viewerId, text: event.text });
+    if (event.kind === 'gift') {
+      this.hub.sendToOverlays(hostId, { type: 'gift', viewer: event.viewerId, gift: event.giftName, count: event.count, diamonds: event.diamonds * event.count });
+    }
     this.run(hostId, session, session.engine.handle(event));
-    for (const output of session.actions.handle(event)) {
+    this.perform(hostId, session, session.actions.handle(event));
+    for (const goal of session.stats.add(event)) this.perform(hostId, session, session.actions.goalReached(goal, event));
+  }
+
+  private perform(hostId: string, session: LiveSession, outputs: ActionOutput[]) {
+    for (const output of outputs) {
       if (output.type === 'key') this.run(hostId, session, keyPresses(session.ctx, output.keyword, output.viewer, output.repeats));
       else if (output.type === 'points') this.stats.record(hostId, output.viewer, { points: output.amount });
       // speak() never throws, but a broken chain would silence every later alert, so guard anyway.
       else session.outbox = session.outbox.then(() => this.deliver(hostId, session, output)).catch(() => {});
     }
+  }
+
+  // Sends the stream's totals to overlays when they changed; checked a few times a second, so a burst of likes is one message.
+  private pushStats(hostId: string, session: LiveSession) {
+    const stats = session.stats.snapshot();
+    const json = JSON.stringify(stats);
+    if (json === session.lastStats) return;
+    session.lastStats = json;
+    this.hub.sendToOverlays(hostId, { type: 'stats', stats });
   }
 
   private async deliver(hostId: string, session: LiveSession, output: Extract<ActionOutput, { type: 'alert' | 'tts' }>) {
@@ -362,9 +391,14 @@ export class SessionManager {
     const [host] = await this.db.select().from(hosts).where(eq(hosts.id, hostId));
     if (!host) return null;
     const profile = await activeProfile(this.db, hostId);
-    const [commandRows, actionRows] = await Promise.all([
+    const [commandRows, actionRows, goalRows] = await Promise.all([
       this.db.select().from(commands).where(eq(commands.profileId, profile.id)),
       loadActionRules(this.db, hostId, profile.id),
+      this.db
+        .select({ id: goals.id, name: goals.name, metric: goals.metric, target: goals.target, enabled: goals.enabled })
+        .from(goals)
+        .where(eq(goals.hostId, hostId))
+        .orderBy(goals.position),
     ]);
     const profileName = profile.name;
     const config: EngineConfig = {
@@ -398,7 +432,7 @@ export class SessionManager {
           check: host.pointsCheck,
         }
       : null;
-    return { host, mode: profile.mode, config, actionConfig, voice: voiceConfig(host, this.secrets), profileName, points };
+    return { host, mode: profile.mode, config, actionConfig, voice: voiceConfig(host, this.secrets), profileName, points, goalRows };
   }
 }
 

@@ -339,3 +339,5 @@ label.btn.disabled { opacity: 0.6; pointer-events: none; }
 /* Overlay screens */
 .screen-switches { display: grid; grid-template-columns: repeat(auto-fit, minmax(240px, 1fr)); gap: 12px 16px; }
 .test-result { margin: 0 0 12px; }
+.widget-name { display: flex; flex-direction: column; min-width: 0; }
+.widget-spot { width: auto; }

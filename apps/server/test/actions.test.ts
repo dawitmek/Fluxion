@@ -9,6 +9,7 @@ const rule = (r: Partial<ActionRule> & Pick<ActionRule, 'trigger'>): ActionRule 
   minDiamonds: null,
   likeStep: null,
   command: null,
+  goalId: null,
   audience: 'everyone',
   audienceViewer: null,
   cooldownMs: 0,
@@ -159,6 +160,15 @@ describe('actions', () => {
     ];
     expect(texts(setup(actions, {}, {}, false, { random: () => 0 }).engine.handle(follow()))).toEqual(['always', 'one']);
     expect(texts(setup(actions, {}, {}, false, { random: () => 0.99 }).engine.handle(follow()))).toEqual(['always', 'two']);
+  });
+
+  it('runs goal actions for the goal that was reached, crediting the viewer who reached it', () => {
+    const { engine } = setup([rule({ trigger: 'goal', goalId: 'g1', text: '{goal} done at {target}, thanks {viewer}!', points: 3 })]);
+    const by: ViewerEvent = { kind: 'like', viewerId: 'bob', count: 5, at: 0 };
+    expect(engine.goalReached({ id: 'g2', name: 'Other', target: 1 }, by)).toEqual([]);
+    const out = engine.goalReached({ id: 'g1', name: 'Like goal', target: 1000 }, by);
+    expect(texts(out)).toEqual(['Like goal done at 1000, thanks bob!']);
+    expect(out).toContainEqual({ type: 'points', viewer: 'bob', amount: 3 });
   });
 
   it("gives points only with points on, and doesn't show an alert with nothing in it", () => {

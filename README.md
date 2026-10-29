@@ -41,6 +41,16 @@ TikTok LIVE chat ──▶ Fluxion server ──▶ Companion app on your gaming
   picks. Gifts also add votes or move the gifter up the queue.
 - **Overlay screens:** up to eight overlay addresses, each choosing what it shows, where alerts appear, its size, and
   whether it plays sound.
+- **Widgets and goals:** each screen can add widgets in any corner or edge:
+  - goal bars
+  - top gift and longest streak
+  - latest follower and latest gift
+  - stream stats (viewers, likes, follows, diamonds)
+  - chat
+  - a coin jar that fills with diamonds
+  - fireworks for big gifts
+
+  Goals count a stream's likes, follows, shares, diamonds or subscriptions, and reaching one can trigger an action.
 - **Points:** viewers earn points for chatting, gifts, follows and shares, and spend them on commands that cost
   points. `!points` shows a balance on the overlay when you allow it.
 - **Text-to-speech:** read prefixed comments, alerts or all of chat. The engines are:

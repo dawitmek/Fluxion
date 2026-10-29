@@ -1,6 +1,6 @@
 import type { FastifyInstance } from 'fastify';
 import { and, eq } from 'drizzle-orm';
-import { ALERT_POSITIONS, type OverlayScreen } from '@fluxion/shared';
+import { ALERT_POSITIONS, MAX_WIDGETS, WIDGET_SPOTS, WIDGET_TYPES, type OverlayScreen } from '@fluxion/shared';
 import { overlayScreens } from '../db/schema.js';
 import { requireHost } from '../auth/session.js';
 import { newToken } from '../crypto.js';
@@ -18,6 +18,20 @@ const fields = {
   audio: { type: 'boolean' },
   alertPosition: { enum: ALERT_POSITIONS },
   scale: { type: 'integer', minimum: 50, maximum: 200 },
+  widgets: {
+    type: 'array',
+    maxItems: MAX_WIDGETS,
+    items: {
+      type: 'object',
+      additionalProperties: false,
+      required: ['type', 'spot'],
+      properties: {
+        type: { enum: WIDGET_TYPES },
+        spot: { enum: WIDGET_SPOTS },
+        minDiamonds: { type: 'integer', minimum: 1, maximum: 10_000_000 },
+      },
+    },
+  },
 } as const;
 const idParam = { type: 'object', properties: { id: { type: 'string', format: 'uuid' } } } as const;
 

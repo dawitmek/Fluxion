@@ -25,6 +25,7 @@ import type {
   AlertPosition,
   AlertSound,
   Audience,
+  Goal,
   CloudProvider,
   LeaderboardEntry,
   MediaItem,
@@ -36,7 +37,7 @@ import type {
   VoiceEffect,
 } from '@fluxion/shared';
 
-export type { ActionTrigger, AlertPosition, AlertSound, Audience, CloudProvider, LeaderboardEntry, MediaItem, Mode, Speech, TtsEngine, TtsMode, VoiceEffect };
+export type { ActionTrigger, AlertPosition, AlertSound, Audience, Goal, CloudProvider, LeaderboardEntry, MediaItem, Mode, Speech, TtsEngine, TtsMode, VoiceEffect };
 
 // Sends a file as the raw request body; the server works out what it is.
 export async function uploadMedia(file: File): Promise<MediaItem> {
@@ -115,6 +116,7 @@ export interface Action {
   minDiamonds: number | null;
   likeStep: number | null;
   command: string | null;
+  goalId: string | null;
   audience: Audience;
   audienceViewer: string | null;
   cooldownMs: number;

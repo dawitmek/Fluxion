@@ -1,5 +1,5 @@
 import { bigserial, boolean, customType, index, integer, jsonb, pgTable, primaryKey, serial, text, timestamp, unique, uuid, type AnyPgColumn } from 'drizzle-orm/pg-core';
-import type { ActionTrigger, ActivityKind, AlertPosition, AlertSound, Audience, CloudProvider, MediaKind, Mode, TtsEngine, TtsMode, VoiceEffect } from '@fluxion/shared';
+import type { ActionTrigger, ActivityKind, AlertPosition, AlertSound, Audience, CloudProvider, GoalMetric, MediaKind, Mode, ScreenWidget, TtsEngine, TtsMode, VoiceEffect } from '@fluxion/shared';
 
 const bytea = customType<{ data: Buffer }>({ dataType: () => 'bytea' });
 
@@ -117,6 +117,7 @@ export const actions = pgTable(
     repeatWithCount: boolean('repeat_with_count').notNull().default(false), // gift streaks press the key once per gift
     points: integer('points').notNull().default(0), // given to the viewer; only with points on
     screenId: uuid('screen_id').references(() => overlayScreens.id, { onDelete: 'set null' }), // null: every screen with alerts
+    goalId: uuid('goal_id').references(() => goals.id, { onDelete: 'cascade' }), // goal trigger only
   },
   (t) => [index('actions_host_idx').on(t.hostId)],
 );
@@ -225,8 +226,24 @@ export const overlayScreens = pgTable(
     audio: boolean('audio').notNull().default(true),
     alertPosition: text('alert_position').$type<AlertPosition>().notNull().default('top'),
     scale: integer('scale').notNull().default(100),
+    widgets: jsonb('widgets').$type<ScreenWidget[]>().notNull().default([]),
   },
   (t) => [index('overlay_screens_host_idx').on(t.hostId)],
+);
+
+// A target for this stream, shown by the goals widget; reaching it can trigger actions.
+export const goals = pgTable(
+  'goals',
+  {
+    id: uuid('id').primaryKey().defaultRandom(),
+    hostId: uuid('host_id').notNull().references(() => hosts.id, { onDelete: 'cascade' }),
+    name: text('name').notNull(),
+    metric: text('metric').$type<GoalMetric>().notNull(),
+    target: integer('target').notNull(),
+    enabled: boolean('enabled').notNull().default(true),
+    position: serial('position').notNull(),
+  },
+  (t) => [index('goals_host_idx').on(t.hostId)],
 );
 
 export type Command = typeof commands.$inferSelect;

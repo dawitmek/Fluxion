@@ -28,6 +28,7 @@ import { ttsRoutes } from './tts/routes.js';
 import { analyticsRoutes } from './analytics/routes.js';
 import { mediaFileRoute, mediaRoutes } from './media/routes.js';
 import { screenRoutes } from './screens/routes.js';
+import { goalRoutes } from './goals/routes.js';
 import { Piper } from './tts/piper.js';
 import { SpeechService } from './tts/speech.js';
 import { ServerTiktokAccount } from './tts/tiktok-account.js';
@@ -113,6 +114,7 @@ export async function buildApp(config: Config, options: Options = {}) {
   await app.register(mediaRoutes, { prefix: '/api/media' });
   await app.register(mediaFileRoute);
   await app.register(screenRoutes, { prefix: '/api/screens' });
+  await app.register(goalRoutes, { prefix: '/api/goals' });
   await app.register(gatewayRoutes);
 
   // In production the server also serves the built web app, so everything lives on one address.

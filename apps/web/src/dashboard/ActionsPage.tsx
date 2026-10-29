@@ -1,6 +1,6 @@
 import { useCallback, useEffect, useRef, useState, type ChangeEvent, type FormEvent, type ReactNode } from 'react';
 import { ACTION_TRIGGERS, ALERT_SOUNDS, AUDIENCES, MAX_KEY_REPEATS, MAX_MEDIA_TOTAL_BYTES, type ServerToOverlay } from '@fluxion/shared';
-import { api, uploadMedia, type Action, type ActionTrigger, type Audience, type Command, type Host, type MediaItem, type Screen } from '../api';
+import { api, uploadMedia, type Action, type ActionTrigger, type Audience, type Command, type Goal, type Host, type MediaItem, type Screen } from '../api';
 import { playSound } from '../sounds';
 import { Card, ErrorNotice, useError } from '../ui';
 import { playAlertPreview, previewAudio } from './audio';
@@ -29,6 +29,7 @@ const TRIGGERS: Record<ActionTrigger, { label: string; placeholders: string }> =
   emote: { label: 'Sends a subscriber sticker', placeholders: '{viewer}' },
   command: { label: 'Types a chat command', placeholders: '{viewer}, {text} (what they typed after the command)' },
   first_activity: { label: 'Does anything for the first time this stream', placeholders: '{viewer}' },
+  goal: { label: 'Reaches a goal', placeholders: '{viewer} (who reached it), {goal}, {target}' },
 };
 
 const AUDIENCE_LABELS: Record<Audience, string> = {
@@ -50,6 +51,7 @@ const newDraft = (): Draft => ({
   minDiamonds: null,
   likeStep: 1000,
   command: null,
+  goalId: null,
   audience: 'everyone',
   audienceViewer: null,
   cooldownMs: 0,
@@ -71,6 +73,7 @@ function ActionsCard({ host, media }: { host: Host; media: MediaItem[] }) {
   const [actions, setActions] = useState<Action[]>([]);
   const [commands, setCommands] = useState<Command[]>([]);
   const [screens, setScreens] = useState<Screen[]>([]);
+  const [goals, setGoals] = useState<Goal[]>([]);
   const [editing, setEditing] = useState<string | 'new' | null>(null);
   const [tested, setTested] = useState<{ id: string; overlays: number } | null>(null);
   const { error, guard } = useError();
@@ -83,11 +86,14 @@ function ActionsCard({ host, media }: { host: Host; media: MediaItem[] }) {
     })();
   const load = useCallback(
     () =>
-      Promise.all([api<Action[]>('GET', '/actions'), api<Command[]>('GET', '/commands'), api<Screen[]>('GET', '/screens')]).then(([a, c, s]) => {
-        setActions(a);
-        setCommands(c);
-        setScreens(s);
-      }),
+      Promise.all([api<Action[]>('GET', '/actions'), api<Command[]>('GET', '/commands'), api<Screen[]>('GET', '/screens'), api<Goal[]>('GET', '/goals')]).then(
+        ([a, c, s, g]) => {
+          setActions(a);
+          setCommands(c);
+          setScreens(s);
+          setGoals(g);
+        },
+      ),
     [],
   );
   // Switching profiles changes which actions and commands apply.
@@ -99,7 +105,7 @@ function ActionsCard({ host, media }: { host: Host; media: MediaItem[] }) {
     return (id ? api('PATCH', `/actions/${id}`, body) : api('POST', '/actions', body)).then(() => (setEditing(null), load()));
   };
   const update = (id: string, patch: Partial<Action>) => guard(() => api('PATCH', `/actions/${id}`, patch).then(load))();
-  const context = { host, commands, media, screens };
+  const context = { host, commands, media, screens, goals };
 
   return (
     <Card
@@ -123,7 +129,7 @@ function ActionsCard({ host, media }: { host: Host; media: MediaItem[] }) {
               </label>
               <div className="action-summary">
                 <strong>{a.name}</strong>
-                <span className="muted small">{describeWhen(a)}</span>
+                <span className="muted small">{describeWhen(a, goals)}</span>
                 <span className="action-does">{describeDoes(a, commands, media, host).map((d) => <span key={d} className="tag">{d}</span>)}</span>
               </div>
               <span className="action-buttons">
@@ -158,7 +164,7 @@ function ActionsCard({ host, media }: { host: Host; media: MediaItem[] }) {
   );
 }
 
-function describeWhen(a: Action): string {
+function describeWhen(a: Action, goals: Goal[]): string {
   const who = a.audience === 'viewer' ? `only ${a.audienceViewer}` : a.audience === 'everyone' ? '' : `${AUDIENCE_LABELS[a.audience].toLowerCase()} only`;
   const what =
     a.trigger === 'gift'
@@ -167,7 +173,9 @@ function describeWhen(a: Action): string {
         ? `Every ${a.likeStep?.toLocaleString()} likes`
         : a.trigger === 'command'
           ? `Types ${a.command}`
-          : TRIGGERS[a.trigger].label;
+          : a.trigger === 'goal'
+            ? `${goals.find((g) => g.id === a.goalId)?.name ?? 'A goal'} is reached`
+            : TRIGGERS[a.trigger].label;
   return [what, who, a.random ? 'random pick' : '', a.profileId ? 'this profile' : ''].filter(Boolean).join(', ');
 }
 
@@ -190,6 +198,7 @@ function ActionEditor({
   commands,
   media,
   screens,
+  goals,
   onSave,
   onCancel,
 }: {
@@ -198,6 +207,7 @@ function ActionEditor({
   commands: Command[];
   media: MediaItem[];
   screens: Screen[];
+  goals: Goal[];
   onSave: (draft: Draft) => Promise<unknown>;
   onCancel: () => void;
 }) {
@@ -263,6 +273,20 @@ function ActionEditor({
               Every this many likes
               <span className="hint">Counted across the whole stream.</span>
               <input className="input" type="number" min={1} required value={draft.likeStep ?? ''} onChange={(e) => set({ likeStep: Number(e.target.value) || null })} />
+            </label>
+          )}
+          {draft.trigger === 'goal' && (
+            <label className="field">
+              Goal
+              <span className="hint">{goals.length === 0 ? 'Add a goal on the Stream overlay page first.' : 'Runs once a stream, when it\'s reached.'}</span>
+              <select className="input" required value={draft.goalId ?? ''} onChange={(e) => set({ goalId: e.target.value || null })}>
+                <option value="">Pick a goal</option>
+                {goals.map((g) => (
+                  <option key={g.id} value={g.id}>
+                    {g.name}
+                  </option>
+                ))}
+              </select>
             </label>
           )}
           {draft.trigger === 'command' && (

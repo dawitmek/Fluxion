@@ -1,6 +1,17 @@
-import { useEffect, useRef, useState, type CSSProperties } from 'react';
+import { useEffect, useRef, useState, type CSSProperties, type ReactNode } from 'react';
 import { AlertPlayer, type ShownAlert } from './alert-player';
-import { levelForXp, QUEUE_JOIN, type LeaderboardEntry, type ModeState, type OverlayScreen, type ServerToOverlay } from '@fluxion/shared';
+import {
+  levelForXp,
+  QUEUE_JOIN,
+  WIDGET_SPOTS,
+  type LeaderboardEntry,
+  type ModeState,
+  type OverlayScreen,
+  type ServerToOverlay,
+  type StreamStats,
+  type WidgetSpot,
+} from '@fluxion/shared';
+import { DEFAULT_FIREWORK_DIAMONDS, Fireworks, GiftBus, Widget, type ChatLine } from './overlay-widgets';
 
 // A command, a level-up shout-out, or a viewer's points when they ask.
 type FeedItem = { id: number; viewer: string } & ({ keyword: string; level?: number } | { levelUp: number } | { points: number });
@@ -9,6 +20,7 @@ const MAX_ITEMS = 6;
 const ITEM_TTL_MS = 8000;
 const LEADERBOARD_SIZE = 5;
 const MAX_TALLY = 4;
+const CHAT_LINES = 6;
 
 // Transparent page meant to sit on top of the stream as a browser source.
 export function Overlay({ token }: { token: string }) {
@@ -26,6 +38,9 @@ export function Overlay({ token }: { token: string }) {
   // What this screen shows. Until the server says, show nothing rather than everything.
   const [screen, setScreen] = useState<OverlayScreen | null>(null);
   const screenRef = useRef<OverlayScreen | null>(null);
+  const [stats, setStats] = useState<StreamStats | null>(null);
+  const [chat, setChat] = useState<ChatLine[]>([]);
+  const [bus] = useState(() => new GiftBus());
 
   useEffect(() => {
     let socket: WebSocket;
@@ -45,7 +60,13 @@ export function Overlay({ token }: { token: string }) {
           setScreen(message.screen);
         }
         const shown = screenRef.current;
-        if (message.type === 'live') setLive(message.state === 'started');
+        if (message.type === 'live') {
+          setLive(message.state === 'started');
+          if (message.state === 'started') (setStats(null), setChat([]));
+        }
+        if (message.type === 'stats') setStats(message.stats);
+        if (message.type === 'chat') setChat((lines) => [...lines, { id: nextId++, viewer: message.viewer, text: message.text }].slice(-CHAT_LINES));
+        if (message.type === 'gift') bus.emit(message);
         if (message.type === 'mode') setMode({ state: message.state, clockOffset: Date.now() - message.serverNow });
         if (message.type === 'leaderboard') setLeaderboard({ entries: message.entries, progression: message.progression });
         const add = (item: FeedItem) => {
@@ -75,7 +96,7 @@ export function Overlay({ token }: { token: string }) {
       socket.close();
       player.stop();
     };
-  }, [token, player]);
+  }, [token, player, bus]);
 
   if (!screen) return null;
   return (
@@ -95,68 +116,96 @@ export function Overlay({ token }: { token: string }) {
       )}
       {live && (
         <LiveWidgets
+          screen={screen}
           mode={screen.mode ? mode : null}
           leaderboard={screen.leaderboard ? leaderboard : { entries: [], progression: false }}
-          items={screen.feed ? items : []}
-          hint={screen.feed}
+          items={items}
+          stats={stats}
+          chat={chat}
+          bus={bus}
         />
       )}
     </div>
   );
 }
 
+// Each spot stacks its widgets. The feed, leaderboard and mode panel keep the corners they've always had.
 function LiveWidgets({
+  screen,
   mode,
   leaderboard,
   items,
-  hint,
+  stats,
+  chat,
+  bus,
 }: {
+  screen: OverlayScreen;
   mode: { state: ModeState; clockOffset: number } | null;
   leaderboard: { entries: LeaderboardEntry[]; progression: boolean };
   items: FeedItem[];
-  hint: boolean;
+  stats: StreamStats | null;
+  chat: ChatLine[];
+  bus: GiftBus;
 }) {
+  const spots = Object.fromEntries(WIDGET_SPOTS.map((s) => [s, [] as ReactNode[]])) as Record<WidgetSpot, ReactNode[]>;
+  if (mode) spots['top-left'].push(<ModePanel key="mode" state={mode.state} clockOffset={mode.clockOffset} />);
+  if (leaderboard.entries.length > 0) spots['top-right'].push(<Leaderboard key="leaderboard" leaderboard={leaderboard} />);
+  if (screen.feed) spots['bottom-left'].push(<Feed key="feed" items={items} hint={mode?.state.mode === 'anarchy'} />);
+  screen.widgets.forEach((w, i) => spots[w.spot].push(<Widget key={`w${i}`} widget={w} stats={stats} chat={chat} bus={bus} />));
+  const firework = screen.widgets.find((w) => w.type === 'firework');
   return (
     <>
-      {mode && <ModePanel state={mode.state} clockOffset={mode.clockOffset} />}
-      {leaderboard.entries.length > 0 && (
-        <div className="overlay-panel overlay-leaderboard">
-          <div className="overlay-title">Top players</div>
-          {leaderboard.entries.slice(0, LEADERBOARD_SIZE).map((entry, i) => (
-            <div key={entry.viewer} className="overlay-row">
-              <span className="overlay-rank">{i + 1}</span>
-              <span className="overlay-name">{entry.viewer}</span>
-              <span className="overlay-score">
-                {leaderboard.progression ? `Lv ${levelForXp(entry.xp)}` : entry.commands}
-              </span>
-            </div>
-          ))}
+      {firework && <Fireworks min={firework.minDiamonds ?? DEFAULT_FIREWORK_DIAMONDS} bus={bus} />}
+      {WIDGET_SPOTS.map((spot) => (
+        <div key={spot} className={`overlay-spot spot-${spot}`}>
+          {spots[spot]}
         </div>
-      )}
-      <div className="overlay">
-        {hint && items.length === 0 && mode?.state.mode === 'anarchy' && <div className="overlay-hint">Type a command in chat to play!</div>}
-        {items.map((item) =>
-          'levelUp' in item ? (
-            <div key={item.id} className="overlay-item overlay-levelup">
-              <span className="overlay-viewer">{item.viewer}</span> reached <span className="overlay-keyword">level {item.levelUp}</span>
-            </div>
-          ) : 'points' in item ? (
-            <div key={item.id} className="overlay-item">
-              <span className="overlay-viewer">{item.viewer}</span> has{' '}
-              <span className="overlay-keyword">
-                {item.points.toLocaleString()} point{item.points === 1 ? '' : 's'}
-              </span>
-            </div>
-          ) : (
-            <div key={item.id} className="overlay-item">
-              <span className="overlay-viewer">{item.viewer}</span>
-              {item.level !== undefined && <span className="overlay-level">Lv {item.level}</span>}
-              <span className="overlay-keyword">{item.keyword}</span>
-            </div>
-          ),
-        )}
-      </div>
+      ))}
     </>
+  );
+}
+
+function Leaderboard({ leaderboard }: { leaderboard: { entries: LeaderboardEntry[]; progression: boolean } }) {
+  return (
+    <div className="overlay-panel overlay-leaderboard">
+      <div className="overlay-title">Top players</div>
+      {leaderboard.entries.slice(0, LEADERBOARD_SIZE).map((entry, i) => (
+        <div key={entry.viewer} className="overlay-row">
+          <span className="overlay-rank">{i + 1}</span>
+          <span className="overlay-name">{entry.viewer}</span>
+          <span className="overlay-score">{leaderboard.progression ? `Lv ${levelForXp(entry.xp)}` : entry.commands}</span>
+        </div>
+      ))}
+    </div>
+  );
+}
+
+// Who pressed what, level-ups and !points answers, newest at the bottom.
+function Feed({ items, hint }: { items: FeedItem[]; hint: boolean }) {
+  return (
+    <div className="overlay">
+      {hint && items.length === 0 && <div className="overlay-hint">Type a command in chat to play!</div>}
+      {items.map((item) =>
+        'levelUp' in item ? (
+          <div key={item.id} className="overlay-item overlay-levelup">
+            <span className="overlay-viewer">{item.viewer}</span> reached <span className="overlay-keyword">level {item.levelUp}</span>
+          </div>
+        ) : 'points' in item ? (
+          <div key={item.id} className="overlay-item">
+            <span className="overlay-viewer">{item.viewer}</span> has{' '}
+            <span className="overlay-keyword">
+              {item.points.toLocaleString()} point{item.points === 1 ? '' : 's'}
+            </span>
+          </div>
+        ) : (
+          <div key={item.id} className="overlay-item">
+            <span className="overlay-viewer">{item.viewer}</span>
+            {item.level !== undefined && <span className="overlay-level">Lv {item.level}</span>}
+            <span className="overlay-keyword">{item.keyword}</span>
+          </div>
+        ),
+      )}
+    </div>
   );
 }
 

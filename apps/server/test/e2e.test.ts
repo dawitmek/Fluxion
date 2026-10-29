@@ -56,7 +56,7 @@ afterAll(async () => {
 beforeEach(async () => {
   for (const socket of sockets.splice(0)) socket.close();
   await app.live.stopAll();
-  await app.db.execute(sql`TRUNCATE hosts, auth_sessions, profiles, commands, companions, pairing_codes, actions, media, viewer_stats, service_status CASCADE`);
+  await app.db.execute(sql`TRUNCATE hosts, auth_sessions, profiles, commands, companions, pairing_codes, actions, media, goals, viewer_stats, service_status CASCADE`);
 });
 
 // --- helpers ---------------------------------------------------------------
@@ -104,8 +104,10 @@ async function pairCompanion(cookie: string) {
 
 // A WebSocket client that buffers messages so tests can await them in order.
 // Messages of the `aside` types go to their own queue (nextAside), so tests that count messages ignore them.
-// Overlays always get their screen first; tests that care read it with nextAside.
-function connect(path: string, aside: string[] = path.startsWith('/ws/overlay') ? ['screen'] : []) {
+// Overlays always get their screen first, and widget data (stats, chat, gifts) as things happen. Tests that care
+// read those with nextAside, or pass their own `aside`.
+const OVERLAY_ASIDE = ['screen', 'stats', 'chat', 'gift'];
+function connect(path: string, aside: string[] = path.startsWith('/ws/overlay') ? OVERLAY_ASIDE : []) {
   const socket = new WebSocket(baseWs + path);
   sockets.push(socket);
   const inbox: any[] = [];
@@ -716,6 +718,51 @@ describe('overlay screens', () => {
     expect(await overlay.closed).toBe(4001);
     const after = (await api(cookie, 'GET', '/api/actions')).json().find((a: any) => a.id === action.id);
     expect(after.screenId).toBeNull();
+  });
+});
+
+describe('widgets and goals', () => {
+  it('saves widgets on a screen and sends stream stats, chat and gifts while live', async () => {
+    const { cookie } = await signUp();
+    const me = (await api(cookie, 'GET', '/api/auth/me')).json();
+    const [main] = (await api(cookie, 'GET', '/api/screens')).json();
+    expect(main.widgets).toEqual([]);
+    const widgets = [
+      { type: 'goals', spot: 'top' },
+      { type: 'firework', spot: 'top', minDiamonds: 100 },
+    ];
+    expect((await api(cookie, 'PATCH', `/api/screens/${main.id}`, { widgets })).json().widgets).toEqual(widgets);
+    expect((await api(cookie, 'PATCH', `/api/screens/${main.id}`, { widgets: [{ type: 'clock', spot: 'top' }] })).statusCode).toBe(400);
+
+    const likes = (await api(cookie, 'POST', '/api/goals', { name: ' Likes ', metric: 'likes', target: 100 })).json();
+    expect(likes).toMatchObject({ name: 'Likes', metric: 'likes', target: 100, enabled: true });
+    expect((await api(cookie, 'POST', '/api/goals', { name: 'x', metric: 'hugs', target: 1 })).statusCode).toBe(400);
+    for (const a of (await api(cookie, 'GET', '/api/actions')).json()) await api(cookie, 'DELETE', `/api/actions/${a.id}`);
+    expect((await api(cookie, 'POST', '/api/actions', { name: 'x', trigger: 'goal' })).statusCode).toBe(400);
+    await api(cookie, 'POST', '/api/actions', { name: 'Goal!', trigger: 'goal', goalId: likes.id, text: '{goal} reached thanks to {viewer}', sound: null });
+
+    await api(cookie, 'POST', '/api/live/start', { source: 'simulated' });
+    const overlay = connect(`/ws/overlay?token=${me.overlayToken}`, ['screen']);
+    await overlay.next(); // live
+    await overlay.next(); // mode
+    await overlay.next(); // leaderboard
+    expect(await overlay.next()).toMatchObject({ type: 'stats', stats: { likes: 0, goals: [{ name: 'Likes', current: 0, target: 100 }] } });
+    const sim = (body: object) => api(cookie, 'POST', '/api/live/simulate', body);
+    await sim({ viewer: 'alice', text: 'hello' });
+    await sim({ viewer: 'bob', gift: 'Lion', count: 2, diamonds: 50 });
+    await sim({ viewer: 'carol', event: 'like', count: 120 });
+    const messages = (await overlay.drain(600)).filter((m) => m.type !== 'leaderboard');
+    expect(messages).toContainEqual({ type: 'chat', viewer: 'alice', text: 'hello' });
+    expect(messages).toContainEqual({ type: 'gift', viewer: 'bob', gift: 'Lion', count: 2, diamonds: 100 });
+    expect(messages).toContainEqual(expect.objectContaining({ type: 'alert', text: 'Likes reached thanks to carol' }));
+    const last = messages.filter((m) => m.type === 'stats').at(-1);
+    expect(last.stats).toMatchObject({ likes: 120, diamonds: 100, topGift: { viewer: 'bob', diamonds: 100 }, goals: [{ current: 120 }] });
+
+    const other = await signUp('other@example.com');
+    expect((await api(other.cookie, 'PATCH', `/api/goals/${likes.id}`, { target: 5 })).statusCode).toBe(404);
+    expect((await api(other.cookie, 'POST', '/api/actions', { name: 'x', trigger: 'goal', goalId: likes.id })).statusCode).toBe(400);
+    expect((await api(cookie, 'DELETE', `/api/goals/${likes.id}`)).statusCode).toBe(204);
+    expect((await api(cookie, 'GET', '/api/actions')).json()).toEqual([]); // its action went with it
   });
 });
 

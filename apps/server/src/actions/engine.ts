@@ -8,6 +8,7 @@ export interface ActionRule {
   minDiamonds: number | null;
   likeStep: number | null;
   command: string | null; // lowercase
+  goalId: string | null;
   audience: Audience;
   audienceViewer: string | null;
   cooldownMs: number;
@@ -238,22 +239,30 @@ export function createActions(ctx: ActionContext) {
       const firstActivity = event.kind !== 'join' && !seen.has(event.viewerId);
       if (event.kind !== 'join') seen.add(event.viewerId);
 
-      const eligible = matching(event, firstActivity).filter(
-        ({ action }) => inAudience(action, event.viewerId) && !coolingDown(action, event.viewerId),
-      );
-      // Of the random ones, one runs.
-      const randoms = eligible.filter((m) => m.action.random);
-      const picked = randoms[Math.floor((ctx.random ?? Math.random)() * randoms.length)];
-      const chosen = eligible.filter((m) => !m.action.random || m === picked);
-
-      const out = chosen.flatMap(({ action, values, alert }) => run(action, event, values, alert));
+      const out = select(event, matching(event, firstActivity));
       if (event.kind === 'comment') {
         const message = tts(event);
         if (message) out.push(message);
       }
       return out;
     },
+
+    // A goal was reached by `event` (whoever pushed it over).
+    goalReached(goal: { id: string; name: string; target: number }, event: ViewerEvent): ActionOutput[] {
+      const values = { viewer: event.viewerId, goal: goal.name, target: goal.target };
+      const actions = ctx.config.actions.filter((a) => a.enabled && a.trigger === 'goal' && a.goalId === goal.id);
+      return select(event, actions.map((action) => ({ action, values, alert: true })));
+    },
   };
+
+  function select(event: ViewerEvent, matched: ReturnType<typeof matching>): ActionOutput[] {
+    const eligible = matched.filter(({ action }) => inAudience(action, event.viewerId) && !coolingDown(action, event.viewerId));
+    // Of the random ones, one runs.
+    const randoms = eligible.filter((m) => m.action.random);
+    const picked = randoms[Math.floor((ctx.random ?? Math.random)() * randoms.length)];
+    const chosen = eligible.filter((m) => !m.action.random || m === picked);
+    return chosen.flatMap(({ action, values, alert }) => run(action, event, values, alert));
+  }
 }
 
 

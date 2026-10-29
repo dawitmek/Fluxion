@@ -417,6 +417,9 @@ function TestConsole() {
         <button className="btn btn-sm" onClick={send({ event: 'emote' })}>
           Send sticker
         </button>
+        <button className="btn btn-sm" onClick={guard(() => api('POST', '/live/simulate', { viewers: 50 + Math.floor(Math.random() * 450), topGifters: [viewer] }))}>
+          Set viewer count
+        </button>
       </div>
     </section>
   );

@@ -38,6 +38,45 @@ export interface MediaItem {
 // to put alerts and widgets in different places. Only screens with audio play sounds and voices.
 export const ALERT_POSITIONS = ['top', 'middle', 'bottom'] as const;
 export type AlertPosition = (typeof ALERT_POSITIONS)[number];
+// Widgets a screen can add, each pinned to a spot on the screen. Widgets in the same spot stack.
+export const WIDGET_TYPES = ['goals', 'top_gift', 'top_streak', 'last_follower', 'last_gifter', 'stats', 'chat', 'coin_jar', 'firework'] as const;
+export type WidgetType = (typeof WIDGET_TYPES)[number];
+export const WIDGET_SPOTS = ['top-left', 'top', 'top-right', 'bottom-left', 'bottom', 'bottom-right'] as const;
+export type WidgetSpot = (typeof WIDGET_SPOTS)[number];
+export interface ScreenWidget {
+  type: WidgetType;
+  spot: WidgetSpot; // fireworks use the whole screen and ignore it
+  minDiamonds?: number; // firework: gifts worth at least this; coin jar: diamonds that fill the jar
+}
+export const MAX_WIDGETS = 12;
+
+// What a goal counts, over the current stream.
+export const GOAL_METRICS = ['likes', 'follows', 'shares', 'diamonds', 'subscriptions'] as const;
+export type GoalMetric = (typeof GOAL_METRICS)[number];
+export interface Goal {
+  id: string;
+  name: string;
+  metric: GoalMetric;
+  target: number;
+  enabled: boolean;
+}
+
+// The current stream's totals and highlights, for widgets. Sent whenever something changes.
+export interface StreamStats {
+  likes: number;
+  follows: number;
+  shares: number;
+  diamonds: number;
+  gifts: number;
+  subscriptions: number;
+  viewers: number;
+  topGift: { viewer: string; gift: string; diamonds: number } | null; // the most valuable single gift (streak included)
+  topStreak: { viewer: string; gift: string; count: number } | null;
+  lastFollower: string | null;
+  lastGifter: { viewer: string; gift: string; count: number } | null;
+  goals: { id: string; name: string; metric: GoalMetric; target: number; current: number }[];
+}
+
 export interface OverlayScreen {
   id: string;
   name: string;
@@ -49,6 +88,7 @@ export interface OverlayScreen {
   audio: boolean;
   alertPosition: AlertPosition;
   scale: number; // percent
+  widgets: ScreenWidget[];
 }
 
 // How the stream is doing, sent by the platform every few seconds while live.
@@ -123,7 +163,8 @@ export function xpForLevel(level: number): number {
 //   likes: every time the stream's total passes a multiple of likeStep
 //   command: a chat message that is the command, or starts with it and a space ({text} is the rest)
 //   first_activity: a viewer's first chat, gift, like, follow, share, subscription or sticker of the stream
-export const ACTION_TRIGGERS = ['follow', 'share', 'gift', 'likes', 'join', 'subscribe', 'emote', 'command', 'first_activity'] as const;
+//   goal: one of the host's goals is reached ({viewer} is who pushed it over)
+export const ACTION_TRIGGERS = ['follow', 'share', 'gift', 'likes', 'join', 'subscribe', 'emote', 'command', 'first_activity', 'goal'] as const;
 export type ActionTrigger = (typeof ACTION_TRIGGERS)[number];
 // top_gifters: TikTok's top three gifters of the stream; viewer: one named viewer.
 export const AUDIENCES = ['everyone', 'followers', 'subscribers', 'moderators', 'top_gifters', 'viewer'] as const;
@@ -133,7 +174,7 @@ export const MAX_KEY_REPEATS = 10;
 // Synthesized in the overlay, so there are no audio files to host.
 export const ALERT_SOUNDS = ['chime', 'coin', 'pop', 'fanfare', 'whoosh'] as const;
 export type AlertSound = (typeof ALERT_SOUNDS)[number];
-// Template placeholders: {viewer}, {count}, {gift}, {diamonds}, {total} (likes), {months}, {text} (command).
+// Template placeholders: {viewer}, {count}, {gift}, {diamonds}, {total} (likes), {months}, {text} (command), {goal}, {target}.
 
 export const TTS_MODES = ['off', 'prefix', 'all'] as const;
 export type TtsMode = (typeof TTS_MODES)[number];
@@ -208,6 +249,9 @@ export type ServerToOverlay =
   // screen: only that screen shows it; otherwise every screen that shows alerts.
   | { type: 'alert'; text: string; sound: AlertSound | null; speech: Speech | null; soundFile?: string; media?: { id: string; kind: MediaKind }; durationMs?: number; screen?: string }
   | { type: 'screen'; screen: OverlayScreen } // sent first, and again when the host changes the screen
+  | { type: 'stats'; stats: StreamStats }
+  | { type: 'chat'; viewer: string; text: string }
+  | { type: 'gift'; viewer: string; gift: string; count: number; diamonds: number } // diamonds: the whole streak's
   | { type: 'tts'; viewer: string; text: string; speech: Speech };
 
 // What's recorded during a stream: what viewers did, and what Fluxion did in response.
