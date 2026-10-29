@@ -2,6 +2,7 @@
 export const PROTOCOL_VERSION = 1;
 
 export * from './keys.js';
+export * from './games.js';
 
 // What the platform says about a viewer's relationship to the host, when it says anything.
 export const BADGES = ['follower', 'subscriber', 'moderator'] as const;

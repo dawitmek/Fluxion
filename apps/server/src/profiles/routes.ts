@@ -1,11 +1,15 @@
 import type { FastifyInstance } from 'fastify';
 import { and, eq } from 'drizzle-orm';
+import { GAME_TEMPLATES } from '@fluxion/shared';
 import { actions, commands, hosts, profiles } from '../db/schema.js';
 import { requireHost } from '../auth/session.js';
 import { isUniqueViolation } from '../db/client.js';
 import { activeProfile, sendProfileToCompanions } from './active.js';
 
 type Body = { name: string; gameProcess?: string | null };
+type CreateBody = Body & { template?: string };
+
+const COMMAND_COOLDOWN_MS = 1000; // a game template's commands, per viewer
 
 const fields = {
   name: { type: 'string', minLength: 1, maxLength: 48 },
@@ -35,11 +39,18 @@ export async function profileRoutes(app: FastifyInstance) {
   });
 
   // A new profile starts as a copy of the active one: settings, commands and the profile's own actions.
-  app.post<{ Body: Body }>(
+  // From a game template, it takes the active one's settings and the game's commands instead.
+  const templateIds = GAME_TEMPLATES.map((t) => t.id);
+  app.post<{ Body: CreateBody }>(
     '/',
-    { schema: { body: { type: 'object', additionalProperties: false, required: ['name'], properties: fields } } },
+    {
+      schema: {
+        body: { type: 'object', additionalProperties: false, required: ['name'], properties: { ...fields, template: { enum: templateIds } } },
+      },
+    },
     async (req, reply) => {
       const source = await activeProfile(db, req.hostId);
+      const template = GAME_TEMPLATES.find((t) => t.id === req.body.template);
       try {
         const created = await db.transaction(async (tx) => {
           const { id: _, ...settings } = source;
@@ -47,6 +58,12 @@ export async function profileRoutes(app: FastifyInstance) {
             .insert(profiles)
             .values({ ...settings, name: req.body.name.trim(), gameProcess: normalize(req.body.gameProcess) })
             .returning();
+          if (template) {
+            await tx
+              .insert(commands)
+              .values(template.commands.map((c) => ({ ...c, cooldownMs: COMMAND_COOLDOWN_MS, hostId: req.hostId, profileId: profile!.id })));
+            return profile!;
+          }
           const oldCommands = await tx.select().from(commands).where(eq(commands.profileId, source.id));
           const newIds = new Map<string, string>();
           for (const { id, ...command } of oldCommands) {

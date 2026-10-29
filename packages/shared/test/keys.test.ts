@@ -1,6 +1,6 @@
 import { describe, expect, it } from 'vitest';
 import { formatKey, isAllowedKey, keyProblem, parseKey } from '../src/keys.js';
-import { levelForXp, MAX_LEVEL, xpForLevel } from '../src/index.js';
+import { GAME_TEMPLATES, levelForXp, MAX_LEVEL, xpForLevel } from '../src/index.js';
 
 describe('isAllowedKey', () => {
   it('allows game keys', () => {
@@ -61,5 +61,18 @@ describe('levels', () => {
 
   it('caps at the max level', () => {
     expect(levelForXp(10 ** 9)).toBe(MAX_LEVEL);
+  });
+});
+
+describe('GAME_TEMPLATES', () => {
+  it('only uses keys Fluxion can press, and keywords chat can type', () => {
+    for (const game of GAME_TEMPLATES) {
+      const keywords = game.commands.map((c) => c.keyword);
+      expect(new Set(keywords).size, game.name).toBe(keywords.length);
+      for (const c of game.commands) {
+        expect(keyProblem(c.key), `${game.name}: ${c.keyword}`).toBeNull();
+        expect(c.keyword).toMatch(/^[a-z0-9]{1,32}$/);
+      }
+    }
   });
 });

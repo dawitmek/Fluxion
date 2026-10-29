@@ -158,6 +158,7 @@ describe('accounts', () => {
       ['jump', 'Space'],
       ['left', 'KeyA'],
       ['right', 'KeyD'],
+      ['run', 'Shift+KeyW'],
       ['up', 'KeyW'],
     ]);
     const dup = await app.inject({ method: 'POST', url: '/api/auth/signup', payload: { email: 'HOST@example.com', password: 'whatever123' } });
@@ -282,14 +283,14 @@ describe('live pipeline (simulated source)', () => {
   it('tells the companion what each command presses, on connect and whenever commands change', async () => {
     const { cookie } = await signUp();
     const companion = await connectCompanion((await pairCompanion(cookie)).token);
-    expect((await companion.nextAside()).commands.map((c: { keyword: string }) => c.keyword)).toEqual(['left', 'right', 'up', 'down', 'jump']);
+    expect((await companion.nextAside()).commands.map((c: { keyword: string }) => c.keyword)).toEqual(['left', 'right', 'up', 'down', 'jump', 'run']);
     await api(cookie, 'POST', '/api/commands', { keyword: 'emote', key: 'Control+Shift+KeyE', holdMs: 100, cooldownMs: 0 });
     expect((await companion.nextAside()).commands.at(-1)).toEqual({ keyword: 'emote', key: 'Control+Shift+KeyE', enabled: true });
     const emote = (await api(cookie, 'GET', '/api/commands')).json().find((c: { keyword: string }) => c.keyword === 'emote');
     await api(cookie, 'PATCH', `/api/commands/${emote.id}`, { enabled: false });
     expect((await companion.nextAside()).commands.at(-1)).toMatchObject({ keyword: 'emote', enabled: false });
     await api(cookie, 'DELETE', `/api/commands/${emote.id}`);
-    expect((await companion.nextAside()).commands).toHaveLength(5);
+    expect((await companion.nextAside()).commands).toHaveLength(6);
   });
 
   it("keeps hosts isolated from each other's sessions", async () => {
@@ -381,6 +382,17 @@ describe('modes, gifts and leaderboard (simulated source)', () => {
 });
 
 describe('game profiles', () => {
+  it("starts a profile from a game template with that game's commands", async () => {
+    const { cookie } = await signUp();
+    const res = await api(cookie, 'POST', '/api/profiles', { name: 'Celeste', gameProcess: 'celeste.exe', template: 'celeste' });
+    expect(res.statusCode).toBe(201);
+    await api(cookie, 'POST', `/api/profiles/${res.json().id}/activate`);
+    const celeste = (await api(cookie, 'GET', '/api/commands')).json();
+    expect(celeste.map((c: any) => [c.keyword, c.key])).toContainEqual(['dash', 'KeyX']);
+    expect(celeste.map((c: any) => c.keyword)).not.toContain('run'); // nothing copied from Default
+    expect((await api(cookie, 'POST', '/api/profiles', { name: 'Nope', template: 'not-a-game' })).statusCode).toBe(400);
+  });
+
   it('switches commands and tells the companion which game to target', async () => {
     const { cookie } = await signUp();
     const companion = await connectCompanion((await pairCompanion(cookie)).token);
@@ -401,7 +413,7 @@ describe('game profiles', () => {
     expect((await api(cookie, 'POST', `/api/profiles/${gta.id}/activate`)).statusCode).toBe(200);
     expect(await companion.next()).toEqual({ type: 'profile', name: 'GTA V', gameProcess: 'gta5.exe' });
     const gtaCommands = (await api(cookie, 'GET', '/api/commands')).json();
-    expect(gtaCommands.map((c: any) => c.keyword).sort()).toEqual(['down', 'jump', 'left', 'right', 'up']);
+    expect(gtaCommands.map((c: any) => c.keyword).sort()).toEqual(['down', 'jump', 'left', 'right', 'run', 'up']);
     const left = gtaCommands.find((c: any) => c.keyword === 'left');
     await api(cookie, 'PATCH', `/api/commands/${left.id}`, { key: 'KeyQ' });
 

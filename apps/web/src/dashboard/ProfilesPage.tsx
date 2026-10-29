@@ -1,4 +1,5 @@
 import { useCallback, useEffect, useState, type FormEvent } from 'react';
+import { GAME_TEMPLATES } from '@fluxion/shared';
 import { api, type Profile } from '../api';
 import { Card, ErrorNotice, TextCell, useError } from '../ui';
 import type { PageProps } from './Dashboard';
@@ -7,6 +8,7 @@ export function ProfilesPage({ host, refreshHost }: PageProps) {
   const [profiles, setProfiles] = useState<Profile[]>([]);
   const [name, setName] = useState('');
   const [gameProcess, setGameProcess] = useState('');
+  const [template, setTemplate] = useState(''); // '' copies the active profile
   const { error, guard } = useError();
   const load = useCallback(() => api<Profile[]>('GET', '/profiles').then(setProfiles), []);
   useEffect(() => void load(), [load]);
@@ -18,12 +20,22 @@ export function ProfilesPage({ host, refreshHost }: PageProps) {
   const add = (e: FormEvent) => {
     e.preventDefault();
     guard(() =>
-      api('POST', '/profiles', { name, gameProcess: gameProcess.trim() || null }).then(() => {
+      api('POST', '/profiles', { name, gameProcess: gameProcess.trim() || null, ...(template && { template }) }).then(() => {
         setName('');
         setGameProcess('');
+        setTemplate('');
         return load().then(refreshHost);
       }),
     )();
+  };
+
+  // Picking a game fills in its name and process, unless they've been typed over.
+  const pick = (id: string) => {
+    const before = GAME_TEMPLATES.find((t) => t.id === template);
+    const game = GAME_TEMPLATES.find((t) => t.id === id);
+    if (!name || name === before?.name) setName(game?.name ?? '');
+    if (!gameProcess || gameProcess === before?.process) setGameProcess(game?.process ?? '');
+    setTemplate(id);
   };
 
   return (
@@ -76,9 +88,19 @@ export function ProfilesPage({ host, refreshHost }: PageProps) {
         </table>
       </div>
       <form className="row add-row" onSubmit={add}>
+        <select className="input" value={template} onChange={(e) => pick(e.target.value)} aria-label="Start from">
+          <option value="">A copy of {host.profileName}</option>
+          <optgroup label="A game's controls">
+            {GAME_TEMPLATES.map((t) => (
+              <option key={t.id} value={t.id}>
+                {t.name}
+              </option>
+            ))}
+          </optgroup>
+        </select>
         <input className="input" placeholder="New profile name" value={name} onChange={(e) => setName(e.target.value)} required maxLength={48} aria-label="New profile name" />
         <input className="input" placeholder="Game process (optional)" value={gameProcess} onChange={(e) => setGameProcess(e.target.value)} aria-label="Game process" />
-        <button className="btn btn-primary">Add, copying {host.profileName}</button>
+        <button className="btn btn-primary">Add profile</button>
       </form>
     </Card>
   );
