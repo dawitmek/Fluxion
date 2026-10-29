@@ -44,13 +44,27 @@
 .s-gradient { background: var(--plasma); -webkit-background-clip: text; background-clip: text; color: transparent; }
 .s-muted { color: var(--muted); }
 
-/* Glow: blurred colour fields with a layer of grain on top. */
-.s-glow { position: absolute; pointer-events: none; z-index: 0; }
-.s-glow::before { content: ''; position: absolute; inset: 0; background:
-  radial-gradient(40% 50% at 70% 55%, rgba(168, 85, 247, 0.55), transparent 70%),
-  radial-gradient(35% 45% at 88% 75%, rgba(244, 114, 182, 0.5), transparent 70%),
-  radial-gradient(45% 50% at 45% 70%, rgba(99, 102, 241, 0.45), transparent 70%);
-  filter: blur(30px); }
+/* Glow (Glow.tsx): drifting colour blobs, one that follows the pointer, and grain on top. The mask fades
+   its edges so the pointer blob never shows a hard edge where the glow ends. */
+.s-glow { position: absolute; pointer-events: none; z-index: 0; overflow: hidden;
+  -webkit-mask-image: linear-gradient(#000 55%, transparent); mask-image: linear-gradient(#000 55%, transparent); }
+.s-glow-layer { position: absolute; inset: 0; transition: transform 1.4s cubic-bezier(0.2, 0.7, 0.2, 1);
+  transform: translate3d(calc(var(--px, 0) * -48px), calc(var(--py, 0) * -32px), 0); }
+.s-blob { position: absolute; display: block; border-radius: 50%; translate: -50% -50%; mix-blend-mode: screen; will-change: transform; }
+.s-blob-1 { left: 70%; top: 55%; width: 48%; aspect-ratio: 1.25; animation: s-drift-1 19s ease-in-out infinite alternate;
+  background: radial-gradient(closest-side, rgba(168, 85, 247, 0.6), rgba(168, 85, 247, 0.16) 60%, transparent); }
+.s-blob-2 { left: 88%; top: 72%; width: 40%; aspect-ratio: 1.1; animation: s-drift-2 23s ease-in-out infinite alternate;
+  background: radial-gradient(closest-side, rgba(244, 114, 182, 0.55), rgba(244, 114, 182, 0.14) 60%, transparent); }
+.s-blob-3 { left: 42%; top: 70%; width: 54%; aspect-ratio: 1.4; animation: s-drift-3 27s ease-in-out infinite alternate;
+  background: radial-gradient(closest-side, rgba(99, 102, 241, 0.5), rgba(99, 102, 241, 0.14) 60%, transparent); }
+.s-blob-cursor { left: 0; top: 0; width: 560px; aspect-ratio: 1; opacity: 0;
+  background: radial-gradient(closest-side, rgba(192, 132, 252, 0.4), rgba(244, 114, 182, 0.12) 60%, transparent);
+  transform: translate3d(var(--mx, 50%), var(--my, 50%), 0); transition: transform 0.9s cubic-bezier(0.2, 0.7, 0.2, 1), opacity 0.8s; }
+.s-glow.tracking .s-blob-cursor { opacity: 1; }
+.s-glow.paused .s-blob { animation-play-state: paused; }
+@keyframes s-drift-1 { 50% { transform: translate(-14%, 9%) scale(1.12); } 100% { transform: translate(9%, -11%) scale(0.92); } }
+@keyframes s-drift-2 { 50% { transform: translate(-22%, -14%) scale(0.9); } 100% { transform: translate(-6%, 12%) scale(1.15); } }
+@keyframes s-drift-3 { 50% { transform: translate(18%, -10%) scale(1.08); } 100% { transform: translate(-10%, 8%) scale(0.95); } }
 .s-glow::after { content: ''; position: absolute; inset: 0; background-image: var(--grain); mix-blend-mode: overlay; opacity: 0.5;
   -webkit-mask-image: radial-gradient(60% 60% at 65% 60%, #000, transparent 80%); mask-image: radial-gradient(60% 60% at 65% 60%, #000, transparent 80%); }
 
@@ -239,10 +253,10 @@
 /* Closing call to action and footer */
 .s-cta { position: relative; margin-top: 60px; padding: 140px 0 0; text-align: center; overflow: hidden; }
 .s-cta .s-glow { inset: 0 -20% -20% -20%; }
-.s-cta .s-glow::before { background:
-  radial-gradient(45% 55% at 30% 75%, rgba(99, 102, 241, 0.55), transparent 70%),
-  radial-gradient(40% 50% at 60% 80%, rgba(168, 85, 247, 0.6), transparent 70%),
-  radial-gradient(35% 45% at 85% 95%, rgba(251, 113, 133, 0.55), transparent 70%); }
+.s-cta .s-glow { -webkit-mask-image: linear-gradient(transparent, #000 40%); mask-image: linear-gradient(transparent, #000 40%); }
+.s-cta .s-blob-1 { left: 60%; top: 80%; }
+.s-cta .s-blob-2 { left: 85%; top: 95%; background: radial-gradient(closest-side, rgba(251, 113, 133, 0.55), rgba(251, 113, 133, 0.14) 60%, transparent); }
+.s-cta .s-blob-3 { left: 30%; top: 75%; }
 .s-cta .s-glow::after { -webkit-mask-image: radial-gradient(70% 60% at 55% 85%, #000, transparent 80%); mask-image: radial-gradient(70% 60% at 55% 85%, #000, transparent 80%); }
 .s-cta .s-wrap { position: relative; z-index: 1; }
 .s-cta .s-brand { font-size: 28px; }
@@ -331,6 +345,7 @@
 @media (prefers-reduced-motion: reduce) {
   .s-stage-chat li.new { animation: none; }
   .s-bar > div, .s-cmd, .s-cmd .kbd, .s-link svg { transition: none; }
+  .s-blob { animation: none; }
 }
 
 /* Download page */

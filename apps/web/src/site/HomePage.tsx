@@ -1,5 +1,6 @@
 import { useRef, useState, type ReactNode } from 'react';
 import { Icon, type IconName } from '../icons';
+import { Glow } from './Glow';
 import { Link } from '../router';
 import { CompanionArt, GiftArt, LevelsArt, ModesArt, ProfilesArt, SafetyArt, Stage, VoiceArt } from './visuals';
 import { SiteLayout } from './SiteLayout';
@@ -320,7 +321,7 @@ export function HomePage() {
   return (
     <SiteLayout>
       <section className="s-hero">
-        <div className="s-glow" aria-hidden="true" />
+        <Glow />
         <div className="s-wrap">
           <Link href="/features" className="s-pill">
             <b>Free</b>

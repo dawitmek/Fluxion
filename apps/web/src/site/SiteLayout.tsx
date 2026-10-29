@@ -2,6 +2,7 @@ import { useEffect, useState, type ReactNode } from 'react';
 import { api } from '../api';
 import { Icon, Logo } from '../icons';
 import { GITHUB_URL } from '../release';
+import { Glow } from './Glow';
 import { Link, usePath } from '../router';
 import './site.css';
 
@@ -107,7 +108,7 @@ export function SiteLayout({ children }: { children: ReactNode }) {
       <main>{children}</main>
 
       <section className="s-cta" aria-labelledby="cta-title">
-        <div className="s-glow" aria-hidden="true" />
+        <Glow />
         <div className="s-wrap">
           <span className="s-brand">
             <Logo size={36} />

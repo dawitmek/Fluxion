@@ -1,4 +1,5 @@
 import type { ReactNode } from 'react';
+import { Glow } from './Glow';
 import { Link } from '../router';
 import { CompanionArt, GiftArt, LevelsArt, ModesArt, ProfilesArt, SafetyArt, VoiceArt } from './visuals';
 import { detectPlatform, RELEASES_URL, useCompanionRelease, type Platform } from '../release';
@@ -7,7 +8,7 @@ import { GITHUB_URL, SiteLayout } from './SiteLayout';
 function PageHero({ title, children }: { title: ReactNode; children: ReactNode }) {
   return (
     <section className="s-page-hero">
-      <div className="s-glow" aria-hidden="true" />
+      <Glow />
       <div className="s-wrap">
         <h1>{title}</h1>
         <p>{children}</p>
