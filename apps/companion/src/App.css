@@ -27,3 +27,6 @@ body { background: var(--aurora), var(--ground); background-repeat: no-repeat; m
 .selection-bar .spacer { flex: 1; }
 @keyframes selection-in { from { opacity: 0; transform: translateY(-4px); } }
 @media (prefers-reduced-motion: reduce) { .selection-bar { animation: none; } }
+/* Shift held: clicks select, so show it. */
+.keys.selecting .keycap { cursor: copy; }
+.keys.selecting .keycap:not(.selected):hover { outline: 2px dashed var(--indigo-fill); outline-offset: 2px; }

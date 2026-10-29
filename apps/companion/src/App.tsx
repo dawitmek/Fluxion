@@ -1,4 +1,4 @@
-import { useEffect, useRef, useState } from "react";
+import { useEffect, useState } from "react";
 import { invoke } from "@tauri-apps/api/core";
 import { listen } from "@tauri-apps/api/event";
 import { openUrl } from "@tauri-apps/plugin-opener";
@@ -317,45 +317,54 @@ function TiktokVoices({ serverUrl }: { serverUrl: string | null }) {
   );
 }
 
-const IS_MAC = /Mac/.test(navigator.userAgent);
 const WIDE_KEYS = ["Space", "Enter", "ShiftLeft", "ShiftRight"];
 
-// The keys this PC lets the server press. A click allows or blocks one key. Ctrl-click (Cmd-click on a Mac) and
-// Shift-click select several, like a file list, to allow or block together.
+// The keys this PC lets the server press. A click allows or blocks one key. Clicking with Shift (or Ctrl/Cmd) held
+// only selects, so several keys can be allowed or blocked together.
 function AllowedKeys({ state, run }: { state: Snapshot; run: Run }) {
   const allowed = new Set(state.allowedKeys);
   const [selected, setSelected] = useState<Set<string>>(new Set());
-  const anchor = useRef<string | null>(null); // where a Shift-click range starts
+  const [selecting, setSelecting] = useState(false); // Shift is held: clicks select instead of toggling
 
   useEffect(() => {
-    if (selected.size === 0) return;
-    const onKey = (e: KeyboardEvent) => e.key === "Escape" && setSelected(new Set());
+    const onKey = (e: KeyboardEvent) => {
+      setSelecting(e.shiftKey);
+      if (e.type === "keydown" && e.key === "Escape") setSelected(new Set());
+    };
+    const onBlur = () => setSelecting(false);
     window.addEventListener("keydown", onKey);
-    return () => window.removeEventListener("keydown", onKey);
-  }, [selected.size]);
+    window.addEventListener("keyup", onKey);
+    window.addEventListener("blur", onBlur);
+    return () => {
+      window.removeEventListener("keydown", onKey);
+      window.removeEventListener("keyup", onKey);
+      window.removeEventListener("blur", onBlur);
+    };
+  }, []);
 
   const setAllowed = (keys: string[], allow: boolean) => {
     const next = allow ? [...new Set([...state.allowedKeys, ...keys])] : state.allowedKeys.filter((k) => !keys.includes(k));
     run("set_allowed_keys", { keys: next });
   };
-  const toggleSelected = (key: string) => {
+  const select = (key: string) => {
     const next = new Set(selected);
     if (next.has(key)) next.delete(key);
     else next.add(key);
     setSelected(next);
-    anchor.current = key;
   };
-
+  const withModifier = (e: React.MouseEvent) => e.shiftKey || e.ctrlKey || e.metaKey;
+  // Selecting happens on mouse down: a Ctrl-click on a Mac sends a click and a right-click in some webviews and only
+  // a right-click in others, but always exactly one mouse down.
+  const onMouseDown = (e: React.MouseEvent, key: string) => {
+    if (!withModifier(e) || (e.button === 2 && !e.ctrlKey)) return;
+    e.preventDefault();
+    select(key);
+  };
   const onClick = (e: React.MouseEvent, key: string) => {
-    if (e.shiftKey) {
-      const from = state.allKeys.indexOf(anchor.current ?? key);
-      const to = state.allKeys.indexOf(key);
-      setSelected(new Set([...selected, ...state.allKeys.slice(Math.min(from, to), Math.max(from, to) + 1)]));
-      anchor.current ??= key;
+    if (withModifier(e)) {
+      if (e.detail === 0) select(key); // Shift+Enter or Shift+Space from the keyboard: no mouse down came first
       return;
     }
-    if (e.ctrlKey || e.metaKey) return toggleSelected(key);
-    anchor.current = key;
     setSelected(new Set());
     setAllowed([key], !allowed.has(key));
   };
@@ -369,24 +378,21 @@ function AllowedKeys({ state, run }: { state: Snapshot; run: Run }) {
       <div>
         <h2 id="keys-title">Allowed keys on this PC</h2>
         <p className="muted">
-          The server can only press the keys lit up here. Click a key to allow or block it, or {IS_MAC ? "⌘-click" : "Ctrl-click"} and
-          Shift-click to select several. Ctrl and Alt are only ever pressed as part of a combination, like Ctrl+E.
+          The server can only press the keys lit up here. Click a key to allow or block it. Hold Shift while clicking to select
+          several, then allow or block them together. Ctrl and Alt are only ever pressed as part of a combination, like Ctrl+E.
         </p>
       </div>
-      <div className="keys">
+      <div className={`keys ${selecting ? "selecting" : ""}`}>
         {state.allKeys.map((key) => (
           <button
             key={key}
             className={`keycap ${allowed.has(key) ? "on" : ""} ${selected.has(key) ? "selected" : ""} ${WIDE_KEYS.includes(key) ? "wide" : ""}`}
             aria-pressed={allowed.has(key)}
             aria-label={`${keyLabel(key)}${selected.has(key) ? ", selected" : ""}`}
+            onMouseDown={(e) => onMouseDown(e, key)}
             onClick={(e) => onClick(e, key)}
-            // On a Mac, Ctrl-click opens the context menu instead of clicking; treat it as selecting.
-            onContextMenu={(e) => {
-              if (!e.ctrlKey) return;
-              e.preventDefault();
-              toggleSelected(key);
-            }}
+            // macOS also sends a Ctrl-click as a right-click; it already selected on mouse down, so just skip the menu.
+            onContextMenu={(e) => e.preventDefault()}
           >
             {keyLabel(key)}
           </button>
