@@ -11,7 +11,7 @@ import {
   type StreamStats,
   type WidgetSpot,
 } from '@fluxion/shared';
-import { DEFAULT_FIREWORK_DIAMONDS, Fireworks, GiftBus, Widget, type ChatLine } from './overlay-widgets';
+import { DEFAULT_FIREWORK_DIAMONDS, Fireworks, GiftBus, usePreview, Widget, type ChatLine } from './overlay-widgets';
 
 // A command, a level-up shout-out, or a viewer's points when they ask.
 type FeedItem = { id: number; viewer: string } & ({ keyword: string; level?: number } | { levelUp: number } | { points: number });
@@ -21,6 +21,9 @@ const ITEM_TTL_MS = 8000;
 const LEADERBOARD_SIZE = 5;
 const MAX_TALLY = 4;
 const CHAT_LINES = 6;
+
+// ?preview (the dashboard's Open preview link) fills the widgets with sample numbers while offline.
+const PREVIEW = new URLSearchParams(location.search).has('preview');
 
 // Transparent page meant to sit on top of the stream as a browser source.
 export function Overlay({ token }: { token: string }) {
@@ -41,6 +44,7 @@ export function Overlay({ token }: { token: string }) {
   const [stats, setStats] = useState<StreamStats | null>(null);
   const [chat, setChat] = useState<ChatLine[]>([]);
   const [bus] = useState(() => new GiftBus());
+  const preview = usePreview(PREVIEW && !live, bus);
 
   useEffect(() => {
     let socket: WebSocket;
@@ -114,14 +118,15 @@ export function Overlay({ token }: { token: string }) {
           Click to enable alert sounds and voice (not needed in OBS or LIVE Studio)
         </button>
       )}
-      {live && (
+      {PREVIEW && !live && <div className="overlay-preview-note">Preview with sample numbers. Your stream shows real ones.</div>}
+      {(live || PREVIEW) && (
         <LiveWidgets
           screen={screen}
           mode={screen.mode ? mode : null}
           leaderboard={screen.leaderboard ? leaderboard : { entries: [], progression: false }}
           items={items}
-          stats={stats}
-          chat={chat}
+          stats={live ? stats : preview.stats}
+          chat={live ? chat : preview.chat}
           bus={bus}
         />
       )}

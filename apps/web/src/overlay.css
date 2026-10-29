@@ -32,6 +32,7 @@ html.overlay-page, html.overlay-page body { background: transparent; }
 .overlay-alert.media-only { padding: 0; background: none; }
 .overlay-alert.media-only .overlay-alert-media { margin: 0 auto; }
 .overlay-unblock { position: fixed; bottom: 16px; right: 16px; padding: 10px 14px; border: 0; border-radius: 8px; background: #fff; color: #111; font: 600 14px system-ui, sans-serif; cursor: pointer; }
+.overlay-preview-note { position: fixed; top: 50%; left: 0; transform: translateY(-50%); z-index: 3; max-width: 160px; padding: 6px 10px; border-radius: 0 6px 6px 0; background: rgba(255, 255, 255, 0.85); color: #111; font: 600 12px system-ui, sans-serif; }
 
 /* Widget spots: each corner and edge stacks its widgets. */
 .overlay-spot { position: fixed; display: flex; flex-direction: column; gap: 10px; max-width: 34vw; font-family: system-ui, sans-serif; }

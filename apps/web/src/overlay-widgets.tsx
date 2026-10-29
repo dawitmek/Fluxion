@@ -209,3 +209,65 @@ export function Fireworks({ min, bus }: { min: number; bus: GiftBus }) {
   useEffect(() => () => void (frame.current !== null && cancelAnimationFrame(frame.current)), []);
   return <canvas ref={canvas} className="w-fireworks" aria-hidden="true" />;
 }
+
+// Preview: sample numbers and gifts, so a host can see their widgets before going live. Goals are the host's own
+// (the preview opens from the dashboard, so the session cookie is there), filling up and starting over.
+const SAMPLE_VIEWERS = ['nightowl', 'pixelpanda', 'mapleleaf', 'riverstone', 'kitekid'];
+const SAMPLE_GIFTS = [
+  { gift: 'Rose', diamonds: 1 },
+  { gift: 'Finger Heart', diamonds: 5 },
+  { gift: 'Doughnut', diamonds: 30 },
+  { gift: 'Hand Hearts', diamonds: 100 },
+  { gift: 'Money Gun', diamonds: 500 },
+];
+const SAMPLE_CHAT = ['hi from Ohio!', 'jump!', 'this is so fun', 'left', 'lets gooo'];
+const PREVIEW_TICK_MS = 2500;
+
+export function usePreview(enabled: boolean, bus: GiftBus) {
+  const [stats, setStats] = useState<StreamStats | null>(null);
+  const [chat, setChat] = useState<ChatLine[]>([]);
+  useEffect(() => {
+    if (!enabled) return;
+    let goals: StreamStats['goals'] = [];
+    fetch('/api/goals')
+      .then((res) => (res.ok ? res.json() : []))
+      .then((list: { id: string; name: string; metric: StreamStats['goals'][number]['metric']; target: number; enabled: boolean }[]) => {
+        goals = list.filter((g) => g.enabled).map((g) => ({ id: g.id, name: g.name, metric: g.metric, target: g.target, current: 0 }));
+      })
+      .catch(() => {});
+    let tick = 0;
+    let current: StreamStats = {
+      likes: 0, follows: 0, shares: 0, diamonds: 0, gifts: 0, subscriptions: 0, viewers: 128,
+      topGift: null, topStreak: null, lastFollower: null, lastGifter: null, goals: [],
+    };
+    const step = () => {
+      const viewer = SAMPLE_VIEWERS[tick % SAMPLE_VIEWERS.length]!;
+      const { gift, diamonds } = SAMPLE_GIFTS[tick % SAMPLE_GIFTS.length]!;
+      const count = 1 + (tick % 3);
+      // Goals fill over about 20 ticks, stay done for a few, then start over.
+      const progress = Math.min(1, (tick % 24) / 20);
+      current = {
+        ...current,
+        likes: current.likes + 40 + (tick % 7) * 9,
+        follows: current.follows + (tick % 2),
+        shares: current.shares + (tick % 4 === 0 ? 1 : 0),
+        diamonds: current.diamonds + diamonds * count,
+        gifts: current.gifts + count,
+        viewers: 120 + ((tick * 7) % 40),
+        topGift: !current.topGift || diamonds * count > current.topGift.diamonds ? { viewer, gift, diamonds: diamonds * count } : current.topGift,
+        topStreak: !current.topStreak || count > current.topStreak.count ? { viewer, gift, count } : current.topStreak,
+        lastFollower: tick % 2 ? SAMPLE_VIEWERS[(tick + 2) % SAMPLE_VIEWERS.length]! : current.lastFollower,
+        lastGifter: { viewer, gift, count },
+        goals: goals.map((g) => ({ ...g, current: Math.round(g.target * progress) })),
+      };
+      setStats(current);
+      setChat((lines) => [...lines, { id: tick, viewer, text: SAMPLE_CHAT[tick % SAMPLE_CHAT.length]! }].slice(-6));
+      bus.emit({ viewer, gift, count, diamonds: diamonds * count });
+      tick++;
+    };
+    const first = setTimeout(step, 300); // after the goals have likely arrived
+    const timer = setInterval(step, PREVIEW_TICK_MS);
+    return () => (clearTimeout(first), clearInterval(timer));
+  }, [enabled, bus]);
+  return { stats, chat };
+}

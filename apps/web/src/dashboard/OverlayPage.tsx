@@ -242,7 +242,7 @@ function ScreenCard({ screen, reload }: { screen: Screen; reload: () => Promise<
         <button className="btn btn-primary" onClick={() => navigator.clipboard.writeText(url).then(() => setCopied(true))}>
           {copied ? 'Copied' : 'Copy'}
         </button>
-        <a className="btn" href={url} target="_blank" rel="noreferrer">
+        <a className="btn" href={`${url}?preview`} target="_blank" rel="noreferrer" title="Shows your widgets and goals with sample numbers until you go live">
           Open preview
         </a>
       </div>
