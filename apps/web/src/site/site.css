@@ -44,27 +44,26 @@
 .s-gradient { background: var(--plasma); -webkit-background-clip: text; background-clip: text; color: transparent; }
 .s-muted { color: var(--muted); }
 
-/* Glow (Glow.tsx): drifting colour blobs, one that follows the pointer, and grain on top. The mask fades
-   its edges so the pointer blob never shows a hard edge where the glow ends. */
+/* Glow (Glow.tsx): colour blobs on long orbits plus one that follows the pointer, blurred together, with
+   grain on top. Each blob is most of the glow's size and turns around a point off its centre, so it sweeps across
+   the area rather than pulsing in place. The mask fades the glow's edges so nothing ends in a hard line. */
 .s-glow { position: absolute; pointer-events: none; z-index: 0; overflow: hidden;
   -webkit-mask-image: linear-gradient(#000 55%, transparent); mask-image: linear-gradient(#000 55%, transparent); }
-.s-glow-layer { position: absolute; inset: 0; transition: transform 1.4s cubic-bezier(0.2, 0.7, 0.2, 1);
-  transform: translate3d(calc(var(--px, 0) * -48px), calc(var(--py, 0) * -32px), 0); }
-.s-blob { position: absolute; display: block; border-radius: 50%; translate: -50% -50%; mix-blend-mode: screen; will-change: transform; }
-.s-blob-1 { left: 70%; top: 55%; width: 48%; aspect-ratio: 1.25; animation: s-drift-1 19s ease-in-out infinite alternate;
-  background: radial-gradient(closest-side, rgba(168, 85, 247, 0.6), rgba(168, 85, 247, 0.16) 60%, transparent); }
-.s-blob-2 { left: 88%; top: 72%; width: 40%; aspect-ratio: 1.1; animation: s-drift-2 23s ease-in-out infinite alternate;
-  background: radial-gradient(closest-side, rgba(244, 114, 182, 0.55), rgba(244, 114, 182, 0.14) 60%, transparent); }
-.s-blob-3 { left: 42%; top: 70%; width: 54%; aspect-ratio: 1.4; animation: s-drift-3 27s ease-in-out infinite alternate;
-  background: radial-gradient(closest-side, rgba(99, 102, 241, 0.5), rgba(99, 102, 241, 0.14) 60%, transparent); }
-.s-blob-cursor { left: 0; top: 0; width: 560px; aspect-ratio: 1; opacity: 0;
-  background: radial-gradient(closest-side, rgba(192, 132, 252, 0.4), rgba(244, 114, 182, 0.12) 60%, transparent);
-  transform: translate3d(var(--mx, 50%), var(--my, 50%), 0); transition: transform 0.9s cubic-bezier(0.2, 0.7, 0.2, 1), opacity 0.8s; }
-.s-glow.tracking .s-blob-cursor { opacity: 1; }
+.s-blobs { position: absolute; inset: 0; opacity: 0.55; filter: blur(40px); --size: 80%; }
+.s-blob { position: absolute; display: block; width: var(--size); height: var(--size); top: calc(50% - var(--size) / 2);
+  left: calc(50% - var(--size) / 2); background: radial-gradient(circle at center, rgba(var(--c), 0.8) 0, rgba(var(--c), 0) 50%) no-repeat;
+  mix-blend-mode: screen; will-change: transform; }
+.s-blob-1 { --c: 168, 85, 247; animation: s-move-vertical 30s ease infinite; }
+.s-blob-2 { --c: 244, 114, 182; transform-origin: calc(50% - 400px); animation: s-move-circle 20s reverse infinite; }
+.s-blob-3 { --c: 99, 102, 241; transform-origin: calc(50% + 400px); animation: s-move-circle 40s linear infinite; }
+.s-blob-4 { --c: 251, 113, 133; transform-origin: calc(50% - 200px); animation: s-move-horizontal 40s ease infinite; opacity: 0.7; }
+.s-blob-5 { --c: 139, 92, 246; transform-origin: calc(50% - 800px) calc(50% + 800px); animation: s-move-circle 20s ease infinite; }
+.s-blob-pointer { --c: 192, 132, 252; width: 100%; height: 100%; top: -50%; left: -50%; opacity: 0; transition: opacity 0.8s; }
+.s-glow.tracking .s-blob-pointer { opacity: 0.7; }
 .s-glow.paused .s-blob { animation-play-state: paused; }
-@keyframes s-drift-1 { 50% { transform: translate(-14%, 9%) scale(1.12); } 100% { transform: translate(9%, -11%) scale(0.92); } }
-@keyframes s-drift-2 { 50% { transform: translate(-22%, -14%) scale(0.9); } 100% { transform: translate(-6%, 12%) scale(1.15); } }
-@keyframes s-drift-3 { 50% { transform: translate(18%, -10%) scale(1.08); } 100% { transform: translate(-10%, 8%) scale(0.95); } }
+@keyframes s-move-vertical { 0%, 100% { transform: translateY(-50%); } 50% { transform: translateY(50%); } }
+@keyframes s-move-horizontal { 0%, 100% { transform: translateX(-50%) translateY(-10%); } 50% { transform: translateX(50%) translateY(10%); } }
+@keyframes s-move-circle { 0% { transform: rotate(0deg); } 50% { transform: rotate(180deg); } 100% { transform: rotate(360deg); } }
 .s-glow::after { content: ''; position: absolute; inset: 0; background-image: var(--grain); mix-blend-mode: overlay; opacity: 0.5;
   -webkit-mask-image: radial-gradient(60% 60% at 65% 60%, #000, transparent 80%); mask-image: radial-gradient(60% 60% at 65% 60%, #000, transparent 80%); }
 
@@ -254,9 +253,6 @@
 .s-cta { position: relative; margin-top: 60px; padding: 140px 0 0; text-align: center; overflow: hidden; }
 .s-cta .s-glow { inset: 0 -20% -20% -20%; }
 .s-cta .s-glow { -webkit-mask-image: linear-gradient(transparent, #000 40%); mask-image: linear-gradient(transparent, #000 40%); }
-.s-cta .s-blob-1 { left: 60%; top: 80%; }
-.s-cta .s-blob-2 { left: 85%; top: 95%; background: radial-gradient(closest-side, rgba(251, 113, 133, 0.55), rgba(251, 113, 133, 0.14) 60%, transparent); }
-.s-cta .s-blob-3 { left: 30%; top: 75%; }
 .s-cta .s-glow::after { -webkit-mask-image: radial-gradient(70% 60% at 55% 85%, #000, transparent 80%); mask-image: radial-gradient(70% 60% at 55% 85%, #000, transparent 80%); }
 .s-cta .s-wrap { position: relative; z-index: 1; }
 .s-cta .s-brand { font-size: 28px; }
