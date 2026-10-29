@@ -1,6 +1,6 @@
-import { useEffect, useState } from 'react';
-import { AlertPlayer } from './alert-player';
-import { levelForXp, QUEUE_JOIN, type LeaderboardEntry, type ModeState, type ServerToOverlay } from '@fluxion/shared';
+import { useEffect, useRef, useState, type CSSProperties } from 'react';
+import { AlertPlayer, type ShownAlert } from './alert-player';
+import { levelForXp, QUEUE_JOIN, type LeaderboardEntry, type ModeState, type OverlayScreen, type ServerToOverlay } from '@fluxion/shared';
 
 // A command, a level-up shout-out, or a viewer's points when they ask.
 type FeedItem = { id: number; viewer: string } & ({ keyword: string; level?: number } | { levelUp: number } | { points: number });
@@ -20,9 +20,12 @@ export function Overlay({ token }: { token: string }) {
     entries: [],
     progression: false,
   });
-  const [alert, setAlert] = useState<{ id: number; text: string } | null>(null);
+  const [alert, setAlert] = useState<ShownAlert | null>(null);
   const [soundBlocked, setSoundBlocked] = useState(false);
   const [player] = useState(() => new AlertPlayer(setAlert, setSoundBlocked));
+  // What this screen shows. Until the server says, show nothing rather than everything.
+  const [screen, setScreen] = useState<OverlayScreen | null>(null);
+  const screenRef = useRef<OverlayScreen | null>(null);
 
   useEffect(() => {
     let socket: WebSocket;
@@ -36,6 +39,12 @@ export function Overlay({ token }: { token: string }) {
       socket = new WebSocket(`${protocol}://${location.host}/ws/overlay?token=${encodeURIComponent(token)}`);
       socket.onmessage = (event) => {
         const message = JSON.parse(event.data) as ServerToOverlay;
+        if (message.type === 'screen') {
+          screenRef.current = message.screen;
+          player.audible = message.screen.audio;
+          setScreen(message.screen);
+        }
+        const shown = screenRef.current;
         if (message.type === 'live') setLive(message.state === 'started');
         if (message.type === 'mode') setMode({ state: message.state, clockOffset: Date.now() - message.serverNow });
         if (message.type === 'leaderboard') setLeaderboard({ entries: message.entries, progression: message.progression });
@@ -44,12 +53,13 @@ export function Overlay({ token }: { token: string }) {
           setItems((current) => [item, ...current].slice(0, MAX_ITEMS));
           setTimeout(() => setItems((current) => current.filter((i) => i.id !== item.id)), ITEM_TTL_MS);
         };
-        if (message.type === 'command') {
-          add({ id: nextId++, viewer: message.viewer, keyword: message.keyword, level: message.level });
+        if (shown?.feed) {
+          if (message.type === 'command') add({ id: nextId++, viewer: message.viewer, keyword: message.keyword, level: message.level });
+          if (message.type === 'levelUp') add({ id: nextId++, viewer: message.viewer, levelUp: message.level });
+          if (message.type === 'points') add({ id: nextId++, viewer: message.viewer, points: message.points });
         }
-        if (message.type === 'levelUp') add({ id: nextId++, viewer: message.viewer, levelUp: message.level });
-        if (message.type === 'points') add({ id: nextId++, viewer: message.viewer, points: message.points });
-        if (message.type === 'alert') player.enqueue(message);
+        // An alert for another screen isn't this one's to show.
+        if (message.type === 'alert' && shown?.alerts && (!message.screen || message.screen === shown.id)) player.enqueue(message);
         if (message.type === 'tts') player.say(message.speech);
       };
       // A bad token is permanent (4001); anything else is worth retrying.
@@ -67,21 +77,31 @@ export function Overlay({ token }: { token: string }) {
     };
   }, [token, player]);
 
+  if (!screen) return null;
   return (
-    <>
+    <div className={`overlay-screen alerts-${screen.alertPosition}`} style={{ '--overlay-scale': screen.scale / 100 } as CSSProperties}>
       {/* Alerts show even while offline, so the dashboard's Test button works before going live. */}
       {alert && (
-        <div key={alert.id} className="overlay-alert">
-          {alert.text}
+        <div key={alert.id} className={`overlay-alert ${alert.text ? '' : 'media-only'}`}>
+          {alert.media?.kind === 'image' && <img className="overlay-alert-media" src={alert.media.url} alt="" />}
+          {alert.media?.kind === 'video' && <AlertVideo src={alert.media.url} audible={screen.audio} />}
+          {alert.text && <span>{alert.text}</span>}
         </div>
       )}
-      {soundBlocked && (
+      {soundBlocked && screen.audio && (
         <button className="overlay-unblock" onClick={() => player.unblock()}>
           Click to enable alert sounds and voice (not needed in OBS or LIVE Studio)
         </button>
       )}
-      {live && <LiveWidgets mode={mode} leaderboard={leaderboard} items={items} />}
-    </>
+      {live && (
+        <LiveWidgets
+          mode={screen.mode ? mode : null}
+          leaderboard={screen.leaderboard ? leaderboard : { entries: [], progression: false }}
+          items={screen.feed ? items : []}
+          hint={screen.feed}
+        />
+      )}
+    </div>
   );
 }
 
@@ -89,10 +109,12 @@ function LiveWidgets({
   mode,
   leaderboard,
   items,
+  hint,
 }: {
   mode: { state: ModeState; clockOffset: number } | null;
   leaderboard: { entries: LeaderboardEntry[]; progression: boolean };
   items: FeedItem[];
+  hint: boolean;
 }) {
   return (
     <>
@@ -112,7 +134,7 @@ function LiveWidgets({
         </div>
       )}
       <div className="overlay">
-        {items.length === 0 && mode?.state.mode === 'anarchy' && <div className="overlay-hint">Type a command in chat to play!</div>}
+        {hint && items.length === 0 && mode?.state.mode === 'anarchy' && <div className="overlay-hint">Type a command in chat to play!</div>}
         {items.map((item) =>
           'levelUp' in item ? (
             <div key={item.id} className="overlay-item overlay-levelup">
@@ -136,6 +158,20 @@ function LiveWidgets({
       </div>
     </>
   );
+}
+
+// Plays with sound where it can. Browsers (not OBS) refuse unmuted autoplay until the page is clicked, so then it plays muted.
+function AlertVideo({ src, audible }: { src: string; audible: boolean }) {
+  const video = useRef<HTMLVideoElement>(null);
+  useEffect(() => {
+    const element = video.current!;
+    element.muted = !audible;
+    element.play().catch(() => {
+      element.muted = true;
+      void element.play();
+    });
+  }, [src, audible]);
+  return <video ref={video} className="overlay-alert-media" src={src} playsInline />;
 }
 
 function ModePanel({ state, clockOffset }: { state: ModeState; clockOffset: number }) {

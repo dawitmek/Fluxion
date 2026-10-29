@@ -411,6 +411,12 @@ function TestConsole() {
         <button className="btn btn-sm" onClick={send({ event: 'like', count: 100 })}>
           Send 100 likes
         </button>
+        <button className="btn btn-sm" onClick={send({ event: 'subscribe' })}>
+          Send subscription
+        </button>
+        <button className="btn btn-sm" onClick={send({ event: 'emote' })}>
+          Send sticker
+        </button>
       </div>
     </section>
   );

@@ -28,8 +28,21 @@ TikTok LIVE chat ──▶ Fluxion server ──▶ Companion app on your gaming
   - Gift-only: only gifts press keys.
 
   You can switch modes mid-stream.
-- **Gifts:** gifts can trigger commands, add votes, or move the gifter up the queue. Alerts cover follows, shares,
-  gifts and like milestones.
+- **Actions:** follows, shares, gifts, like milestones, joins, subscriptions, stickers, chat commands and a
+  viewer's first activity can each trigger an action. An action can:
+  - show an alert
+  - play a built-in sound or your own upload
+  - show your picture or video
+  - read its text aloud
+  - press a command's key, once per gift in a streak if you like
+  - give points
+
+  Actions can be limited to followers, subscribers, moderators, top gifters or one viewer, with cooldowns and random
+  picks. Gifts also add votes or move the gifter up the queue.
+- **Overlay screens:** up to eight overlay addresses, each choosing what it shows, where alerts appear, its size, and
+  whether it plays sound.
+- **Points:** viewers earn points for chatting, gifts, follows and shares, and spend them on commands that cost
+  points. `!points` shows a balance on the overlay when you allow it.
 - **Text-to-speech:** read prefixed comments, alerts or all of chat. The engines are:
   - Piper voices on your server
   - eSpeak in the overlay
@@ -40,10 +53,10 @@ TikTok LIVE chat ──▶ Fluxion server ──▶ Companion app on your gaming
   Voice effects are available too.
 - **Levels and a leaderboard:** viewers earn XP, and level-ups and top players can show on stream.
 - **Key combinations:** a command can press a key or a combination like Ctrl+Shift+E. Set it by pressing the keys.
-- **Game profiles:** each game keeps its own commands, gift triggers and mode. The companion targets the game's
+- **Game profiles:** each game keeps its own commands, key-press actions and mode. The companion targets the game's
   process automatically.
 - **Activity and analytics:** a full feed of everything viewers did during a stream (chat, gifts, joins, follows,
-  shares and likes), and an Analytics page with trends across streams. It covers new and returning viewers,
+  shares, likes, subscriptions and stickers), and an Analytics page with trends across streams. It covers new and returning viewers,
   diamonds, how often each command fired or was refused, peak moments, gifts, and vote and queue stats.
 - **Test mode:** type as a pretend viewer and watch the keys press before you go live.
 

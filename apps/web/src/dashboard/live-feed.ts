@@ -56,7 +56,7 @@ export function useLiveFeed(overlayToken: string): LiveFeed {
             log('Level', `${message.viewer} reached level ${message.level}`);
             break;
           case 'alert':
-            log('Alert', message.text);
+            log('Alert', message.text || (message.media ? 'Picture or video alert' : 'Sound alert'));
             break;
           case 'tts':
             log('Voice', `${message.viewer}: ${message.text}`);

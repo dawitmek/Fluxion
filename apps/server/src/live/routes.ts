@@ -1,5 +1,5 @@
 import type { FastifyInstance } from 'fastify';
-import type { ViewerEvent } from '@fluxion/shared';
+import { BADGES, type Badge, type RoomStats, type ViewerEvent } from '@fluxion/shared';
 import { requireHost } from '../auth/session.js';
 import { LiveError, type Source } from './session-manager.js';
 
@@ -37,9 +37,20 @@ export async function liveRoutes(app: FastifyInstance) {
 
   app.get('/status', async (req) => live.status(req.hostId));
 
-  // A fake comment ({viewer, text}), gift ({viewer, gift, count}) or follow/share/join/like ({viewer, event, count}).
+  // A fake comment ({viewer, text}), gift ({viewer, gift, count}), follow/share/join/like/subscribe/emote
+  // ({viewer, event, count}), or room stats ({viewers, topGifters}). `badges` stands in for TikTok's.
   app.post<{
-    Body: { viewer: string; text?: string; gift?: string; event?: 'follow' | 'share' | 'join' | 'like'; count?: number; diamonds?: number };
+    Body: {
+      viewer?: string;
+      text?: string;
+      gift?: string;
+      event?: 'follow' | 'share' | 'join' | 'like' | 'subscribe' | 'emote';
+      count?: number;
+      diamonds?: number;
+      badges?: Badge[];
+      viewers?: number;
+      topGifters?: string[];
+    };
   }>(
     '/simulate',
     {
@@ -47,30 +58,39 @@ export async function liveRoutes(app: FastifyInstance) {
         body: {
           type: 'object',
           additionalProperties: false,
-          required: ['viewer'],
-          oneOf: [{ required: ['text'] }, { required: ['gift'] }, { required: ['event'] }],
+          oneOf: [{ required: ['viewer', 'text'] }, { required: ['viewer', 'gift'] }, { required: ['viewer', 'event'] }, { required: ['viewers'] }],
           properties: {
             viewer: { type: 'string', minLength: 1, maxLength: 64 },
             text: { type: 'string', minLength: 1, maxLength: 200 },
             gift: { type: 'string', minLength: 1, maxLength: 64 },
-            event: { enum: ['follow', 'share', 'join', 'like'] },
+            event: { enum: ['follow', 'share', 'join', 'like', 'subscribe', 'emote'] },
             count: { type: 'integer', minimum: 1, maximum: 1000 },
             diamonds: { type: 'integer', minimum: 0, maximum: 100000 },
+            badges: { type: 'array', uniqueItems: true, items: { enum: BADGES } },
+            viewers: { type: 'integer', minimum: 0, maximum: 10_000_000 },
+            topGifters: { type: 'array', maxItems: 10, items: { type: 'string', minLength: 1, maxLength: 64 } },
           },
         },
       },
     },
     async (req, reply) => {
-      const { viewer, text, gift, event: kind, count = 1, diamonds = 1 } = req.body;
-      const at = Date.now();
-      const event: ViewerEvent =
-        gift !== undefined
-          ? { kind: 'gift', viewerId: viewer, giftId: 0, giftName: gift, count, diamonds, at }
-          : kind === 'like'
-            ? { kind: 'like', viewerId: viewer, count, at }
-            : kind !== undefined
-              ? { kind, viewerId: viewer, at }
-              : { kind: 'comment', viewerId: viewer, text: text!, at };
+      const { text, gift, event: kind, count = 1, diamonds = 1, badges, viewers, topGifters = [] } = req.body;
+      const viewerId = req.body.viewer!;
+      const base = { viewerId, at: Date.now(), ...(badges && { badges }) };
+      const event: ViewerEvent | RoomStats =
+        viewers !== undefined
+          ? { viewers, topGifters }
+          : gift !== undefined
+            ? { ...base, kind: 'gift', giftId: 0, giftName: gift, count, diamonds }
+            : kind === 'like'
+              ? { ...base, kind: 'like', count }
+              : kind === 'subscribe'
+                ? { ...base, kind: 'subscribe', months: count }
+                : kind === 'emote'
+                  ? { ...base, kind: 'emote', emoteId: 'test' }
+                  : kind !== undefined
+                    ? { ...base, kind }
+                    : { ...base, kind: 'comment', text: text! };
       if (!live.simulate(req.hostId, event)) {
         return reply.code(409).send({ error: 'Start a simulated session first' });
       }

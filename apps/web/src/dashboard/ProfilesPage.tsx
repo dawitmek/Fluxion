@@ -31,7 +31,7 @@ export function ProfilesPage({ host, refreshHost }: PageProps) {
       title="Game profiles"
       description={
         <>
-          Each profile has its own commands, gift triggers and crowd mode. Switching applies immediately, even while live. If a
+          Each profile has its own commands, key-press actions and crowd mode. Switching applies immediately, even while live. If a
           profile names its game's process as the companion lists it (e.g. <code>gta5.exe</code> on Windows or{' '}
           <code>minecraft</code> on macOS), the companion switches to that game too.
         </>

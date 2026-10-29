@@ -220,6 +220,7 @@ select.input, .field select { padding-right: 32px; }
 .tag.pink { background: var(--pink-soft); color: var(--pink); }
 .tag.violet { background: var(--violet-soft); color: var(--violet); }
 .tag.sky { background: var(--sky-soft); color: var(--sky); }
+.tag.orange { background: var(--orange-soft); color: var(--orange); }
 .dot { flex: none; width: 9px; height: 9px; border-radius: 50%; background: currentColor; }
 .dot.live { animation: fx-pulse 1.8s ease-out infinite; }
 @keyframes fx-pulse {

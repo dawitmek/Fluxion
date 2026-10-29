@@ -12,6 +12,7 @@ export default defineConfig(({ mode }) => {
     server: {
       proxy: {
         '/api': `http://${server}`,
+        '/media': `http://${server}`,
         '/ws': { target: `ws://${server}`, ws: true },
       },
     },

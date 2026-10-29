@@ -1,5 +1,7 @@
-import { bigserial, boolean, index, integer, jsonb, pgTable, primaryKey, serial, text, timestamp, unique, uuid, type AnyPgColumn } from 'drizzle-orm/pg-core';
-import type { ActivityKind, AlertEvent, AlertSound, CloudProvider, Mode, TtsEngine, TtsMode, VoiceEffect } from '@fluxion/shared';
+import { bigserial, boolean, customType, index, integer, jsonb, pgTable, primaryKey, serial, text, timestamp, unique, uuid, type AnyPgColumn } from 'drizzle-orm/pg-core';
+import type { ActionTrigger, ActivityKind, AlertPosition, AlertSound, Audience, CloudProvider, MediaKind, Mode, TtsEngine, TtsMode, VoiceEffect } from '@fluxion/shared';
+
+const bytea = customType<{ data: Buffer }>({ dataType: () => 'bytea' });
 
 export const hosts = pgTable('hosts', {
   id: uuid('id').primaryKey().defaultRandom(),
@@ -83,30 +85,41 @@ export const commands = pgTable(
   (t) => [unique().on(t.profileId, t.keyword)],
 );
 
-export const giftTriggers = pgTable(
-  'gift_triggers',
+// What happens when viewers do something; see ACTION_TRIGGERS in the shared package.
+export const actions = pgTable(
+  'actions',
   {
     id: uuid('id').primaryKey().defaultRandom(),
     hostId: uuid('host_id').notNull().references(() => hosts.id, { onDelete: 'cascade' }),
-    profileId: uuid('profile_id').notNull().references(() => profiles.id, { onDelete: 'cascade' }),
-    giftName: text('gift_name').notNull(), // stored lowercase, matched against TikTok's gift name
-    commandId: uuid('command_id').notNull().references(() => commands.id, { onDelete: 'cascade' }),
+    // Null applies with every game profile. An action that presses a key belongs to that command's profile.
+    profileId: uuid('profile_id').references(() => profiles.id, { onDelete: 'cascade' }),
+    name: text('name').notNull(),
+    enabled: boolean('enabled').notNull().default(true),
+    position: serial('position').notNull(),
+    trigger: text('trigger').$type<ActionTrigger>().notNull(),
+    giftName: text('gift_name'), // gift: only this gift (lowercase); null is any gift
+    minDiamonds: integer('min_diamonds'), // gift: only when the gift (times its streak) is worth at least this
+    likeStep: integer('like_step'), // likes
+    command: text('command'), // command: lowercase, e.g. "!dance"
+    audience: text('audience').$type<Audience>().notNull().default('everyone'),
+    audienceViewer: text('audience_viewer'), // audience 'viewer' only
+    cooldownMs: integer('cooldown_ms').notNull().default(0), // for everyone
+    viewerCooldownMs: integer('viewer_cooldown_ms').notNull().default(0),
+    random: boolean('random').notNull().default(false), // of the random actions an event matches, only one runs
+    // The alert. Nothing is shown when text, sound, sound file and media are all empty.
+    text: text('text'),
+    sound: text('sound').$type<AlertSound>(),
+    soundMediaId: uuid('sound_media_id').references(() => media.id, { onDelete: 'set null' }),
+    mediaId: uuid('media_id').references(() => media.id, { onDelete: 'set null' }),
+    speak: boolean('speak').notNull().default(false), // read the text aloud
+    durationMs: integer('duration_ms').notNull().default(5000),
+    keyCommandId: uuid('key_command_id').references(() => commands.id, { onDelete: 'set null' }),
+    repeatWithCount: boolean('repeat_with_count').notNull().default(false), // gift streaks press the key once per gift
+    points: integer('points').notNull().default(0), // given to the viewer; only with points on
+    screenId: uuid('screen_id').references(() => overlayScreens.id, { onDelete: 'set null' }), // null: every screen with alerts
   },
-  (t) => [unique().on(t.profileId, t.giftName)],
+  (t) => [index('actions_host_idx').on(t.hostId)],
 );
-
-// An alert shown (and optionally spoken) on the overlay when an event happens.
-export const alertRules = pgTable('alert_rules', {
-  id: uuid('id').primaryKey().defaultRandom(),
-  hostId: uuid('host_id').notNull().references(() => hosts.id, { onDelete: 'cascade' }),
-  event: text('event').$type<AlertEvent>().notNull(),
-  giftName: text('gift_name'), // gift alerts: only this gift (lowercase); null matches any gift
-  likeStep: integer('like_step'), // likes alerts: fire every time the stream's total passes a multiple of this
-  template: text('template').notNull(),
-  sound: text('sound').$type<AlertSound>(),
-  speak: boolean('speak').notNull().default(false),
-  enabled: boolean('enabled').notNull().default(true),
-});
 
 // Leaderboard aggregates. Raw chat is never stored.
 export const viewerStats = pgTable(
@@ -178,5 +191,42 @@ export const serviceStatus = pgTable('service_status', {
   detail: text('detail'), // why it isn't ok
   checkedAt: timestamp('checked_at', { withTimezone: true }).notNull().defaultNow(),
 });
+
+// Sounds, pictures and videos a host uploaded for their alerts. Kept in the database so backups include them.
+export const media = pgTable(
+  'media',
+  {
+    id: uuid('id').primaryKey().defaultRandom(),
+    hostId: uuid('host_id').notNull().references(() => hosts.id, { onDelete: 'cascade' }),
+    name: text('name').notNull(),
+    kind: text('kind').$type<MediaKind>().notNull(),
+    mime: text('mime').notNull(), // from the file's contents, not what the browser claimed
+    size: integer('size').notNull(),
+    data: bytea('data').notNull(),
+    createdAt: timestamp('created_at', { withTimezone: true }).notNull().defaultNow(),
+  },
+  (t) => [index('media_host_idx').on(t.hostId)],
+);
+
+// See OverlayScreen in the shared package. The main screen's token is the host's overlay_token.
+export const overlayScreens = pgTable(
+  'overlay_screens',
+  {
+    id: uuid('id').primaryKey().defaultRandom(),
+    hostId: uuid('host_id').notNull().references(() => hosts.id, { onDelete: 'cascade' }),
+    name: text('name').notNull(),
+    token: text('token').notNull().unique(),
+    main: boolean('main').notNull().default(false),
+    position: serial('position').notNull(),
+    alerts: boolean('alerts').notNull().default(true),
+    feed: boolean('feed').notNull().default(true),
+    leaderboard: boolean('leaderboard').notNull().default(true),
+    mode: boolean('mode').notNull().default(true),
+    audio: boolean('audio').notNull().default(true),
+    alertPosition: text('alert_position').$type<AlertPosition>().notNull().default('top'),
+    scale: integer('scale').notNull().default(100),
+  },
+  (t) => [index('overlay_screens_host_idx').on(t.hostId)],
+);
 
 export type Command = typeof commands.$inferSelect;

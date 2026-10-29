@@ -1,8 +1,8 @@
 import type { FastifyInstance } from 'fastify';
 import { eq, sql } from 'drizzle-orm';
 import { hash, verify } from '@node-rs/argon2';
-import { alertRules, commands, hosts, profiles } from '../db/schema.js';
-import { DEFAULT_ALERTS } from '../alerts/defaults.js';
+import { actions, commands, hosts, overlayScreens, profiles } from '../db/schema.js';
+import { DEFAULT_ACTIONS } from '../actions/defaults.js';
 import { newToken } from '../crypto.js';
 import { endSession, requireHost, startSession } from './session.js';
 
@@ -38,12 +38,13 @@ export async function authRoutes(app: FastifyInstance) {
         .insert(hosts)
         .values({ email, passwordHash, overlayToken: newToken() })
         .onConflictDoNothing()
-        .returning({ id: hosts.id });
+        .returning({ id: hosts.id, overlayToken: hosts.overlayToken });
       if (!created) return undefined;
+      await tx.insert(overlayScreens).values({ hostId: created.id, name: 'Main', token: created.overlayToken, main: true });
       const [profile] = await tx.insert(profiles).values({ hostId: created.id, name: 'Default' }).returning({ id: profiles.id });
       await tx.update(hosts).set({ activeProfileId: profile!.id }).where(eq(hosts.id, created.id));
       await tx.insert(commands).values(DEFAULT_COMMANDS.map((c) => ({ ...c, hostId: created.id, profileId: profile!.id })));
-      await tx.insert(alertRules).values(DEFAULT_ALERTS.map((a) => ({ ...a, hostId: created.id })));
+      await tx.insert(actions).values(DEFAULT_ACTIONS.map((a) => ({ ...a, hostId: created.id })));
       return created;
     });
     if (!host) return reply.code(409).send({ error: 'Email already registered' });

@@ -56,7 +56,7 @@ afterAll(async () => {
 beforeEach(async () => {
   for (const socket of sockets.splice(0)) socket.close();
   await app.live.stopAll();
-  await app.db.execute(sql`TRUNCATE hosts, auth_sessions, profiles, commands, companions, pairing_codes, gift_triggers, viewer_stats, alert_rules, service_status CASCADE`);
+  await app.db.execute(sql`TRUNCATE hosts, auth_sessions, profiles, commands, companions, pairing_codes, actions, media, viewer_stats, service_status CASCADE`);
 });
 
 // --- helpers ---------------------------------------------------------------
@@ -80,6 +80,21 @@ async function signUp(email = 'host@example.com') {
 const api = (cookie: string, method: 'GET' | 'POST' | 'PATCH' | 'DELETE', url: string, payload?: object) =>
   app.inject({ method, url, payload, headers: { cookie } });
 
+// The smallest files each kind of upload recognises.
+const WAV = Buffer.concat([Buffer.from('RIFF'), Buffer.alloc(4), Buffer.from('WAVEfmt '), Buffer.alloc(32)]);
+const PNG = Buffer.from([0x89, 0x50, 0x4e, 0x47, 0x0d, 0x0a, 0x1a, 0x0a, ...Array(32).fill(0)]);
+
+async function upload(cookie: string, name: string, body: Buffer, expected = 201) {
+  const res = await app.inject({
+    method: 'POST',
+    url: `/api/media?name=${encodeURIComponent(name)}`,
+    payload: body,
+    headers: { cookie, 'content-type': 'application/octet-stream' },
+  });
+  expect(res.statusCode).toBe(expected);
+  return res.json();
+}
+
 async function pairCompanion(cookie: string) {
   const { code } = (await api(cookie, 'POST', '/api/companions/pairing-code')).json();
   const res = await app.inject({ method: 'POST', url: '/api/companions/pair', payload: { code, name: 'Gaming PC' }, remoteAddress: nextAddress() });
@@ -89,7 +104,8 @@ async function pairCompanion(cookie: string) {
 
 // A WebSocket client that buffers messages so tests can await them in order.
 // Messages of the `aside` types go to their own queue (nextAside), so tests that count messages ignore them.
-function connect(path: string, aside: string[] = []) {
+// Overlays always get their screen first; tests that care read it with nextAside.
+function connect(path: string, aside: string[] = path.startsWith('/ws/overlay') ? ['screen'] : []) {
   const socket = new WebSocket(baseWs + path);
   sockets.push(socket);
   const inbox: any[] = [];
@@ -323,14 +339,15 @@ describe('modes, gifts and leaderboard (simulated source)', () => {
     expect(messages).toContainEqual(expect.objectContaining({ type: 'command', viewer: '2 votes', keyword: 'right' }));
   });
 
-  it('presses a gift trigger once per gift and counts gifts on the leaderboard', async () => {
+  it("presses a gift action's key once per gift and counts gifts on the leaderboard", async () => {
     const { cookie, companion, say } = await liveHost();
     const commands = (await api(cookie, 'GET', '/api/commands')).json();
     const jump = commands.find((c: any) => c.keyword === 'jump');
-    const created = await api(cookie, 'POST', '/api/gift-triggers', { giftName: 'Rose', commandId: jump.id });
+    const created = await api(cookie, 'POST', '/api/actions', { name: 'Rose jumps', trigger: 'gift', giftName: 'Rose', keyCommandId: jump.id, repeatWithCount: true });
     expect(created.statusCode).toBe(201);
-    expect((await api(cookie, 'POST', '/api/gift-triggers', { giftName: 'rose', commandId: jump.id })).statusCode).toBe(409);
-    expect((await api(cookie, 'GET', '/api/gift-triggers')).json()).toMatchObject([{ giftName: 'rose', keyword: 'jump' }]);
+    // A key press puts the action in its command's profile.
+    const profile = (await api(cookie, 'GET', '/api/profiles')).json()[0];
+    expect(created.json()).toMatchObject({ giftName: 'rose', profileId: profile.id });
 
     await api(cookie, 'POST', '/api/live/simulate', { viewer: 'alice', gift: 'Rose', count: 2 });
     expect(await companion.next()).toMatchObject({ action: { key: 'Space' } });
@@ -582,37 +599,155 @@ describe('stream activity and analytics', () => {
   });
 });
 
+describe('media and actions', () => {
+  it('uploads files, serves them publicly, and refuses anything that is not a picture, video or sound', async () => {
+    const { cookie } = await signUp();
+    const ding = await upload(cookie, ' Ding ', WAV);
+    expect(ding).toMatchObject({ name: 'Ding', kind: 'audio', mime: 'audio/wav', size: WAV.length });
+    await upload(cookie, 'page', Buffer.from('<svg onload=alert(1)>'), 415);
+    await upload(cookie, 'empty', Buffer.alloc(0), 400);
+    const file = await app.inject({ method: 'GET', url: `/media/${ding.id}` });
+    expect(file.statusCode).toBe(200);
+    expect(file.headers['content-type']).toBe('audio/wav');
+    expect(file.headers['x-content-type-options']).toBe('nosniff');
+    expect(file.rawPayload.equals(WAV)).toBe(true);
+    expect((await api(cookie, 'PATCH', `/api/media/${ding.id}`, { name: 'Bell' })).json()).toMatchObject({ name: 'Bell' });
+    expect((await api(cookie, 'GET', '/api/media')).json()).toHaveLength(1);
+    expect((await api(cookie, 'DELETE', `/api/media/${ding.id}`)).statusCode).toBe(204);
+    expect((await app.inject({ method: 'GET', url: `/media/${ding.id}` })).statusCode).toBe(404);
+  });
+
+  it('runs actions with files, audiences, points and new TikTok events while live', async () => {
+    const { cookie } = await signUp();
+    const me = (await api(cookie, 'GET', '/api/auth/me')).json();
+    const ding = await upload(cookie, 'ding', WAV);
+    const pic = await upload(cookie, 'pic', PNG);
+    // A picture can't be the sound, nor a sound the picture.
+    expect((await api(cookie, 'POST', '/api/actions', { name: 'x', trigger: 'follow', soundMediaId: pic.id })).statusCode).toBe(400);
+    expect((await api(cookie, 'POST', '/api/actions', { name: 'x', trigger: 'follow', mediaId: ding.id })).statusCode).toBe(400);
+    for (const a of (await api(cookie, 'GET', '/api/actions')).json()) await api(cookie, 'DELETE', `/api/actions/${a.id}`);
+    const add = async (body: object) => {
+      const res = await api(cookie, 'POST', '/api/actions', body);
+      expect(res.statusCode).toBe(201);
+      return res.json();
+    };
+    await add({ name: 'Sub', trigger: 'subscribe', text: '{viewer} subscribed for {months} months', soundMediaId: ding.id, mediaId: pic.id, durationMs: 8000 });
+    await add({ name: 'Mods', trigger: 'command', command: '!Hype', text: 'HYPE from {viewer}: {text}', sound: null, audience: 'moderators' });
+    await add({ name: 'Top', trigger: 'command', command: '!crown', text: 'crown {viewer}', sound: null, audience: 'top_gifters' });
+    await add({ name: 'Sticker points', trigger: 'emote', points: 7 });
+    await api(cookie, 'PATCH', '/api/settings', { points: true });
+
+    await api(cookie, 'POST', '/api/live/start', { source: 'simulated' });
+    const overlay = connect(`/ws/overlay?token=${me.overlayToken}`);
+    await overlay.drain(100); // live + mode + leaderboard
+    const sim = (body: object) => api(cookie, 'POST', '/api/live/simulate', body);
+    const alerts = async () => (await overlay.drain()).filter((m) => m.type === 'alert').map((m) => m.text ?? m);
+
+    await sim({ viewer: 'alice', event: 'subscribe', count: 3 });
+    expect((await overlay.drain()).filter((m) => m.type === 'alert')).toEqual([
+      {
+        type: 'alert',
+        text: 'alice subscribed for 3 months',
+        sound: null,
+        speech: null,
+        soundFile: ding.id,
+        media: { id: pic.id, kind: 'image' },
+        durationMs: 8000,
+      },
+    ]);
+    await sim({ viewer: 'bob', text: '!hype lets go' });
+    expect(await alerts()).toEqual([]);
+    await sim({ viewer: 'bob', text: '!hype lets go', badges: ['moderator'] });
+    expect(await alerts()).toEqual(['HYPE from bob: lets go']);
+    await sim({ viewer: 'carol', text: '!crown' });
+    expect(await alerts()).toEqual([]);
+    await sim({ viewers: 120, topGifters: ['carol'] });
+    await sim({ viewer: 'carol', text: '!crown' });
+    expect(await alerts()).toEqual(['crown carol']);
+    await sim({ viewer: 'dave', event: 'emote' });
+    await api(cookie, 'POST', '/api/live/stop');
+    await app.live.flushStats();
+    expect((await api(cookie, 'GET', '/api/analytics/viewers/dave')).json()).toMatchObject({ points: 7 });
+    const kinds = (await api(cookie, 'GET', '/api/analytics/activity')).json().events.map((e: any) => e.kind);
+    expect(kinds).toEqual(expect.arrayContaining(['subscribe', 'emote']));
+  });
+
+  it('copies a profile with its own actions, pressing the copied commands', async () => {
+    const { cookie } = await signUp();
+    const jump = (await api(cookie, 'GET', '/api/commands')).json().find((c: any) => c.keyword === 'jump');
+    await api(cookie, 'POST', '/api/actions', { name: 'Rose jumps', trigger: 'gift', giftName: 'rose', keyCommandId: jump.id });
+    const gta = (await api(cookie, 'POST', '/api/profiles', { name: 'GTA' })).json();
+    await api(cookie, 'POST', `/api/profiles/${gta.id}/activate`);
+    const actions = (await api(cookie, 'GET', '/api/actions')).json();
+    const copied = actions.find((a: any) => a.name === 'Rose jumps');
+    const gtaJump = (await api(cookie, 'GET', '/api/commands')).json().find((c: any) => c.keyword === 'jump');
+    expect(copied).toMatchObject({ profileId: gta.id, keyCommandId: gtaJump.id });
+    expect(actions.filter((a: any) => a.name === 'Rose jumps')).toHaveLength(1); // the Default one isn't shown
+    expect(actions.filter((a: any) => a.profileId === null)).toHaveLength(4); // starter alerts apply everywhere
+  });
+});
+
+describe('overlay screens', () => {
+  it('gives each screen its own address and settings, and sends alerts to the chosen screen', async () => {
+    const { cookie } = await signUp();
+    const me = (await api(cookie, 'GET', '/api/auth/me')).json();
+    const [main] = (await api(cookie, 'GET', '/api/screens')).json();
+    expect(main).toMatchObject({ name: 'Main', main: true, token: me.overlayToken, alerts: true, audio: true });
+    expect((await api(cookie, 'DELETE', `/api/screens/${main.id}`)).statusCode).toBe(400);
+
+    const side = (await api(cookie, 'POST', '/api/screens', { name: ' Side ' })).json();
+    expect(side).toMatchObject({ name: 'Side', main: false, alerts: true, feed: false, audio: false });
+    const overlay = connect(`/ws/overlay?token=${side.token}`);
+    expect(await overlay.nextAside()).toEqual({ type: 'screen', screen: expect.objectContaining({ id: side.id, name: 'Side' }) });
+    await api(cookie, 'PATCH', `/api/screens/${side.id}`, { alertPosition: 'top', scale: 150 });
+    expect(await overlay.nextAside()).toMatchObject({ type: 'screen', screen: { alertPosition: 'top', scale: 150 } });
+    expect((await api(cookie, 'PATCH', `/api/screens/${side.id}`, { scale: 500 })).statusCode).toBe(400);
+
+    const action = (await api(cookie, 'POST', '/api/actions', { name: 'Side follow', trigger: 'follow', text: 'side!', screenId: side.id })).json();
+    await api(cookie, 'POST', `/api/actions/${action.id}/test`);
+    expect(await overlay.next()).toMatchObject({ type: 'alert', text: 'side!', screen: side.id });
+
+    const other = await signUp('other@example.com');
+    expect((await api(other.cookie, 'PATCH', `/api/screens/${side.id}`, { name: 'x' })).statusCode).toBe(404);
+    expect((await api(other.cookie, 'POST', '/api/actions', { name: 'x', trigger: 'follow', screenId: side.id })).statusCode).toBe(400);
+
+    // Deleting a screen disconnects its overlays; its actions go back to every screen.
+    expect((await api(cookie, 'DELETE', `/api/screens/${side.id}`)).statusCode).toBe(204);
+    expect(await overlay.closed).toBe(4001);
+    const after = (await api(cookie, 'GET', '/api/actions')).json().find((a: any) => a.id === action.id);
+    expect(after.screenId).toBeNull();
+  });
+});
+
 describe('alerts and text-to-speech', () => {
   // The 5 s stats flush can push a leaderboard at any moment; these tests don't care about it.
   const withoutLeaderboard = (messages: any[]) => messages.filter((m) => m.type !== 'leaderboard');
 
-  it('seeds starter alerts, tests them offline, and speaks prefixed chat while live', async () => {
+  it('seeds starter actions, tests them offline, and speaks prefixed chat while live', async () => {
     const { cookie } = await signUp();
     const me = (await api(cookie, 'GET', '/api/auth/me')).json();
     expect(me).toMatchObject({ ttsMode: 'prefix', ttsPrefix: '!tts', ttsVoice: null });
-    const alerts = (await api(cookie, 'GET', '/api/alerts')).json();
-    expect(alerts.map((a: any) => a.event).sort()).toEqual(['follow', 'gift', 'likes', 'share']);
+    const actions = (await api(cookie, 'GET', '/api/actions')).json();
+    expect(actions.map((a: any) => a.trigger)).toEqual(['follow', 'share', 'gift', 'likes']);
+    expect(actions.every((a: any) => a.profileId === null)).toBe(true); // every profile
 
     // The Test button works without being live.
     const overlay = connect(`/ws/overlay?token=${me.overlayToken}`);
     await overlay.opened;
-    const follow = alerts.find((a: any) => a.event === 'follow');
-    await api(cookie, 'POST', `/api/alerts/${follow.id}/test`);
+    const follow = actions.find((a: any) => a.trigger === 'follow');
+    await api(cookie, 'POST', `/api/actions/${follow.id}/test`);
     expect(await overlay.next()).toEqual({ type: 'alert', text: 'test_viewer followed!', sound: 'chime', speech: null });
 
-    // Validation: likes need a step; event-specific fields are cleared for other events.
-    expect((await api(cookie, 'POST', '/api/alerts', { event: 'likes', template: 'x' })).statusCode).toBe(400);
-    expect((await api(cookie, 'POST', '/api/alerts', { event: 'follow', template: 'x', sound: 'airhorn' })).statusCode).toBe(400);
-    const lion = await api(cookie, 'POST', '/api/alerts', {
-      event: 'gift',
-      giftName: ' Lion ',
-      likeStep: 5,
-      template: 'ROAR {viewer}',
-      sound: 'fanfare',
-      speak: true,
-    });
+    // Validation: likes need a step, commands need a command; trigger-specific fields are cleared for other triggers.
+    const create = (body: object) => api(cookie, 'POST', '/api/actions', { name: 'x', ...body });
+    expect((await create({ trigger: 'likes', text: 'x' })).statusCode).toBe(400);
+    expect((await create({ trigger: 'command', text: 'x' })).statusCode).toBe(400);
+    expect((await create({ trigger: 'command', command: '!points' })).statusCode).toBe(400);
+    expect((await create({ trigger: 'follow', audience: 'viewer' })).statusCode).toBe(400);
+    expect((await create({ trigger: 'follow', text: 'x', sound: 'airhorn' })).statusCode).toBe(400);
+    const lion = await create({ trigger: 'gift', giftName: ' Lion ', likeStep: 5, command: '!x', text: 'ROAR {viewer}', sound: 'fanfare', speak: true });
     expect(lion.statusCode).toBe(201);
-    expect(lion.json()).toMatchObject({ giftName: 'lion', likeStep: null });
+    expect(lion.json()).toMatchObject({ giftName: 'lion', likeStep: null, command: null });
 
     // The default engine is Piper; this test server has none, so speech falls back to in-overlay eSpeak.
     await api(cookie, 'PATCH', '/api/settings', { ttsEspeakVoice: 'en-gb', ttsCooldownMs: 0 });
@@ -650,7 +785,7 @@ describe('alerts and text-to-speech', () => {
     await sim({ text: 'jump' });
     expect((await overlay.drain()).filter((m) => m.type === 'tts')).toEqual([]);
 
-    expect((await api(cookie, 'DELETE', `/api/alerts/${follow.id}`)).statusCode).toBe(204);
+    expect((await api(cookie, 'DELETE', `/api/actions/${follow.id}`)).statusCode).toBe(204);
     await sim({ event: 'follow' });
     expect(withoutLeaderboard(await overlay.drain())).toEqual([]);
   });
@@ -821,13 +956,19 @@ describe('alerts and text-to-speech', () => {
     }
   });
 
-  it("can't touch another host's alerts", async () => {
+  it("can't touch another host's actions, commands or files", async () => {
     const a = await signUp('a@example.com');
     const b = await signUp('b@example.com');
-    const [alertA] = (await api(a.cookie, 'GET', '/api/alerts')).json();
-    expect((await api(b.cookie, 'POST', `/api/alerts/${alertA.id}/test`)).statusCode).toBe(404);
-    expect((await api(b.cookie, 'PATCH', `/api/alerts/${alertA.id}`, { template: 'x' })).statusCode).toBe(404);
-    expect((await api(b.cookie, 'DELETE', `/api/alerts/${alertA.id}`)).statusCode).toBe(404);
+    const [actionA] = (await api(a.cookie, 'GET', '/api/actions')).json();
+    expect((await api(b.cookie, 'POST', `/api/actions/${actionA.id}/test`)).statusCode).toBe(404);
+    expect((await api(b.cookie, 'PATCH', `/api/actions/${actionA.id}`, { text: 'x' })).statusCode).toBe(404);
+    expect((await api(b.cookie, 'DELETE', `/api/actions/${actionA.id}`)).statusCode).toBe(404);
+    const [commandA] = (await api(a.cookie, 'GET', '/api/commands')).json();
+    const file = await upload(a.cookie, 'ding', WAV);
+    expect((await api(b.cookie, 'POST', '/api/actions', { name: 'x', trigger: 'follow', keyCommandId: commandA.id })).statusCode).toBe(400);
+    expect((await api(b.cookie, 'POST', '/api/actions', { name: 'x', trigger: 'follow', soundMediaId: file.id })).statusCode).toBe(400);
+    expect((await api(b.cookie, 'DELETE', `/api/media/${file.id}`)).statusCode).toBe(404);
+    expect((await api(b.cookie, 'GET', '/api/media')).json()).toEqual([]);
   });
 });
 

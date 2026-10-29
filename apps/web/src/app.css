@@ -305,3 +305,36 @@ fieldset:disabled * { cursor: not-allowed; }
 }
 .device-name { display: flex; flex-direction: column; gap: 2px; }
 .pairing-code.expired { opacity: 0.4; text-decoration: line-through; }
+
+/* Actions page */
+.action-list { list-style: none; margin: 0; padding: 0; }
+.action-list > li { border-bottom: 1px solid var(--line); }
+.action-list > li:last-child { border-bottom: 0; }
+.action-list > li.off .action-summary { opacity: 0.55; }
+.action-row { display: flex; align-items: center; gap: 14px; padding: 12px 0; }
+.action-summary { flex: 1; min-width: 0; display: flex; flex-direction: column; gap: 4px; }
+.action-does { display: flex; flex-wrap: wrap; gap: 6px; }
+.action-buttons { display: flex; gap: 6px; flex: none; }
+.action-editor { padding: 16px; margin: 4px 0 16px; border: 1px solid var(--line); border-radius: 14px; background: var(--panel2); }
+.action-section { margin: 0; padding: 0; border: 0; min-width: 0; }
+.action-section > legend { padding: 0; margin-bottom: 10px; font-weight: 700; font-size: 15px; }
+@media (max-width: 640px) {
+  .action-row { flex-wrap: wrap; }
+  .action-buttons { width: 100%; justify-content: flex-end; }
+}
+
+/* Uploads */
+.meter { height: 8px; border-radius: 999px; background: var(--meter); overflow: hidden; }
+.meter > span { display: block; height: 100%; border-radius: inherit; background: var(--plasma); transition: width 0.3s; }
+.media-grid { list-style: none; margin: 0; padding: 0; display: grid; grid-template-columns: repeat(auto-fill, minmax(180px, 1fr)); gap: 12px; }
+.media-grid > li { display: flex; flex-direction: column; gap: 8px; padding: 10px; border: 1px solid var(--line); border-radius: 12px; min-width: 0; }
+.media-preview { display: grid; place-items: center; height: 110px; border-radius: 8px; background: var(--panel2); overflow: hidden; }
+.media-preview img, .media-preview video { max-width: 100%; max-height: 100%; object-fit: contain; }
+.media-preview audio { width: 100%; }
+.media-meta { display: flex; flex-direction: column; min-width: 0; }
+.media-meta strong { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.media-grid .btn-delete { align-self: flex-start; }
+label.btn.disabled { opacity: 0.6; pointer-events: none; }
+
+/* Overlay screens */
+.screen-switches { display: grid; grid-template-columns: repeat(auto-fit, minmax(240px, 1fr)); gap: 12px 16px; }

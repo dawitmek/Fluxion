@@ -110,7 +110,7 @@ function PointsCard({ host, refreshHost }: { host: Host; refreshHost: () => Prom
       <Switch
         checked={host.points}
         onChange={(points) => save({ points })}
-        hint="A command a viewer can't afford is ignored. Losing votes cost nothing, and gift triggers are always free."
+        hint="A command a viewer can't afford is ignored. Losing votes cost nothing, and key presses from actions are always free."
       >
         Points
       </Switch>
@@ -152,7 +152,7 @@ function ProgressionCard({ host, refreshHost }: { host: Host; refreshHost: () =>
         checked={host.levelGating}
         disabled={!host.progression}
         onChange={(levelGating) => save({ levelGating })}
-        hint="Commands can require a minimum level, set per command. Gift triggers are never gated."
+        hint="Commands can require a minimum level, set per command. Key presses from actions are never gated."
       >
         Level requirements
       </Switch>

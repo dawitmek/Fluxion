@@ -1,22 +1,26 @@
-import type { ServerToOverlay, Speech } from '@fluxion/shared';
+import type { MediaKind, ServerToOverlay, Speech } from '@fluxion/shared';
 import { playSound } from './sounds';
 import { SpeechPlayer } from './speech-player';
 
 type AlertMessage = Extract<ServerToOverlay, { type: 'alert' }>;
+export type ShownAlert = { id: number; text: string; media: { url: string; kind: MediaKind } | null };
 
 const ALERT_MS = 5000;
 const MAX_QUEUED_ALERTS = 20; // a follow storm shouldn't keep alerts running for minutes
 
-// Shows alerts one at a time with their sound, and speaks alert and chat text.
+// Shows alerts one at a time with their sound, and speaks alert and chat text. With audio off (a screen
+// that shouldn't double the main one's sound) it only shows.
 export class AlertPlayer {
   private queue: AlertMessage[] = [];
   private showing = false;
   private audio: AudioContext | null = null;
   private speech = new SpeechPlayer(() => this.context());
+  private sounds = new Map<string, Promise<AudioBuffer>>(); // uploaded sounds, decoded once
   private nextId = 0;
+  audible = true;
 
   constructor(
-    private onShow: (alert: { id: number; text: string } | null) => void,
+    private onShow: (alert: ShownAlert | null) => void,
     // Browsers (not OBS) block audio until the page is clicked; the overlay asks for a click then.
     private onBlocked: (blocked: boolean) => void,
   ) {}
@@ -33,7 +37,7 @@ export class AlertPlayer {
   }
 
   say(speech: Speech) {
-    this.speech.say(speech);
+    if (this.audible) this.speech.say(speech);
   }
 
   // Called from a click on the page.
@@ -52,14 +56,37 @@ export class AlertPlayer {
     const alert = this.showing ? undefined : this.queue.shift();
     if (!alert) return;
     this.showing = true;
-    this.onShow({ id: this.nextId++, text: alert.text });
-    if (alert.sound) playSound(this.context(), alert.sound);
+    const media = alert.media ? { url: `/media/${alert.media.id}`, kind: alert.media.kind } : null;
+    this.onShow({ id: this.nextId++, text: alert.text, media });
+    if (this.audible) {
+      if (alert.sound) playSound(this.context(), alert.sound);
+      if (alert.soundFile) void this.playFile(alert.soundFile);
+    }
     if (alert.speech) this.say(alert.speech);
     setTimeout(() => {
       this.showing = false;
       this.onShow(null);
       this.next();
-    }, ALERT_MS);
+    }, alert.durationMs ?? ALERT_MS);
+  }
+
+  private async playFile(id: string) {
+    const audio = this.context();
+    let decoded = this.sounds.get(id);
+    if (!decoded) {
+      decoded = fetch(`/media/${id}`)
+        .then((res) => res.arrayBuffer())
+        .then((data) => audio.decodeAudioData(data));
+      this.sounds.set(id, decoded);
+    }
+    try {
+      const source = audio.createBufferSource();
+      source.buffer = await decoded;
+      source.connect(audio.destination);
+      source.start();
+    } catch {
+      this.sounds.delete(id); // a file that failed to load or decode can be tried again next time
+    }
   }
 
   private context() {

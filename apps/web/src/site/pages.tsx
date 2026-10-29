@@ -30,13 +30,14 @@ const FEATURES: { title: string; text: string; points: string[]; art: ReactNode 
     art: <ModesArt />,
   },
   {
-    title: 'Gifts that do something',
+    title: 'Actions for everything viewers do',
     text: 'Make gifting part of the game, and thank people where everyone can see it.',
     points: [
-      'Gift triggers press a command for each gift in a streak, up to 10 times.',
-      'Gift boosts add votes in democracy, or move the gifter up the queue.',
-      'Alerts for follows, shares, gifts and like milestones, with five built-in sounds.',
-      'Test any alert on your overlay before you go live.',
+      'Follows, shares, gifts, like milestones, subscriptions, stickers, chat commands and first-time chatters can each trigger an action.',
+      'An action shows an alert, plays a built-in sound or your own, shows your picture or video, reads its text aloud, presses a key, or gives points.',
+      'Limit an action to followers, subscribers, moderators, top gifters or one viewer, with cooldowns and random picks.',
+      'A gift streak can press a key once per gift, up to 10 times. Gift boosts add votes or move the gifter up the queue.',
+      'Several overlay screens, so alerts and widgets can sit in different places. Test any alert before you go live.',
     ],
     art: <GiftArt />,
   },
@@ -66,7 +67,7 @@ const FEATURES: { title: string; text: string; points: string[]; art: ReactNode 
     title: 'A profile per game',
     text: 'Set a game up once and switch to it in one click.',
     points: [
-      'Each profile has its own commands, gift triggers and crowd mode.',
+      'Each profile has its own commands, key-press actions and crowd mode.',
       'Switching applies straight away, even while live.',
       'Name the game’s process and the companion targets it automatically.',
     ],

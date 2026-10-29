@@ -21,12 +21,13 @@ import { settingsRoutes } from './settings/routes.js';
 import { commandRoutes } from './commands/routes.js';
 import { companionRoutes } from './companions/routes.js';
 import { liveRoutes } from './live/routes.js';
-import { giftTriggerRoutes } from './gift-triggers/routes.js';
 import { leaderboardRoutes } from './leaderboard/routes.js';
 import { profileRoutes } from './profiles/routes.js';
-import { alertRoutes } from './alerts/routes.js';
+import { actionRoutes } from './actions/routes.js';
 import { ttsRoutes } from './tts/routes.js';
 import { analyticsRoutes } from './analytics/routes.js';
+import { mediaFileRoute, mediaRoutes } from './media/routes.js';
+import { screenRoutes } from './screens/routes.js';
 import { Piper } from './tts/piper.js';
 import { SpeechService } from './tts/speech.js';
 import { ServerTiktokAccount } from './tts/tiktok-account.js';
@@ -104,12 +105,14 @@ export async function buildApp(config: Config, options: Options = {}) {
   await app.register(commandRoutes, { prefix: '/api/commands' });
   await app.register(companionRoutes, { prefix: '/api/companions' });
   await app.register(liveRoutes, { prefix: '/api/live' });
-  await app.register(giftTriggerRoutes, { prefix: '/api/gift-triggers' });
   await app.register(leaderboardRoutes, { prefix: '/api/leaderboard' });
   await app.register(profileRoutes, { prefix: '/api/profiles' });
-  await app.register(alertRoutes, { prefix: '/api/alerts' });
+  await app.register(actionRoutes, { prefix: '/api/actions' });
   await app.register(ttsRoutes, { prefix: '/api/tts' });
   await app.register(analyticsRoutes, { prefix: '/api/analytics' });
+  await app.register(mediaRoutes, { prefix: '/api/media' });
+  await app.register(mediaFileRoute);
+  await app.register(screenRoutes, { prefix: '/api/screens' });
   await app.register(gatewayRoutes);
 
   // In production the server also serves the built web app, so everything lives on one address.

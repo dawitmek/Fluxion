@@ -10,15 +10,9 @@ export interface EngineCommand {
   cost: number; // points
 }
 
-export interface GiftTrigger {
-  giftName: string; // lowercase
-  keyword: string;
-}
-
 // Read on every call, so settings and command edits apply mid-stream without losing votes or the queue.
 export interface EngineConfig {
   commands: EngineCommand[];
-  giftTriggers: GiftTrigger[];
   actionsPerSecond: number;
   voteWindowMs: number;
   turnMs: number;

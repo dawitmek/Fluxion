@@ -106,6 +106,34 @@
       "when": 1793248828406,
       "tag": "0014_points",
       "breakpoints": true
+    },
+    {
+      "idx": 15,
+      "version": "7",
+      "when": 1793250175746,
+      "tag": "0015_actions",
+      "breakpoints": true
+    },
+    {
+      "idx": 16,
+      "version": "7",
+      "when": 1793250176335,
+      "tag": "0016_drop_alerts_gift_triggers",
+      "breakpoints": true
+    },
+    {
+      "idx": 17,
+      "version": "7",
+      "when": 1793250492434,
+      "tag": "0017_overlay_screens",
+      "breakpoints": true
+    },
+    {
+      "idx": 18,
+      "version": "7",
+      "when": 1793250870430,
+      "tag": "0018_alerts_top",
+      "breakpoints": true
     }
   ]
 }

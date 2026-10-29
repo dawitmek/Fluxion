@@ -23,6 +23,14 @@ html.overlay-page, html.overlay-page body { background: transparent; }
 .overlay-level { display: inline-block; margin-right: 10px; padding: 1px 7px; border-radius: 6px; background: rgba(255, 209, 102, 0.25); color: #ffd166; font-size: 16px; font-weight: 700; vertical-align: 2px; }
 .overlay-levelup { background: linear-gradient(90deg, rgba(232, 23, 93, 0.85), rgba(255, 140, 0, 0.85)); }
 .overlay-levelup .overlay-keyword { color: #fff; }
-.overlay-alert { position: fixed; top: 22%; left: 50%; transform: translateX(-50%); max-width: 80vw; padding: 18px 32px; border-radius: 16px; background: linear-gradient(90deg, rgba(232, 23, 93, 0.92), rgba(124, 58, 237, 0.92)); color: #fff; font-family: system-ui, sans-serif; font-size: 40px; font-weight: 800; text-align: center; text-shadow: 0 2px 6px rgba(0, 0, 0, 0.4); animation: alert-in 0.4s cubic-bezier(0.2, 1.4, 0.4, 1); }
-@keyframes alert-in { from { transform: translateX(-50%) scale(0.6); opacity: 0; } to { transform: translateX(-50%) scale(1); opacity: 1; } }
+.overlay-screen { zoom: var(--overlay-scale, 1); }
+.overlay-screen { --alert-top: 22%; --alert-shift: 0%; }
+.alerts-middle { --alert-top: 50%; --alert-shift: -50%; }
+.alerts-bottom { --alert-top: auto; }
+.alerts-bottom .overlay-alert { bottom: 8%; }
+.overlay-alert { position: fixed; top: var(--alert-top); left: 50%; transform: translate(-50%, var(--alert-shift)); max-width: 80vw; padding: 18px 32px; border-radius: 16px; background: linear-gradient(90deg, rgba(232, 23, 93, 0.92), rgba(124, 58, 237, 0.92)); color: #fff; font-family: system-ui, sans-serif; font-size: 40px; font-weight: 800; text-align: center; text-shadow: 0 2px 6px rgba(0, 0, 0, 0.4); animation: alert-in 0.4s cubic-bezier(0.2, 1.4, 0.4, 1); }
+@keyframes alert-in { from { transform: translate(-50%, var(--alert-shift)) scale(0.6); opacity: 0; } to { transform: translate(-50%, var(--alert-shift)) scale(1); opacity: 1; } }
+.overlay-alert-media { display: block; max-width: min(560px, 70vw); max-height: 45vh; margin: 0 auto 12px; border-radius: 12px; }
+.overlay-alert.media-only { padding: 0; background: none; }
+.overlay-alert.media-only .overlay-alert-media { margin: 0 auto; }
 .overlay-unblock { position: fixed; bottom: 16px; right: 16px; padding: 10px 14px; border: 0; border-radius: 8px; background: #fff; color: #111; font: 600 14px system-ui, sans-serif; cursor: pointer; }

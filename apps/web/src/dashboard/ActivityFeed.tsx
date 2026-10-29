@@ -4,7 +4,7 @@ import { api, type LiveStatus } from '../api';
 import { Icon } from '../icons';
 import { ViewerLink } from './ViewerPanel';
 
-type Kind = 'comment' | 'gift' | 'join' | 'follow' | 'share' | 'like';
+type Kind = 'comment' | 'gift' | 'join' | 'follow' | 'share' | 'like' | 'subscribe' | 'emote';
 const FILTERS: { kind: Kind; label: string; tag: string }[] = [
   { kind: 'comment', label: 'Chat', tag: 'sky' },
   { kind: 'gift', label: 'Gifts', tag: 'pink' },
@@ -12,6 +12,8 @@ const FILTERS: { kind: Kind; label: string; tag: string }[] = [
   { kind: 'follow', label: 'Follows', tag: 'violet' },
   { kind: 'share', label: 'Shares', tag: 'green' },
   { kind: 'like', label: 'Likes', tag: 'amber' },
+  { kind: 'subscribe', label: 'Subs', tag: 'orange' },
+  { kind: 'emote', label: 'Stickers', tag: 'indigo' },
 ];
 // Tag text and colour for each kind of event, also used by viewer profiles.
 export const KIND_TAGS: Partial<Record<StreamEvent['kind'], { label: string; hue: string }>> = Object.fromEntries(
@@ -42,6 +44,12 @@ export function describeEvent(e: StreamEvent): string {
       return 'shared the stream';
     case 'join':
       return 'joined';
+    case 'subscribe': {
+      const months = Number(e.data.months);
+      return months > 1 ? `subscribed for ${months} months` : 'subscribed';
+    }
+    case 'emote':
+      return 'sent a sticker';
     default:
       return '';
   }
@@ -142,7 +150,7 @@ export function ActivityFeed({ status, stream: fixed, storageKey = 'fluxion-acti
       <button className="collapse-head" aria-expanded={open} aria-controls="full-activity-body" onClick={toggle}>
         <span>
           <h2 id="full-activity">Full activity</h2>
-          <span className="muted">Every chat message, gift, join, follow, share and like from your stream.</span>
+          <span className="muted">Every chat message, gift, join, follow, share, like, subscription and sticker from your stream.</span>
         </span>
         <Icon name="chevron" size={18} />
       </button>

@@ -4,7 +4,7 @@ import { streams } from '../db/schema.js';
 import { requireHost } from '../auth/session.js';
 import { streamActivity, streamDetail, streamSummaries, viewerActivity, viewerProfile } from './queries.js';
 
-const VIEWER_KINDS = ['comment', 'gift', 'like', 'follow', 'share', 'join'];
+const VIEWER_KINDS = ['comment', 'gift', 'like', 'follow', 'share', 'join', 'subscribe', 'emote'];
 const UUID = '^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$';
 
 export async function analyticsRoutes(app: FastifyInstance) {

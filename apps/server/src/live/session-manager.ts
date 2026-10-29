@@ -1,13 +1,14 @@
 import { and, eq, isNull, sql } from 'drizzle-orm';
-import { POINTS_CHECK, QUEUE_JOIN, XP_PER_COMMAND, type Mode, type ServerToOverlay, type ViewerEvent } from '@fluxion/shared';
+import { POINTS_CHECK, QUEUE_JOIN, XP_PER_COMMAND, type Mode, type RoomStats, type ServerToOverlay, type Speech, type ViewerEvent } from '@fluxion/shared';
 import type { Secrets } from '../crypto.js';
 import type { Db } from '../db/client.js';
-import { alertRules, commands, giftTriggers, hosts, streamEvents, streams } from '../db/schema.js';
+import { commands, hosts, streamEvents, streams } from '../db/schema.js';
 import { StreamRecorder } from './recorder.js';
-import { createAlerts, parseBlockedWords, type AlertContext, type AlertOutput } from '../alerts/engine.js';
+import { createActions, parseBlockedWords, type ActionContext, type ActionOutput } from '../actions/engine.js';
+import { loadActionRules } from '../actions/load.js';
 import { voiceConfig, type SpeechService, type VoiceConfig } from '../tts/speech.js';
 import { activeProfile } from '../profiles/active.js';
-import { createEngine, type Decision, type Engine, type EngineConfig, type EngineContext } from '../engine/index.js';
+import { createEngine, keyPresses, type Decision, type Engine, type EngineConfig, type EngineContext } from '../engine/index.js';
 import type { Hub } from '../gateway/hub.js';
 import type { Stats } from '../leaderboard/stats.js';
 import { SimulatedAdapter } from '../platforms/simulated.js';
@@ -16,6 +17,7 @@ import type { PlatformAdapter } from '../platforms/types.js';
 export type Source = 'tiktok' | 'simulated';
 
 const TICK_MS = 250;
+const DEFAULT_ALERT_MS = 5000;
 const STATS_FLUSH_MS = 5000;
 const CHAT_POINTS_EVERY_MS = 60_000; // chatting earns points at most this often per viewer
 const POINTS_CHECK_COOLDOWN_MS = 10_000; // per viewer, so !points can't flood the overlay
@@ -40,14 +42,15 @@ interface LiveSession {
   lastChecked: Map<string, number>; // viewerId -> when they last typed !points
   ctx: EngineContext;
   engine: Engine;
-  alertCtx: AlertContext;
-  alerts: ReturnType<typeof createAlerts>;
+  actionCtx: ActionContext;
+  actions: ReturnType<typeof createActions>;
   voice: VoiceConfig;
   outbox: Promise<void>; // alerts and speech go out in order, each after its audio is ready
   ticker: NodeJS.Timeout;
   delayed: Set<NodeJS.Timeout>; // pending repeats of gift-triggered presses
   lastState: string;
   recorder: StreamRecorder;
+  room: RoomStats; // latest from the platform; empty until it reports
 }
 
 export class LiveError extends Error {
@@ -91,7 +94,7 @@ export class SessionManager {
     await this.stop(hostId);
     const loaded = await this.loadConfig(hostId);
     if (!loaded) throw new LiveError('Host not found', 404);
-    const { host, mode, config, alertConfig, voice, profileName, points } = loaded;
+    const { host, mode, config, actionConfig, voice, profileName, points } = loaded;
 
     let adapter: PlatformAdapter;
     if (source === 'simulated') {
@@ -108,8 +111,9 @@ export class SessionManager {
       levelOf: (viewerId) => this.stats.levelOf(hostId, viewerId),
       pointsOf: (viewerId) => this.stats.pointsOf(hostId, viewerId),
     };
-    const alertCtx: AlertContext = {
-      config: alertConfig,
+    const actionCtx: ActionContext = {
+      config: actionConfig,
+      topGifters: () => session.room.topGifters,
       now: Date.now,
       levelOf: ctx.levelOf,
       isCommand: (text) => {
@@ -137,16 +141,18 @@ export class SessionManager {
       lastChecked: new Map(),
       ctx,
       engine: createEngine(mode, ctx),
-      alertCtx,
-      alerts: createAlerts(alertCtx),
+      actionCtx,
+      actions: createActions(actionCtx),
       voice,
       outbox: Promise.resolve(),
       ticker: setInterval(() => this.run(hostId, session, session.engine.tick()), TICK_MS),
       delayed: new Set(),
       lastState: '',
       recorder,
+      room: { viewers: 0, topGifters: [] },
     };
     adapter.onEvent((event) => this.onEvent(hostId, session, event));
+    adapter.onRoomStats((room) => (session.room = room));
     adapter.onEnd(() => {
       if (this.sessions.get(hostId) === session) void this.stop(hostId);
     });
@@ -188,10 +194,11 @@ export class SessionManager {
   }
 
   // Returns false when the host has no simulated session running.
-  simulate(hostId: string, event: ViewerEvent): boolean {
+  simulate(hostId: string, event: ViewerEvent | RoomStats): boolean {
     const session = this.sessions.get(hostId);
     if (!(session?.adapter instanceof SimulatedAdapter)) return false;
-    session.adapter.inject(event);
+    if ('kind' in event) session.adapter.inject(event);
+    else session.adapter.injectStats(event);
     return true;
   }
 
@@ -203,7 +210,7 @@ export class SessionManager {
     const loaded = await this.loadConfig(hostId);
     if (!loaded || this.sessions.get(hostId) !== session) return;
     session.ctx.config = loaded.config;
-    session.alertCtx.config = loaded.alertConfig;
+    session.actionCtx.config = loaded.actionConfig;
     session.voice = loaded.voice;
     session.points = loaded.points;
     if (loaded.mode !== session.mode) {
@@ -257,17 +264,19 @@ export class SessionManager {
     }
     if (session.points) this.earn(hostId, session, session.points, event);
     this.run(hostId, session, session.engine.handle(event));
-    for (const output of session.alerts.handle(event)) {
+    for (const output of session.actions.handle(event)) {
+      if (output.type === 'key') this.run(hostId, session, keyPresses(session.ctx, output.keyword, output.viewer, output.repeats));
+      else if (output.type === 'points') this.stats.record(hostId, output.viewer, { points: output.amount });
       // speak() never throws, but a broken chain would silence every later alert, so guard anyway.
-      session.outbox = session.outbox.then(() => this.deliver(hostId, session, output)).catch(() => {});
+      else session.outbox = session.outbox.then(() => this.deliver(hostId, session, output)).catch(() => {});
     }
   }
 
-  private async deliver(hostId: string, session: LiveSession, output: AlertOutput) {
+  private async deliver(hostId: string, session: LiveSession, output: Extract<ActionOutput, { type: 'alert' | 'tts' }>) {
     if (this.sessions.get(hostId) !== session) return; // stopped while earlier speech was being made
     if (output.type === 'alert') {
       const speech = output.speak ? await this.speech.speak(session.voice, output.text) : null;
-      this.hub.sendToOverlays(hostId, { type: 'alert', text: output.text, sound: output.sound, speech });
+      this.hub.sendToOverlays(hostId, alertMessage(output, speech));
     } else {
       const speech = await this.speech.speak(session.voice, `${output.viewer} says ${output.text}`);
       this.hub.sendToOverlays(hostId, { type: 'tts', viewer: output.viewer, text: output.text, speech });
@@ -291,8 +300,8 @@ export class SessionManager {
 
   private fire(hostId: string, session: LiveSession, decision: Decision) {
     this.hub.sendToCompanions(hostId, { type: 'action', action: decision.action });
-    // Gift triggers credit nobody; a democracy vote names its tally ("3 votes") rather than a viewer.
-    const via = decision.credit.length === 0 ? 'gift' : decision.credit.includes(decision.viewer) ? 'chat' : 'vote';
+    // Actions credit nobody; a democracy vote names its tally ("3 votes") rather than a viewer.
+    const via = decision.credit.length === 0 ? 'action' : decision.credit.includes(decision.viewer) ? 'chat' : 'vote';
     session.recorder.add('command', via === 'vote' ? null : decision.viewer, { keyword: decision.keyword, via });
     const levelUps = decision.credit.map((viewerId) => {
       const level = this.stats.record(hostId, viewerId, { commands: 1, xp: XP_PER_COMMAND, points: -decision.cost });
@@ -353,19 +362,13 @@ export class SessionManager {
     const [host] = await this.db.select().from(hosts).where(eq(hosts.id, hostId));
     if (!host) return null;
     const profile = await activeProfile(this.db, hostId);
-    const [commandRows, triggerRows, alertRows] = await Promise.all([
+    const [commandRows, actionRows] = await Promise.all([
       this.db.select().from(commands).where(eq(commands.profileId, profile.id)),
-      this.db
-        .select({ giftName: giftTriggers.giftName, keyword: commands.keyword })
-        .from(giftTriggers)
-        .innerJoin(commands, eq(giftTriggers.commandId, commands.id))
-        .where(eq(giftTriggers.profileId, profile.id)),
-      this.db.select().from(alertRules).where(eq(alertRules.hostId, hostId)),
+      loadActionRules(this.db, hostId, profile.id),
     ]);
     const profileName = profile.name;
     const config: EngineConfig = {
       commands: commandRows,
-      giftTriggers: triggerRows,
       actionsPerSecond: host.actionsPerSecond,
       voteWindowMs: profile.voteWindowMs,
       turnMs: profile.turnMs,
@@ -373,9 +376,10 @@ export class SessionManager {
       levelGating: host.progression && host.levelGating,
       points: host.points,
     };
-    const alertConfig: AlertContext['config'] = {
-      rules: alertRows,
+    const actionConfig: ActionContext['config'] = {
+      actions: actionRows,
       progression: host.progression,
+      points: host.points,
       tts: {
         mode: host.ttsMode,
         prefix: host.ttsPrefix,
@@ -394,8 +398,22 @@ export class SessionManager {
           check: host.pointsCheck,
         }
       : null;
-    return { host, mode: profile.mode, config, alertConfig, voice: voiceConfig(host, this.secrets), profileName, points };
+    return { host, mode: profile.mode, config, actionConfig, voice: voiceConfig(host, this.secrets), profileName, points };
   }
+}
+
+// The overlay message for an action's alert; optional parts are left out when unused.
+export function alertMessage(output: Extract<ActionOutput, { type: 'alert' }>, speech: Speech | null): ServerToOverlay {
+  return {
+    type: 'alert',
+    text: output.text,
+    sound: output.sound,
+    speech,
+    ...(output.soundFile && { soundFile: output.soundFile }),
+    ...(output.media && { media: output.media }),
+    ...(output.durationMs !== DEFAULT_ALERT_MS && { durationMs: output.durationMs }),
+    ...(output.screen && { screen: output.screen }),
+  };
 }
 
 // What's kept of each viewer event besides its kind, viewer and time.
@@ -407,6 +425,10 @@ function eventData(event: ViewerEvent): Record<string, unknown> {
       return { gift: event.giftName, count: event.count, diamonds: event.diamonds };
     case 'like':
       return { count: event.count };
+    case 'subscribe':
+      return { months: event.months };
+    case 'emote':
+      return { emoteId: event.emoteId };
     default:
       return {};
   }

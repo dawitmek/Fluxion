@@ -1,6 +1,6 @@
 import type { FastifyInstance } from 'fastify';
 import { and, eq } from 'drizzle-orm';
-import { commands, giftTriggers, hosts, profiles } from '../db/schema.js';
+import { actions, commands, hosts, profiles } from '../db/schema.js';
 import { requireHost } from '../auth/session.js';
 import { isUniqueViolation } from '../db/client.js';
 import { activeProfile, sendProfileToCompanions } from './active.js';
@@ -34,7 +34,7 @@ export async function profileRoutes(app: FastifyInstance) {
     return rows.map((p) => ({ id: p.id, name: p.name, gameProcess: p.gameProcess, active: p.id === active.id }));
   });
 
-  // A new profile starts as a copy of the active one: settings, commands and gift triggers.
+  // A new profile starts as a copy of the active one: settings, commands and the profile's own actions.
   app.post<{ Body: Body }>(
     '/',
     { schema: { body: { type: 'object', additionalProperties: false, required: ['name'], properties: fields } } },
@@ -53,11 +53,10 @@ export async function profileRoutes(app: FastifyInstance) {
             const [copy] = await tx.insert(commands).values({ ...command, profileId: profile!.id }).returning({ id: commands.id });
             newIds.set(id, copy!.id);
           }
-          const oldTriggers = await tx.select().from(giftTriggers).where(eq(giftTriggers.profileId, source.id));
-          if (oldTriggers.length > 0) {
-            await tx.insert(giftTriggers).values(
-              oldTriggers.map(({ id: _id, ...t }) => ({ ...t, profileId: profile!.id, commandId: newIds.get(t.commandId)! })),
-            );
+          const oldActions = await tx.select().from(actions).where(eq(actions.profileId, source.id));
+          for (const { id: _id, position: _position, ...action } of oldActions) {
+            const keyCommandId = action.keyCommandId && (newIds.get(action.keyCommandId) ?? null);
+            await tx.insert(actions).values({ ...action, profileId: profile!.id, keyCommandId });
           }
           return profile!;
         });

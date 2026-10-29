@@ -1,6 +1,6 @@
 import { describe, expect, it } from 'vitest';
 import { WebcastEvent } from 'tiktok-live-connector';
-import { toViewerEvent } from '../src/platforms/tiktok.js';
+import { toRoomStats, toViewerEvent } from '../src/platforms/tiktok.js';
 
 describe('toViewerEvent', () => {
   it('maps chat in both documented and proto payload shapes', () => {
@@ -52,5 +52,33 @@ describe('toViewerEvent', () => {
     });
     expect(toViewerEvent(WebcastEvent.FOLLOW, { user: { uniqueId: 'a' } }, 1)).toEqual({ kind: 'follow', viewerId: 'a', at: 1 });
     expect(toViewerEvent(WebcastEvent.SHARE, { user: { uniqueId: 'a' } }, 1)).toEqual({ kind: 'share', viewerId: 'a', at: 1 });
+  });
+
+  it('maps subscriptions and stickers, and badges when TikTok sends them', () => {
+    expect(toViewerEvent(WebcastEvent.SUB_NOTIFY, { user: { uniqueId: 'alice' }, subMonth: '4' }, 1)).toEqual({
+      kind: 'subscribe',
+      viewerId: 'alice',
+      months: 4,
+      at: 1,
+    });
+    expect(toViewerEvent(WebcastEvent.EMOTE, { user: { uniqueId: 'bob' }, emoteList: [{ emoteId: '77' }] }, 1)).toEqual({
+      kind: 'emote',
+      viewerId: 'bob',
+      emoteId: '77',
+      at: 1,
+    });
+    expect(
+      toViewerEvent(WebcastEvent.CHAT, { user: { uniqueId: 'mod' }, content: 'hi', userIdentity: { isFollowerOfAnchor: true, isModeratorOfAnchor: true } }, 1),
+    ).toEqual({ kind: 'comment', viewerId: 'mod', text: 'hi', at: 1, badges: ['follower', 'moderator'] });
+    // No identity means TikTok didn't say, which is not the same as no badges.
+    expect(toViewerEvent(WebcastEvent.FOLLOW, { user: { uniqueId: 'x' } }, 1)).not.toHaveProperty('badges');
+  });
+
+  it('reads viewer counts and top gifters', () => {
+    expect(toRoomStats({ total: '1520', ranks: [{ user: { uniqueId: 'big' } }, { user: { displayId: 'next' } }, {}] })).toEqual({
+      viewers: 1520,
+      topGifters: ['big', 'next'],
+    });
+    expect(toRoomStats({ viewerCount: 9 })).toEqual({ viewers: 9, topGifters: [] });
   });
 });

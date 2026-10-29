@@ -7,7 +7,7 @@ import { ErrorNotice, useError } from '../ui';
 import { useLiveFeed, type LiveFeed } from './live-feed';
 import { LivePage } from './LivePage';
 import { CommandsPage } from './CommandsPage';
-import { GiftsPage } from './GiftsPage';
+import { ActionsPage } from './ActionsPage';
 import { VoicePage } from './VoicePage';
 import { LeaderboardPage } from './LeaderboardPage';
 import { AnalyticsPage } from './AnalyticsPage';
@@ -32,7 +32,7 @@ const SECTIONS: Section[][] = [
   [
     { path: '/dashboard', label: 'Live', blurb: 'What chat is doing right now, and the controls to go live.', icon: 'live', hue: 'red', page: LivePage },
     { path: '/dashboard/commands', label: 'Commands', blurb: 'What chat types, the key it presses, and how the crowd shares control.', icon: 'commands', hue: 'indigo', page: CommandsPage },
-    { path: '/dashboard/gifts', label: 'Gifts and alerts', blurb: 'Gifts that press keys, and alerts that thank people on stream.', icon: 'gift', hue: 'pink', page: GiftsPage },
+    { path: '/dashboard/actions', label: 'Actions', blurb: 'What happens on stream when viewers follow, gift, subscribe or type a command.', icon: 'gift', hue: 'pink', page: ActionsPage },
     { path: '/dashboard/voice', label: 'Voice', blurb: 'What gets read aloud on your stream, and how it sounds.', icon: 'voice', hue: 'violet', page: VoicePage },
     { path: '/dashboard/leaderboard', label: 'Leaderboard', blurb: 'Who plays the most, and the levels and points viewers earn.', icon: 'leaderboard', hue: 'sky', page: LeaderboardPage },
     { path: '/dashboard/analytics', label: 'Analytics', blurb: 'How your streams are going, and how chat plays.', icon: 'analytics', hue: 'teal', page: AnalyticsPage },

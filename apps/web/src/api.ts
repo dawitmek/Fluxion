@@ -20,9 +20,38 @@ export async function api<T = unknown>(method: string, path: string, body?: unkn
   return data as T;
 }
 
-import type { AlertEvent, AlertSound, CloudProvider, LeaderboardEntry, Mode, Speech, TtsEngine, TtsMode, VoiceEffect } from '@fluxion/shared';
+import type {
+  ActionTrigger,
+  AlertPosition,
+  AlertSound,
+  Audience,
+  CloudProvider,
+  LeaderboardEntry,
+  MediaItem,
+  Mode,
+  OverlayScreen,
+  Speech,
+  TtsEngine,
+  TtsMode,
+  VoiceEffect,
+} from '@fluxion/shared';
 
-export type { AlertEvent, AlertSound, CloudProvider, LeaderboardEntry, Mode, Speech, TtsEngine, TtsMode, VoiceEffect };
+export type { ActionTrigger, AlertPosition, AlertSound, Audience, CloudProvider, LeaderboardEntry, MediaItem, Mode, Speech, TtsEngine, TtsMode, VoiceEffect };
+
+// Sends a file as the raw request body; the server works out what it is.
+export async function uploadMedia(file: File): Promise<MediaItem> {
+  const res = await fetch(`/api/media?name=${encodeURIComponent(file.name.replace(/\.[^.]+$/, '') || file.name)}`, {
+    method: 'POST',
+    headers: { 'content-type': 'application/octet-stream' },
+    body: file,
+  });
+  const data = await res.json().catch(() => ({}));
+  if (!res.ok) {
+    const message = res.status === 413 && !data.error ? 'That file is over 10 MB' : (data.error ?? `Upload failed (${res.status})`);
+    throw new ApiError(message, res.status);
+  }
+  return data as MediaItem;
+}
 
 export interface Host {
   id: string;
@@ -76,29 +105,40 @@ export interface Command {
   cost: number;
 }
 
-export interface AlertRule {
+export interface Action {
   id: string;
-  event: AlertEvent;
-  giftName: string | null;
-  likeStep: number | null;
-  template: string;
-  sound: AlertSound | null;
-  speak: boolean;
+  profileId: string | null; // null: every profile
+  name: string;
   enabled: boolean;
+  trigger: ActionTrigger;
+  giftName: string | null;
+  minDiamonds: number | null;
+  likeStep: number | null;
+  command: string | null;
+  audience: Audience;
+  audienceViewer: string | null;
+  cooldownMs: number;
+  viewerCooldownMs: number;
+  random: boolean;
+  text: string | null;
+  sound: AlertSound | null;
+  soundMediaId: string | null;
+  mediaId: string | null;
+  speak: boolean;
+  durationMs: number;
+  keyCommandId: string | null;
+  repeatWithCount: boolean;
+  points: number;
+  screenId: string | null;
 }
+
+export type Screen = OverlayScreen & { token: string };
 
 export interface Profile {
   id: string;
   name: string;
   gameProcess: string | null;
   active: boolean;
-}
-
-export interface GiftTrigger {
-  id: string;
-  giftName: string;
-  commandId: string;
-  keyword: string;
 }
 
 export interface Companion {

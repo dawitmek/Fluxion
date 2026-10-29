@@ -2,7 +2,8 @@ import type { FastifyInstance } from 'fastify';
 import type { WebSocket } from 'ws';
 import { eq } from 'drizzle-orm';
 import { PROTOCOL_VERSION, type CompanionToServer, type ServerToCompanion } from '@fluxion/shared';
-import { companions, hosts } from '../db/schema.js';
+import { companions, overlayScreens } from '../db/schema.js';
+import { toScreen } from '../screens/routes.js';
 import { sha256 } from '../crypto.js';
 import { sendProfileToCompanions } from '../profiles/active.js';
 
@@ -63,9 +64,10 @@ export async function gatewayRoutes(app: FastifyInstance) {
   // Overlays are read-only browser sources; the secret token in the URL is the norm for those.
   app.get<{ Querystring: { token?: string } }>('/ws/overlay', { websocket: true }, async (socket, req) => {
     const token = req.query.token;
-    const [host] = token ? await db.select({ id: hosts.id }).from(hosts).where(eq(hosts.overlayToken, token)) : [];
-    if (!host) return socket.close(4001, 'Unauthorized');
-    hub.addOverlay(host.id, socket);
-    for (const message of await app.live.overlaySnapshot(host.id)) socket.send(JSON.stringify(message));
+    const [row] = token ? await db.select().from(overlayScreens).where(eq(overlayScreens.token, token)) : [];
+    if (!row) return socket.close(4001, 'Unauthorized');
+    hub.addOverlay(row.hostId, row.id, socket);
+    socket.send(JSON.stringify({ type: 'screen', screen: toScreen(row) }));
+    for (const message of await app.live.overlaySnapshot(row.hostId)) socket.send(JSON.stringify(message));
   });
 }

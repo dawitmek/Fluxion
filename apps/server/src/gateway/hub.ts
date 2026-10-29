@@ -4,7 +4,7 @@ import type { ServerToCompanion, ServerToOverlay } from '@fluxion/shared';
 // Tracks open sockets per host. In-memory: one server process owns its hosts' sockets.
 export class Hub {
   private companions = new Map<string, Map<string, WebSocket>>(); // hostId -> companionId -> socket
-  private overlays = new Map<string, Set<WebSocket>>();
+  private overlays = new Map<string, Map<WebSocket, string>>(); // hostId -> socket -> screen id
 
   addCompanion(hostId: string, companionId: string, socket: WebSocket) {
     let sockets = this.companions.get(hostId);
@@ -16,10 +16,10 @@ export class Hub {
     });
   }
 
-  addOverlay(hostId: string, socket: WebSocket) {
+  addOverlay(hostId: string, screenId: string, socket: WebSocket) {
     let sockets = this.overlays.get(hostId);
-    if (!sockets) this.overlays.set(hostId, (sockets = new Set()));
-    sockets.add(socket);
+    if (!sockets) this.overlays.set(hostId, (sockets = new Map()));
+    sockets.set(socket, screenId);
     socket.on('close', () => sockets.delete(socket));
   }
 
@@ -38,7 +38,14 @@ export class Hub {
   }
 
   sendToOverlays(hostId: string, message: ServerToOverlay) {
-    send(this.overlays.get(hostId)?.values(), message);
+    send(this.overlays.get(hostId)?.keys(), message);
+  }
+
+  // Only the overlays open on one screen; `close` disconnects them (the screen was deleted).
+  sendToScreen(hostId: string, screenId: string, message: ServerToOverlay | null) {
+    const sockets = [...(this.overlays.get(hostId) ?? [])].filter(([, id]) => id === screenId).map(([socket]) => socket);
+    if (message) send(sockets, message);
+    else for (const socket of sockets) socket.close(4001, 'Screen deleted');
   }
 }
 

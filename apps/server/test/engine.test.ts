@@ -1,6 +1,6 @@
 import { describe, expect, it } from 'vitest';
 import type { Mode, ViewerEvent } from '@fluxion/shared';
-import { createEngine, MAX_GIFT_REPEATS, type EngineConfig } from '../src/engine/index.js';
+import { createEngine, keyPresses, type EngineConfig } from '../src/engine/index.js';
 import { IDLE_MS } from '../src/engine/queue.js';
 import type { EngineCommand } from '../src/engine/types.js';
 
@@ -25,7 +25,6 @@ function setup(mode: Mode, config: Partial<EngineConfig> = {}, levels: Record<st
   const ctx = {
     config: {
       commands: [left, right, jump],
-      giftTriggers: [],
       actionsPerSecond: 100,
       voteWindowMs: 3000,
       turnMs: 30000,
@@ -220,31 +219,25 @@ describe('queue mode', () => {
   });
 });
 
-describe('gift triggers', () => {
-  const triggers = { giftTriggers: [{ giftName: 'rose', keyword: 'jump' }] };
-
-  it('press their command in every mode, once per gift in a streak', () => {
-    for (const mode of ['anarchy', 'democracy', 'queue', 'gift'] as const) {
-      const { engine } = setup(mode, triggers);
-      const decisions = engine.handle(gift('alice', 'Rose', 3));
-      expect(decisions.map((d) => [d.action.key, d.delayMs])).toEqual([
-        ['Space', undefined],
-        ['Space', 200],
-        ['Space', 400],
-      ]);
-    }
+describe('action key presses', () => {
+  it('press their command, spaced out, once per repeat', () => {
+    const { ctx } = setup('anarchy');
+    expect(keyPresses(ctx, 'jump', 'alice', 3).map((d) => [d.action.key, d.delayMs, d.credit])).toEqual([
+      ['Space', undefined, []],
+      ['Space', 200, []],
+      ['Space', 400, []],
+    ]);
   });
 
-  it(`cap a streak at ${MAX_GIFT_REPEATS} presses and ignore unmapped gifts`, () => {
-    const { press } = setup('anarchy', triggers);
-    expect(press(gift('alice', 'Rose', 99))).toHaveLength(MAX_GIFT_REPEATS);
-    expect(press(gift('alice', 'Lion'))).toEqual([]);
+  it('skip commands that are off or missing', () => {
+    const { ctx } = setup('anarchy', { commands: [{ ...jump, enabled: false }] });
+    expect(keyPresses(ctx, 'jump', 'alice', 1)).toEqual([]);
+    expect(keyPresses(ctx, 'nope', 'alice', 1)).toEqual([]);
   });
 
-  it('are the only thing that fires in gift-only mode', () => {
-    const { press, engine } = setup('gift', triggers);
+  it('leave gift-only mode with nothing for chat to do', () => {
+    const { press, engine } = setup('gift');
     expect(press(comment('alice', 'left'))).toEqual([]);
-    expect(press(gift('alice', 'rose'))).toEqual(['Space']);
     expect(engine.state()).toEqual({ mode: 'gift' });
   });
 });
@@ -265,10 +258,10 @@ describe('level gating', () => {
     expect(democracy.tick()).toEqual([]); // the vote never counted
   });
 
-  it('is off unless the host turns it on, and never applies to gift triggers', () => {
+  it('is off unless the host turns it on, and never applies to action key presses', () => {
     expect(setup('anarchy', { commands: [shoot] }, levels).press(comment('rookie', 'shoot'))).toEqual(['KeyF']);
-    const gifted = setup('anarchy', { commands: [shoot], levelGating: true, giftTriggers: [{ giftName: 'rose', keyword: 'shoot' }] }, levels);
-    expect(gifted.press(gift('rookie', 'Rose'))).toEqual(['KeyF']);
+    const gated = setup('anarchy', { commands: [shoot], levelGating: true }, levels);
+    expect(keyPresses(gated.ctx, 'shoot', 'rookie', 1)).toHaveLength(1);
   });
 });
 
@@ -293,9 +286,9 @@ describe('point costs', () => {
     expect(engine.tick()).toMatchObject([{ keyword: 'left', credit: ['other', 'more'], cost: 0 }]);
   });
 
-  it('is free with points off, and for gift triggers', () => {
+  it('is free with points off, and for action key presses', () => {
     expect(setup('anarchy', { commands: [nuke] }, {}, points).engine.handle(comment('broke', 'nuke'))).toMatchObject([{ cost: 0 }]);
-    const gifted = setup('anarchy', { commands: [nuke], points: true, giftTriggers: [{ giftName: 'rose', keyword: 'nuke' }] }, {}, points);
-    expect(gifted.engine.handle(gift('broke', 'rose'))).toMatchObject([{ keyword: 'nuke', credit: [], cost: 50 }]);
+    const { ctx } = setup('anarchy', { commands: [nuke], points: true }, {}, points);
+    expect(keyPresses(ctx, 'nuke', 'broke', 1)).toMatchObject([{ keyword: 'nuke', credit: [], cost: 0 }]);
   });
 });

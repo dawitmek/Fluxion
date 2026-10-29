@@ -3,14 +3,59 @@ export const PROTOCOL_VERSION = 1;
 
 export * from './keys.js';
 
-// Platform-neutral events produced by a platform adapter (TikTok first).
-export type ViewerEvent =
-  | { kind: 'comment'; viewerId: string; text: string; at: number }
-  | { kind: 'gift'; viewerId: string; giftId: number; giftName: string; count: number; diamonds: number; at: number } // diamonds per gift
-  | { kind: 'like'; viewerId: string; count: number; at: number }
-  | { kind: 'follow'; viewerId: string; at: number }
-  | { kind: 'share'; viewerId: string; at: number }
-  | { kind: 'join'; viewerId: string; at: number };
+// What the platform says about a viewer's relationship to the host, when it says anything.
+export const BADGES = ['follower', 'subscriber', 'moderator'] as const;
+export type Badge = (typeof BADGES)[number];
+
+// Platform-neutral events produced by a platform adapter (TikTok first). `badges` is absent when the
+// platform didn't say, which is not the same as an empty list.
+export type ViewerEvent = (
+  | { kind: 'comment'; text: string }
+  | { kind: 'gift'; giftId: number; giftName: string; count: number; diamonds: number } // diamonds per gift
+  | { kind: 'like'; count: number }
+  | { kind: 'follow' }
+  | { kind: 'share' }
+  | { kind: 'join' }
+  | { kind: 'subscribe'; months: number }
+  | { kind: 'emote'; emoteId: string } // a subscriber sticker sent in chat
+) & { viewerId: string; at: number; badges?: Badge[] };
+
+// An uploaded file for alerts.
+export const MEDIA_KINDS = ['image', 'video', 'audio'] as const;
+export type MediaKind = (typeof MEDIA_KINDS)[number];
+export const MAX_MEDIA_BYTES = 10 * 1024 * 1024;
+export const MAX_MEDIA_TOTAL_BYTES = 100 * 1024 * 1024; // per host
+export interface MediaItem {
+  id: string;
+  name: string;
+  kind: MediaKind;
+  mime: string;
+  size: number;
+  createdAt: number;
+}
+
+// An overlay URL and what it shows. Every host has a main screen (their original overlay address) and can add more,
+// to put alerts and widgets in different places. Only screens with audio play sounds and voices.
+export const ALERT_POSITIONS = ['top', 'middle', 'bottom'] as const;
+export type AlertPosition = (typeof ALERT_POSITIONS)[number];
+export interface OverlayScreen {
+  id: string;
+  name: string;
+  main: boolean;
+  alerts: boolean;
+  feed: boolean; // commands, level-ups and !points answers
+  leaderboard: boolean;
+  mode: boolean; // the vote, queue or gift-mode panel
+  audio: boolean;
+  alertPosition: AlertPosition;
+  scale: number; // percent
+}
+
+// How the stream is doing, sent by the platform every few seconds while live.
+export interface RoomStats {
+  viewers: number;
+  topGifters: string[]; // viewer ids, highest first, as TikTok ranks them for this stream
+}
 
 // A key press the server asks the companion to perform. The companion enforces its own whitelist.
 export interface KeyAction {
@@ -73,13 +118,22 @@ export function xpForLevel(level: number): number {
   return 10 * (level - 1) ** 2;
 }
 
-// Alerts: on-stream banners with a built-in sound, optionally read aloud.
-export const ALERT_EVENTS = ['follow', 'share', 'gift', 'likes'] as const;
-export type AlertEvent = (typeof ALERT_EVENTS)[number];
+// Actions: what happens when viewers do something. An action has one trigger, an audience it applies to, and
+// any of: an alert on the overlay (text, sound, picture or video), reading the text aloud, a key press, points.
+//   likes: every time the stream's total passes a multiple of likeStep
+//   command: a chat message that is the command, or starts with it and a space ({text} is the rest)
+//   first_activity: a viewer's first chat, gift, like, follow, share, subscription or sticker of the stream
+export const ACTION_TRIGGERS = ['follow', 'share', 'gift', 'likes', 'join', 'subscribe', 'emote', 'command', 'first_activity'] as const;
+export type ActionTrigger = (typeof ACTION_TRIGGERS)[number];
+// top_gifters: TikTok's top three gifters of the stream; viewer: one named viewer.
+export const AUDIENCES = ['everyone', 'followers', 'subscribers', 'moderators', 'top_gifters', 'viewer'] as const;
+export type Audience = (typeof AUDIENCES)[number];
+// A gift streak of N repeats an action's key press N times, up to this many.
+export const MAX_KEY_REPEATS = 10;
 // Synthesized in the overlay, so there are no audio files to host.
 export const ALERT_SOUNDS = ['chime', 'coin', 'pop', 'fanfare', 'whoosh'] as const;
 export type AlertSound = (typeof ALERT_SOUNDS)[number];
-// Template placeholders: {viewer}, {count}, {gift}, {total}.
+// Template placeholders: {viewer}, {count}, {gift}, {diamonds}, {total} (likes), {months}, {text} (command).
 
 export const TTS_MODES = ['off', 'prefix', 'all'] as const;
 export type TtsMode = (typeof TTS_MODES)[number];
@@ -150,16 +204,20 @@ export type ServerToOverlay =
   | { type: 'leaderboard'; entries: LeaderboardEntry[]; progression: boolean }
   | { type: 'levelUp'; viewer: string; level: number }
   | { type: 'points'; viewer: string; points: number } // answers a viewer's !points
-  | { type: 'alert'; text: string; sound: AlertSound | null; speech: Speech | null }
+  // An action's alert. soundFile and media are uploaded files (/media/:id); durationMs defaults to 5 s.
+  // screen: only that screen shows it; otherwise every screen that shows alerts.
+  | { type: 'alert'; text: string; sound: AlertSound | null; speech: Speech | null; soundFile?: string; media?: { id: string; kind: MediaKind }; durationMs?: number; screen?: string }
+  | { type: 'screen'; screen: OverlayScreen } // sent first, and again when the host changes the screen
   | { type: 'tts'; viewer: string; text: string; speech: Speech };
 
 // What's recorded during a stream: what viewers did, and what Fluxion did in response.
-//   comment {text}, gift {gift, count, diamonds}, like {count}, follow, share, join: viewer interactions
-//   command {keyword, via: 'chat' | 'vote' | 'gift'}: a key press fired (viewer is null for a vote's winner)
+//   comment {text}, gift {gift, count, diamonds}, like {count}, follow, share, join, subscribe {months}, emote {emoteId}:
+//   viewer interactions
+//   command {keyword, via: 'chat' | 'vote' | 'action'}: a key press fired (viewer is null for a vote's winner)
 //   refused {keyword, reason}: a command that matched but didn't fire (cooldown, rate limit, level, points, not their turn)
 //   level {level}, vote {winner, votes, total, voters, margin}, queue_join, turn {waitedMs}
 export type ActivityKind =
-  | 'comment' | 'gift' | 'like' | 'follow' | 'share' | 'join'
+  | 'comment' | 'gift' | 'like' | 'follow' | 'share' | 'join' | 'subscribe' | 'emote'
   | 'command' | 'refused' | 'level' | 'vote' | 'queue_join' | 'turn';
 
 export interface StreamEvent {

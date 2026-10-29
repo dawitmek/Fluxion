@@ -218,8 +218,8 @@ const TABS: { title: string; body: string; panel: ReactNode }[] = [
     ),
   },
   {
-    title: 'Gifts and alerts',
-    body: 'Gift triggers press a command for every gift in a streak. Alerts show big on stream with a built-in sound.',
+    title: 'Actions and alerts',
+    body: 'A gift, follow, subscription or chat command can show an alert, play your own sound or video, press a key, or give points.',
     panel: (
       <div className="s-panel-window">
         <h4>Alerts</h4>
