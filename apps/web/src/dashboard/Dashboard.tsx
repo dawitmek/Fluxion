@@ -11,6 +11,7 @@ import { GiftsPage } from './GiftsPage';
 import { VoicePage } from './VoicePage';
 import { LeaderboardPage } from './LeaderboardPage';
 import { AnalyticsPage } from './AnalyticsPage';
+import { ViewerContext, ViewerPanel } from './ViewerPanel';
 import { ProfilesPage } from './ProfilesPage';
 import { CompanionPage } from './CompanionPage';
 import { OverlayPage } from './OverlayPage';
@@ -66,6 +67,8 @@ function Shell({ host, refreshHost }: { host: Host; refreshHost: () => Promise<u
   const path = usePath();
   const [menuOpen, setMenuOpen] = useState(false);
   const [status, setStatus] = useState<LiveStatus>({ live: false, companionsOnline: 0 });
+  const [viewer, setViewer] = useState<string | null>(null); // whose profile is open
+  const closeViewer = useCallback(() => setViewer(null), []);
   const feed = useLiveFeed(host.overlayToken);
 
   useEffect(() => {
@@ -140,8 +143,11 @@ function Shell({ host, refreshHost }: { host: Host; refreshHost: () => Promise<u
           <h1>{section.label}</h1>
           <p>{section.blurb}</p>
         </header>
-        {/* Keyed by profile so switching profiles reloads everything that belongs to one. */}
-        <Page key={host.profileId} host={host} refreshHost={refreshHost} status={status} setStatus={setStatus} feed={feed} />
+        <ViewerContext.Provider value={setViewer}>
+          {/* Keyed by profile so switching profiles reloads everything that belongs to one. */}
+          <Page key={host.profileId} host={host} refreshHost={refreshHost} status={status} setStatus={setStatus} feed={feed} />
+          {viewer && <ViewerPanel viewer={viewer} onClose={closeViewer} />}
+        </ViewerContext.Provider>
       </main>
     </div>
   );

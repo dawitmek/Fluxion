@@ -1,7 +1,8 @@
 import { useEffect, useRef, useState } from 'react';
-import type { StreamEvent } from '@fluxion/shared';
+import type { StreamEvent, StreamSummary } from '@fluxion/shared';
 import { api, type LiveStatus } from '../api';
 import { Icon } from '../icons';
+import { ViewerLink } from './ViewerPanel';
 
 type Kind = 'comment' | 'gift' | 'join' | 'follow' | 'share' | 'like';
 const FILTERS: { kind: Kind; label: string; tag: string }[] = [
@@ -12,16 +13,19 @@ const FILTERS: { kind: Kind; label: string; tag: string }[] = [
   { kind: 'share', label: 'Shares', tag: 'green' },
   { kind: 'like', label: 'Likes', tag: 'amber' },
 ];
+// Tag text and colour for each kind of event, also used by viewer profiles.
+export const KIND_TAGS: Partial<Record<StreamEvent['kind'], { label: string; hue: string }>> = Object.fromEntries(
+  FILTERS.map((f) => [f.kind, { label: f.label.replace(/s$/, ''), hue: f.tag }]),
+);
 const PAGE = 100;
 const POLL_MS = 2000;
-const OPEN_KEY = 'fluxion-activity-open';
 
 interface Page {
   stream: { id: string; source: 'tiktok' | 'simulated'; startedAt: number; live: boolean } | null;
   events: StreamEvent[];
 }
 
-function describe(e: StreamEvent): string {
+export function describeEvent(e: StreamEvent): string {
   switch (e.kind) {
     case 'comment':
       return String(e.data.text);
@@ -43,17 +47,23 @@ function describe(e: StreamEvent): string {
   }
 }
 
-const readOpen = () => {
+const readOpen = (key: string) => {
   try {
-    return localStorage.getItem(OPEN_KEY) === '1';
+    return localStorage.getItem(key) === '1';
   } catch {
     return false;
   }
 };
 
-// Everything viewers did during the current stream (or the last one): chat, gifts, joins, follows, shares, likes.
-export function ActivityFeed({ status }: { status: LiveStatus }) {
-  const [open, setOpen] = useState(readOpen);
+const streamLabel = (s: StreamSummary) =>
+  `${new Date(s.startedAt).toLocaleString([], { weekday: 'short', month: 'short', day: 'numeric', hour: 'numeric', minute: '2-digit' })}${s.tiktokUsername ? ` (@${s.tiktokUsername})` : ''}`;
+
+// Everything viewers did during a stream: chat, gifts, joins, follows, shares, likes. Shows the current (or last)
+// stream with a picker for earlier ones, or always `stream` when given.
+export function ActivityFeed({ status, stream: fixed, storageKey = 'fluxion-activity-open' }: { status: LiveStatus; stream?: string; storageKey?: string }) {
+  const [open, setOpen] = useState(() => readOpen(storageKey));
+  const [selected, setSelected] = useState(fixed ?? 'latest');
+  const [pastStreams, setPastStreams] = useState<StreamSummary[]>([]);
   const [kinds, setKinds] = useState<Kind[]>(FILTERS.map((f) => f.kind));
   const [search, setSearch] = useState('');
   const [viewer, setViewer] = useState(''); // search, applied after typing pauses
@@ -65,7 +75,7 @@ export function ActivityFeed({ status }: { status: LiveStatus }) {
   const toggle = () => {
     setOpen(!open);
     try {
-      localStorage.setItem(OPEN_KEY, open ? '0' : '1');
+      localStorage.setItem(storageKey, open ? '0' : '1');
     } catch {
       // not remembered, that's all
     }
@@ -79,11 +89,17 @@ export function ActivityFeed({ status }: { status: LiveStatus }) {
   const query = (extra: string) =>
     `/analytics/activity?kinds=${kinds.join(',')}${viewer ? `&viewer=${encodeURIComponent(viewer)}` : ''}${extra}`;
 
-  // A fresh first page whenever the filters change or a stream starts or stops.
+  useEffect(() => setSelected(fixed ?? 'latest'), [fixed]);
+  // Earlier streams for the picker.
+  useEffect(() => {
+    if (open && !fixed) void api<StreamSummary[]>('GET', '/analytics/streams').then(setPastStreams);
+  }, [open, fixed, status.live]);
+
+  // A fresh first page whenever the stream or filters change, or a stream starts or stops.
   useEffect(() => {
     if (!open || kinds.length === 0) return;
     let cancelled = false;
-    api<Page>('GET', query(`&limit=${PAGE}`)).then((p) => {
+    api<Page>('GET', query(`&stream=${selected}&limit=${PAGE}`)).then((p) => {
       if (cancelled) return;
       setPage(p);
       setHasOlder(p.events.length === PAGE);
@@ -92,7 +108,7 @@ export function ActivityFeed({ status }: { status: LiveStatus }) {
     return () => {
       cancelled = true;
     };
-  }, [open, kinds, viewer, status.live, status.startedAt]);
+  }, [open, selected, kinds, viewer, status.live, status.startedAt]);
 
   // While live, what's new every couple of seconds.
   useEffect(() => {
@@ -141,8 +157,20 @@ export function ActivityFeed({ status }: { status: LiveStatus }) {
               ))}
             </div>
             <input className="input activity-search" type="search" placeholder="Search viewers" aria-label="Search viewers" value={search} onChange={(e) => setSearch(e.target.value)} />
+            {!fixed && pastStreams.length > 0 && (
+              <select className="input activity-stream" aria-label="Stream" value={selected} onChange={(e) => setSelected(e.target.value)}>
+                <option value="latest">{status.live ? 'This stream' : 'Latest session'}</option>
+                {pastStreams
+                  .filter((s) => s.id !== page?.stream?.id || selected !== 'latest')
+                  .map((s) => (
+                    <option key={s.id} value={s.id}>
+                      {streamLabel(s)}
+                    </option>
+                  ))}
+              </select>
+            )}
           </div>
-          {stream && (
+          {stream && !fixed && (
             <p className="muted small">
               {stream.live
                 ? stream.source === 'simulated'
@@ -168,7 +196,7 @@ export function ActivityFeed({ status }: { status: LiveStatus }) {
                     </time>
                     <span className={`tag ${filter?.tag ?? ''}`}>{filter?.label.replace(/s$/, '') ?? e.kind}</span>
                     <span className="activity-text">
-                      <strong>{e.viewer}</strong> <span className={e.kind === 'comment' ? '' : 'muted'}>{describe(e)}</span>
+                      {e.viewer && <ViewerLink name={e.viewer} />} <span className={e.kind === 'comment' ? '' : 'muted'}>{describeEvent(e)}</span>
                     </span>
                   </li>
                 );

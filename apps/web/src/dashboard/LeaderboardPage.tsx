@@ -3,6 +3,7 @@ import { levelForXp, xpForLevel } from '@fluxion/shared';
 import { api, type Host, type LeaderboardEntry } from '../api';
 import { Card, ErrorNotice, Switch, useError } from '../ui';
 import type { PageProps } from './Dashboard';
+import { ViewerLink } from './ViewerPanel';
 
 export function LeaderboardPage({ host, refreshHost, feed }: PageProps) {
   return (
@@ -61,7 +62,7 @@ function LeaderboardCard({ host, live }: { host: Host; live: LeaderboardEntry[] 
                     <span className={`rank ${i < 3 ? ['violet', 'pink', 'sky'][i] : ''}`}>{i + 1}</span>
                   </td>
                   <td>
-                    <strong>{e.viewer}</strong>
+                    <ViewerLink name={e.viewer} />
                   </td>
                   <td className="num">{e.commands}</td>
                   <td className="num">{e.gifts}</td>

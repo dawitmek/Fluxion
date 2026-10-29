@@ -7,6 +7,7 @@ import type { PageProps } from './Dashboard';
 import type { ActivityKind } from './live-feed';
 import { MODE_INFO } from './modes';
 import { ActivityFeed } from './ActivityFeed';
+import { ViewerLink } from './ViewerPanel';
 import { ActivityChart, CommandUsage, useStreamDetail } from './StreamInsights';
 
 export function LivePage(props: PageProps) {
@@ -345,7 +346,7 @@ function TopPlayers({ host, feed }: PageProps) {
           <div style={{ flex: 1, minWidth: 0 }}>
             <div className="row" style={{ justifyContent: 'space-between', flexWrap: 'nowrap' }}>
               <span className="player-name">
-                <strong>{e.viewer}</strong>
+                <ViewerLink name={e.viewer} />
                 {host.progression && <span className="muted"> level {levelForXp(e.xp)}</span>}
               </span>
               <span className="muted num">{host.progression ? `${e.xp} XP` : `${e.commands} commands`}</span>

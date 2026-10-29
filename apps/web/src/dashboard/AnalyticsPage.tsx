@@ -1,10 +1,12 @@
 import { useEffect, useState } from 'react';
 import type { StreamDetail, StreamSummary } from '@fluxion/shared';
-import { api } from '../api';
+import { api, type LiveStatus } from '../api';
 import { Card } from '../ui';
 import { BarList, ColumnChart } from './charts';
 import type { PageProps } from './Dashboard';
 import { ActivityChart, clock, CommandUsage, duration, useStreamDetail } from './StreamInsights';
+import { ActivityFeed } from './ActivityFeed';
+import { ViewerLink } from './ViewerPanel';
 
 const TREND_STREAMS = 20;
 
@@ -15,6 +17,7 @@ const number = (n: number) => n.toLocaleString();
 export function AnalyticsPage({ status }: PageProps) {
   const [streams, setStreams] = useState<StreamSummary[] | null>(null);
   const [selected, setSelected] = useState<string | null>(null);
+  const [account, setAccount] = useState<string>(''); // '' is every TikTok account
   useEffect(() => {
     const load = () => api<StreamSummary[]>('GET', '/analytics/streams').then(setStreams);
     void load();
@@ -29,12 +32,32 @@ export function AnalyticsPage({ status }: PageProps) {
       </Card>
     );
   }
-  const current = streams.find((s) => s.id === selected) ?? streams[0]!;
+  // Streams on different TikTok accounts reach different audiences, so they can be looked at separately.
+  const accounts = [...new Set(streams.map((s) => s.tiktokUsername).filter((a): a is string => a !== null))];
+  const shown = account ? streams.filter((s) => s.tiktokUsername === account) : streams;
+  const current = shown.find((s) => s.id === selected) ?? shown[0];
   return (
     <div className="stack">
-      <Trends streams={streams} />
-      <StreamList streams={streams} selected={current.id} onSelect={setSelected} />
-      <StreamReport key={current.id} summary={current} />
+      {accounts.length > 1 && (
+        <label className="row account-picker">
+          <span className="muted">TikTok account</span>
+          <select className="input" value={account} onChange={(e) => (setAccount(e.target.value), setSelected(null))}>
+            <option value="">All accounts</option>
+            {accounts.map((a) => (
+              <option key={a} value={a}>
+                @{a}
+              </option>
+            ))}
+          </select>
+        </label>
+      )}
+      {current && (
+        <>
+          <Trends streams={shown} />
+          <StreamList streams={shown} showAccount={accounts.length > 1 && !account} selected={current.id} onSelect={setSelected} />
+          <StreamReport key={current.id} summary={current} status={status} />
+        </>
+      )}
     </div>
   );
 }
@@ -60,7 +83,7 @@ function Trends({ streams }: { streams: StreamSummary[] }) {
       <div className="analytics-grid">
         <div>
           <h3>Viewers who took part</h3>
-          <p className="muted small">Chatted or sent a gift. New means their first time on any of your streams.</p>
+          <p className="muted small">Chatted or sent a gift. New means their first time on that TikTok account's streams.</p>
           <ColumnChart
             caption="Viewers who took part, per stream"
             series={[
@@ -88,7 +111,17 @@ function Trends({ streams }: { streams: StreamSummary[] }) {
   );
 }
 
-function StreamList({ streams, selected, onSelect }: { streams: StreamSummary[]; selected: string; onSelect: (id: string) => void }) {
+function StreamList({
+  streams,
+  showAccount,
+  selected,
+  onSelect,
+}: {
+  streams: StreamSummary[];
+  showAccount: boolean;
+  selected: string;
+  onSelect: (id: string) => void;
+}) {
   return (
     <Card title="Streams" description="Pick one for its details below.">
       <div className="table-wrap">
@@ -96,6 +129,7 @@ function StreamList({ streams, selected, onSelect }: { streams: StreamSummary[];
           <thead>
             <tr>
               <th>Started</th>
+              {showAccount && <th>Account</th>}
               <th>Length</th>
               <th>Took part</th>
               <th>New</th>
@@ -114,6 +148,7 @@ function StreamList({ streams, selected, onSelect }: { streams: StreamSummary[];
                   </button>
                   {s.endedAt === null && <span className="tag red">Live</span>}
                 </td>
+                {showAccount && <td>{s.tiktokUsername ? `@${s.tiktokUsername}` : '—'}</td>}
                 <td>{duration((s.endedAt ?? Date.now()) - s.startedAt)}</td>
                 <td>{number(s.participants)}</td>
                 <td>{number(s.newParticipants)}</td>
@@ -130,20 +165,26 @@ function StreamList({ streams, selected, onSelect }: { streams: StreamSummary[];
   );
 }
 
-function StreamReport({ summary }: { summary: StreamSummary }) {
+function StreamReport({ summary, status }: { summary: StreamSummary; status: LiveStatus }) {
   const detail = useStreamDetail(summary.id, summary.endedAt === null);
   if (!detail) return null;
   const s = detail.summary;
   return (
     <>
-      <Card title={`Stream on ${longDate(s.startedAt)}`} description={`${s.profileName} profile, ${duration((s.endedAt ?? Date.now()) - s.startedAt)}.`}>
+      <Card
+        title={`Stream on ${longDate(s.startedAt)}`}
+        description={`${s.tiktokUsername ? `@${s.tiktokUsername}, ` : ''}${s.profileName} profile, ${duration((s.endedAt ?? Date.now()) - s.startedAt)}.`}
+      >
         <div className="stat-tiles">
           <Stat label="Took part" value={number(s.participants)} note={`${number(s.newParticipants)} new`} />
           <Stat label="Joined" value={number(s.joins)} note="viewers" />
           <Stat label="Key presses" value={number(s.commands)} note={s.topCommand ? `mostly ${s.topCommand}` : undefined} />
           <Stat label="Diamonds" value={number(s.diamonds)} note={`${number(s.gifts)} gifts`} />
           <Stat label="New followers" value={number(s.follows)} />
-          <Stat label="Top player" value={s.topPlayer ?? '—'} />
+          <div className="stat-tile">
+            <span className="muted small">Top player</span>
+            <strong>{s.topPlayer ? <ViewerLink name={s.topPlayer} /> : '—'}</strong>
+          </div>
         </div>
         <h3>Chat over the stream</h3>
         <ActivityChart detail={detail} />
@@ -164,6 +205,7 @@ function StreamReport({ summary }: { summary: StreamSummary }) {
           <Modes detail={detail} />
         </Card>
       </div>
+      <ActivityFeed status={status} stream={s.id} storageKey="fluxion-report-activity-open" />
     </>
   );
 }
