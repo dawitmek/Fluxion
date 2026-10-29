@@ -23,7 +23,7 @@ export async function ttsRoutes(app: FastifyInstance) {
   // The voices the host's cloud account offers. Uses the saved key, which never comes back to the browser.
   app.get('/cloud-voices', async (req, reply) => {
     const [host] = await app.db.select().from(hosts).where(eq(hosts.id, req.hostId));
-    const cloud = voiceConfig(host!).cloud;
+    const cloud = voiceConfig(host!, app.secrets).cloud;
     if (!cloud) return reply.code(400).send({ error: 'Choose a cloud provider and enter your API key first' });
     try {
       return await listCloudVoices(cloud, app.speech.fetchImpl);
@@ -39,7 +39,7 @@ export async function ttsRoutes(app: FastifyInstance) {
     const text = typeof req.body?.text === 'string' && req.body.text.trim() ? req.body.text.slice(0, 200) : 'viewer says hello from Fluxion';
     const [host] = await app.db.select().from(hosts).where(eq(hosts.id, req.hostId));
     try {
-      return await app.speech.speakStrict(voiceConfig(host!), text);
+      return await app.speech.speakStrict(voiceConfig(host!, app.secrets), text);
     } catch (err) {
       return reply.code(502).send({ error: (err as Error).message });
     }

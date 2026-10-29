@@ -1,4 +1,5 @@
 import type { Speech, TtsEngine, VoiceEffect } from '@fluxion/shared';
+import type { Secrets } from '../crypto.js';
 import type { hosts } from '../db/schema.js';
 import { synthesizeCloud, type CloudVoice } from './cloud.js';
 import type { Piper } from './piper.js';
@@ -16,7 +17,9 @@ export interface VoiceConfig {
   effect: VoiceEffect;
 }
 
-export function voiceConfig(host: typeof hosts.$inferSelect): VoiceConfig {
+// Secrets are stored encrypted; this is where they're decrypted for use.
+export function voiceConfig(host: typeof hosts.$inferSelect, secrets: Secrets): VoiceConfig {
+  const cloudKey = secrets.open(host.ttsCloudKey);
   return {
     engine: host.ttsEngine,
     browserVoice: host.ttsVoice,
@@ -25,10 +28,10 @@ export function voiceConfig(host: typeof hosts.$inferSelect): VoiceConfig {
     piperSpeaker: host.ttsPiperSpeaker,
     effect: host.ttsEffect,
     cloud:
-      host.ttsCloudProvider && host.ttsCloudKey
-        ? { provider: host.ttsCloudProvider, key: host.ttsCloudKey, region: host.ttsCloudRegion, voice: host.ttsCloudVoice }
+      host.ttsCloudProvider && cloudKey
+        ? { provider: host.ttsCloudProvider, key: cloudKey, region: host.ttsCloudRegion, voice: host.ttsCloudVoice }
         : null,
-    tiktok: { session: host.ttsTiktokSession, voice: host.ttsTiktokVoice },
+    tiktok: { session: secrets.open(host.ttsTiktokSession), voice: host.ttsTiktokVoice },
   };
 }
 

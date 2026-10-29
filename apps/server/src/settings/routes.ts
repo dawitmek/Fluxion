@@ -93,6 +93,7 @@ export async function settingsRoutes(app: FastifyInstance) {
     async (req, reply) => {
       const { tiktokUsername, actionsPerSecond, progression, levelGating } = req.body;
       const tts = Object.fromEntries(Object.entries(req.body).filter(([k]) => k.startsWith('tts')));
+      if (typeof req.body.ttsCloudKey === 'string') tts.ttsCloudKey = app.secrets.seal(req.body.ttsCloudKey);
       // Speaker numbers belong to one Piper voice: a new voice starts at its first speaker,
       // and a speaker the voice doesn't have is refused rather than silently played as speaker 0.
       if (req.body.ttsPiperVoice !== undefined && req.body.ttsPiperSpeaker === undefined) tts.ttsPiperSpeaker = null;

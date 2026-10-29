@@ -201,7 +201,7 @@ export function SelfHostingPage() {
               <pre className="s-code">
                 <code>
                   git clone {GITHUB_URL} && cd Fluxion{'\n'}cp .env.example .env{'\n'}
-                  <span className="c"># edit .env: set POSTGRES_PASSWORD</span>
+                  <span className="c"># edit .env: set POSTGRES_PASSWORD, and SECRETS_KEY to: openssl rand -base64 32</span>
                   {'\n'}docker compose -f docker/compose.yml --env-file .env up -d --build
                 </code>
               </pre>
@@ -243,6 +243,12 @@ export function SelfHostingPage() {
                       <code>POSTGRES_PASSWORD</code>
                     </td>
                     <td>Database password (required)</td>
+                  </tr>
+                  <tr>
+                    <td>
+                      <code>SECRETS_KEY</code>
+                    </td>
+                    <td>Encrypts saved API keys and TikTok sessions (required). Back it up with your database</td>
                   </tr>
                   <tr>
                     <td>

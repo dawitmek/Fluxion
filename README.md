@@ -78,7 +78,7 @@ One container runs the server, dashboard and overlay, and a second runs Postgres
 ```sh
 git clone https://github.com/dawitmek/Fluxion && cd Fluxion
 cp .env.example .env
-# edit .env: set POSTGRES_PASSWORD
+# edit .env: set POSTGRES_PASSWORD, and SECRETS_KEY to the output of: openssl rand -base64 32
 docker compose -f docker/compose.yml --env-file .env up -d --build
 ```
 
@@ -93,7 +93,7 @@ You need Node 22 or later, and Docker for Postgres. The companion also needs Rus
 
 ```sh
 npm install
-cp .env.example .env
+cp .env.example .env                  # then set SECRETS_KEY: openssl rand -base64 32
 npm run dev                           # Postgres (Docker) + server + dashboard on http://localhost:5173
 npm run tauri dev -w apps/companion   # the companion, in another terminal
 npm test                              # unit and end-to-end tests (needs the database from npm run dev or db:up)

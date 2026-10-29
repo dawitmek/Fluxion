@@ -1,5 +1,5 @@
 # Self-hosted Fluxion: the server (with dashboard and overlay) plus Postgres.
-# Usage: cp .env.example .env, set POSTGRES_PASSWORD, then
+# Usage: cp .env.example .env, set POSTGRES_PASSWORD and SECRETS_KEY, then
 #   docker compose -f docker/compose.yml --env-file .env up -d --build
 # Put a reverse proxy with HTTPS in front of port 3000 (see docs/SELF_HOSTING.md).
 name: fluxion-selfhost
@@ -13,6 +13,7 @@ services:
     environment:
       DATABASE_URL: postgres://fluxion:${POSTGRES_PASSWORD:?set POSTGRES_PASSWORD in .env}@postgres:5432/fluxion
       EULER_API_KEY: ${EULER_API_KEY:-}
+      SECRETS_KEY: ${SECRETS_KEY:?set SECRETS_KEY in .env (openssl rand -base64 32)}
       TIKTOK_SESSION_ID: ${TIKTOK_SESSION_ID:-}
       COOKIE_SECURE: ${COOKIE_SECURE:-true}
     ports:

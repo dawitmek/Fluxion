@@ -100,7 +100,7 @@ export async function alertRoutes(app: FastifyInstance) {
       gift: rule.rule.giftName ?? 'Rose',
       total: rule.rule.likeStep ?? 1000,
     });
-    const speech = rule.rule.speak ? await app.speech.speak(voiceConfig(rule.host), text) : null;
+    const speech = rule.rule.speak ? await app.speech.speak(voiceConfig(rule.host, app.secrets), text) : null;
     app.hub.sendToOverlays(req.hostId, { type: 'alert', text, sound: rule.rule.sound, speech });
     return { ok: true };
   });

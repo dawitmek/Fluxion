@@ -8,8 +8,12 @@ import { runMigrations } from '../src/db/migrate.js';
 import type { PlatformAdapter } from '../src/platforms/types.js';
 import { Piper } from '../src/tts/piper.js';
 import { fileURLToPath } from 'node:url';
+import { randomBytes } from 'node:crypto';
+import { hosts } from '../src/db/schema.js';
+import { Secrets } from '../src/crypto.js';
 
 const databaseUrl = process.env.TEST_DATABASE_URL ?? 'postgres://fluxion:fluxion@127.0.0.1:5432/fluxion_test';
+const secretsKey = randomBytes(32);
 
 let app: Awaited<ReturnType<typeof buildApp>>;
 let baseWs: string;
@@ -38,7 +42,7 @@ beforeAll(async () => {
     throw new Error('TikTok must not be contacted in tests');
   };
   app = await buildApp(
-    { databaseUrl, port: 0, host: '127.0.0.1', eulerApiKey: undefined, production: false, secureCookies: false, piperBin: undefined, piperVoicesDir: undefined, tiktokSessionId: undefined },
+    { databaseUrl, port: 0, host: '127.0.0.1', eulerApiKey: undefined, production: false, secureCookies: false, piperBin: undefined, piperVoicesDir: undefined, tiktokSessionId: undefined, secretsKey },
     { logger: false, createTikTok: fakeTikTok, fetch: fakeFetch },
   );
   await app.listen({ port: 0, host: '127.0.0.1' });
@@ -510,6 +514,10 @@ describe('alerts and text-to-speech', () => {
     expect(bad.statusCode).toBe(502);
     expect(bad.json().error).toContain('Google TTS failed (403)');
 
+    // Stored encrypted, not as typed.
+    const [stored] = await app.db.select({ key: hosts.ttsCloudKey }).from(hosts);
+    expect(stored!.key).toMatch(/^enc:v1:/);
+
     // Clearing the key works too.
     await api(cookie, 'PATCH', '/api/settings', { ttsCloudKey: null });
     expect((await api(cookie, 'GET', '/api/auth/me')).json().ttsCloudKeySet).toBe(false);
@@ -534,6 +542,8 @@ describe('alerts and text-to-speech', () => {
     const me = (await api(cookie, 'GET', '/api/auth/me')).json();
     expect(me).toMatchObject({ ttsEngine: 'tiktok', ttsTiktokVoice: 'en_us_002', ttsTiktokConnected: true });
     expect(JSON.stringify(me)).not.toContain('goodsession');
+    const [stored] = await app.db.select({ session: hosts.ttsTiktokSession }).from(hosts);
+    expect(stored!.session).toMatch(/^enc:v1:/);
 
     cloudRequests.length = 0;
     expect((await api(cookie, 'POST', '/api/tts/preview', { text: 'hi & bye' })).json()).toEqual({ kind: 'audio', data: '//uQAA==', mime: 'audio/mpeg', effect: 'none' });
@@ -546,11 +556,25 @@ describe('alerts and text-to-speech', () => {
     expect((await api(cookie, 'GET', '/api/auth/me')).json().ttsTiktokConnected).toBe(false);
   });
 
+  it('encrypts secrets saved before encryption existed when the server starts', async () => {
+    await signUp();
+    await app.db.update(hosts).set({ ttsCloudKey: 'old-plain-key', ttsTiktokSession: 'oldplainsession' });
+    const restarted = await buildApp(
+      { databaseUrl, port: 0, host: '127.0.0.1', eulerApiKey: undefined, production: false, secureCookies: false, piperBin: undefined, piperVoicesDir: undefined, tiktokSessionId: undefined, secretsKey },
+      { logger: false },
+    );
+    await restarted.close();
+    const [row] = await app.db.select({ key: hosts.ttsCloudKey, session: hosts.ttsTiktokSession }).from(hosts);
+    expect(row!.key).toMatch(/^enc:v1:/);
+    const secrets = new Secrets(secretsKey);
+    expect([secrets.open(row!.key), secrets.open(row!.session)]).toEqual(['old-plain-key', 'oldplainsession']);
+  });
+
   it('keeps the Piper speaker within the chosen voice', async () => {
     // A second app with a fake Piper offering a 3-speaker and a 1-speaker voice.
     const fixture = (p: string) => fileURLToPath(new URL(`./fixtures/${p}`, import.meta.url));
     const withPiper = await buildApp(
-      { databaseUrl, port: 0, host: '127.0.0.1', eulerApiKey: undefined, production: false, secureCookies: false, piperBin: undefined, piperVoicesDir: undefined, tiktokSessionId: undefined },
+      { databaseUrl, port: 0, host: '127.0.0.1', eulerApiKey: undefined, production: false, secureCookies: false, piperBin: undefined, piperVoicesDir: undefined, tiktokSessionId: undefined, secretsKey },
       { logger: false, piper: new Piper(process.execPath, fixture('piper-voices'), [fixture('fake-piper.mjs')]) },
     );
     try {

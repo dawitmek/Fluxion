@@ -5,7 +5,7 @@ One container runs the server, dashboard and overlay; a second runs Postgres. Mi
 ```sh
 git clone <this repo> && cd Fluxion
 cp .env.example .env
-# edit .env: set POSTGRES_PASSWORD (and EULER_API_KEY if you have one)
+# edit .env: set POSTGRES_PASSWORD and SECRETS_KEY (openssl rand -base64 32), and EULER_API_KEY if you have one
 docker compose -f docker/compose.yml --env-file .env up -d --build
 ```
 
@@ -31,6 +31,7 @@ WebSockets (`/ws/companion`, `/ws/overlay`) pass through Caddy with no extra con
 | Variable | Default | Meaning |
 | --- | --- | --- |
 | `POSTGRES_PASSWORD` | required | Database password |
+| `SECRETS_KEY` | required | Encrypts hosts' API keys and TikTok sessions in the database. 32 random bytes in base64: `openssl rand -base64 32`. Back it up with the database; if it's lost or changed, hosts must enter those again |
 | `EULER_API_KEY` | empty | Optional Euler Stream key for TikTok request signing |
 | `TIKTOK_SESSION_ID` | empty | Optional `sessionid` cookie of a TikTok account, for TikTok voices. Every host without their own sign-in uses it. Use a spare account: the TikTok voice API is unofficial |
 | `COOKIE_SECURE` | `true` | Set `false` only to use plain HTTP on a private network |

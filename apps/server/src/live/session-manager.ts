@@ -1,5 +1,6 @@
 import { eq } from 'drizzle-orm';
 import { QUEUE_JOIN, XP_PER_COMMAND, type Mode, type ServerToOverlay, type ViewerEvent } from '@fluxion/shared';
+import type { Secrets } from '../crypto.js';
 import type { Db } from '../db/client.js';
 import { alertRules, commands, giftTriggers, hosts } from '../db/schema.js';
 import { createAlerts, parseBlockedWords, type AlertContext, type AlertOutput } from '../alerts/engine.js';
@@ -52,6 +53,7 @@ export class SessionManager {
     private hub: Hub,
     private stats: Stats,
     private speech: SpeechService,
+    private secrets: Secrets,
     private createTikTok: (username: string) => PlatformAdapter,
   ) {}
 
@@ -302,6 +304,6 @@ export class SessionManager {
         blockedWords: parseBlockedWords(host.ttsBlockedWords),
       },
     };
-    return { host, mode: profile.mode, config, alertConfig, voice: voiceConfig(host) };
+    return { host, mode: profile.mode, config, alertConfig, voice: voiceConfig(host, this.secrets) };
   }
 }

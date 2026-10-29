@@ -8,11 +8,17 @@ export interface Config {
   piperBin: string | undefined;
   piperVoicesDir: string | undefined;
   tiktokSessionId: string | undefined;
+  secretsKey: Buffer;
 }
 
 export function loadConfig(env: NodeJS.ProcessEnv = process.env): Config {
   const databaseUrl = env.DATABASE_URL;
   if (!databaseUrl) throw new Error('DATABASE_URL is required (see .env.example)');
+  // Encrypts hosts' API keys and TikTok sessions in the database. Losing it means hosts re-enter them.
+  const secretsKey = Buffer.from(env.SECRETS_KEY ?? '', 'base64');
+  if (secretsKey.length !== 32) {
+    throw new Error('SECRETS_KEY must be 32 random bytes in base64. Generate one with: openssl rand -base64 32');
+  }
   return {
     databaseUrl,
     port: Number(env.PORT ?? 3000),
@@ -26,5 +32,6 @@ export function loadConfig(env: NodeJS.ProcessEnv = process.env): Config {
     piperVoicesDir: env.PIPER_VOICES_DIR || undefined,
     // Optional: a TikTok account's sessionid cookie, used for TikTok voices by every host who hasn't signed in themselves.
     tiktokSessionId: env.TIKTOK_SESSION_ID || undefined,
+    secretsKey,
   };
 }

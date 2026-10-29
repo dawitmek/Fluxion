@@ -80,7 +80,7 @@ export async function companionRoutes(app: FastifyInstance) {
         if (err instanceof TiktokError) return reply.code(400).send({ error: err.message });
         throw err;
       }
-      await db.update(hosts).set({ ttsTiktokSession: req.body.sessionId }).where(eq(hosts.id, companion.hostId));
+      await db.update(hosts).set({ ttsTiktokSession: app.secrets.seal(req.body.sessionId) }).where(eq(hosts.id, companion.hostId));
       await app.live.reload(companion.hostId);
       return { ok: true };
     },

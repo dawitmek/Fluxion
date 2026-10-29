@@ -1,13 +1,16 @@
 import { existsSync } from 'node:fs';
 import { fileURLToPath } from 'node:url';
 import Fastify from 'fastify';
+import { eq, isNotNull, or } from 'drizzle-orm';
 import fastifyCookie from '@fastify/cookie';
 import fastifyRateLimit from '@fastify/rate-limit';
 import fastifyStatic from '@fastify/static';
 import fastifyWebsocket from '@fastify/websocket';
 import { PROTOCOL_VERSION } from '@fluxion/shared';
 import type { Config } from './config.js';
+import { Secrets } from './crypto.js';
 import { createDb, type Db } from './db/client.js';
+import { hosts } from './db/schema.js';
 import { Hub } from './gateway/hub.js';
 import { SessionManager } from './live/session-manager.js';
 import { Stats } from './leaderboard/stats.js';
@@ -36,6 +39,7 @@ declare module 'fastify' {
     stats: Stats;
     speech: SpeechService;
     piper: Piper;
+    secrets: Secrets;
   }
 }
 
@@ -58,6 +62,9 @@ export async function buildApp(config: Config, options: Options = {}) {
   app.decorate('config', config);
   app.decorate('db', db);
   app.decorate('hub', hub);
+  const secrets = new Secrets(config.secretsKey);
+  app.decorate('secrets', secrets);
+  await sealStoredSecrets(db, secrets);
   const stats = new Stats(db);
   const piper = options.piper ?? new Piper(config.piperBin, config.piperVoicesDir);
   const speech = new SpeechService(
@@ -69,7 +76,7 @@ export async function buildApp(config: Config, options: Options = {}) {
   app.decorate('stats', stats);
   app.decorate('piper', piper);
   app.decorate('speech', speech);
-  app.decorate('live', new SessionManager(db, hub, stats, speech, createTikTok));
+  app.decorate('live', new SessionManager(db, hub, stats, speech, secrets, createTikTok));
   app.addHook('onClose', async () => {
     await app.live.close();
     await close();
@@ -106,4 +113,17 @@ export async function buildApp(config: Config, options: Options = {}) {
   }
 
   return app;
+}
+
+// Encrypts secrets saved before encryption existed. Already-encrypted values are left alone, so this is cheap.
+async function sealStoredSecrets(db: Db, secrets: Secrets) {
+  const rows = await db
+    .select({ id: hosts.id, cloudKey: hosts.ttsCloudKey, tiktok: hosts.ttsTiktokSession })
+    .from(hosts)
+    .where(or(isNotNull(hosts.ttsCloudKey), isNotNull(hosts.ttsTiktokSession)));
+  const seal = (value: string | null) => (value === null || Secrets.isSealed(value) ? value : secrets.seal(value));
+  for (const row of rows) {
+    if ([row.cloudKey, row.tiktok].every((v) => v === null || Secrets.isSealed(v))) continue;
+    await db.update(hosts).set({ ttsCloudKey: seal(row.cloudKey), ttsTiktokSession: seal(row.tiktok) }).where(eq(hosts.id, row.id));
+  }
 }
