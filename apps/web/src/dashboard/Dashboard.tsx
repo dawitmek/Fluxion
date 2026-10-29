@@ -2,6 +2,7 @@ import { useCallback, useEffect, useState, type ReactNode } from 'react';
 import { api, type Host, type LiveStatus, type Profile } from '../api';
 import { Icon, Logo, type IconName } from '../icons';
 import { Link, navigate, usePath } from '../router';
+import { Glow } from '../site/Glow';
 import { ErrorNotice, useError } from '../ui';
 import { useLiveFeed, type LiveFeed } from './live-feed';
 import { LivePage } from './LivePage';
@@ -120,7 +121,9 @@ function Shell({ host, refreshHost }: { host: Host; refreshHost: () => Promise<u
       </nav>
 
       <main className="content">
-        <div className="content-glow" aria-hidden="true" />
+        <div className="content-glow" aria-hidden="true">
+          <Glow />
+        </div>
         <div className="topbar">
           <span className="crumbs">
             <span>Fluxion</span>

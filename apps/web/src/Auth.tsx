@@ -2,6 +2,7 @@ import { useState, type FormEvent } from 'react';
 import { api } from './api';
 import { Logo } from './icons';
 import { Link, navigate } from './router';
+import { Glow } from './site/Glow';
 import { ErrorNotice, useError } from './ui';
 
 // Only same-site paths, so a crafted ?next= can't send someone elsewhere after logging in.
@@ -23,7 +24,9 @@ export function Auth({ mode }: { mode: 'login' | 'signup' }) {
 
   return (
     <div className="auth">
-      <div className="content-glow" aria-hidden="true" />
+      <div className="content-glow" aria-hidden="true">
+        <Glow />
+      </div>
       <Link href="/" className="brand">
         <Logo />
         Fluxion

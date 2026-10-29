@@ -10,12 +10,12 @@
 .app { display: flex; align-items: flex-start; min-height: 100vh; background: var(--ground); }
 .content { position: relative; flex: 1; min-width: 0; padding: 0 36px 56px; isolation: isolate; overflow-x: clip; }
 .content-glow { position: absolute; z-index: -1; top: -120px; right: -60px; width: min(900px, 90%); height: 560px; pointer-events: none; opacity: var(--glow-strength); }
-.content-glow::before { content: ''; position: absolute; inset: 0; filter: blur(34px); background:
-  radial-gradient(40% 45% at 70% 40%, rgba(168, 85, 247, 0.5), transparent 70%),
-  radial-gradient(35% 40% at 90% 55%, rgba(244, 114, 182, 0.42), transparent 70%),
-  radial-gradient(45% 45% at 45% 45%, rgba(99, 102, 241, 0.4), transparent 70%); }
-.content-glow::after { content: ''; position: absolute; inset: 0; background-image: var(--grain); mix-blend-mode: overlay; opacity: 0.5;
-  -webkit-mask-image: radial-gradient(55% 60% at 65% 45%, #000, transparent 80%); mask-image: radial-gradient(55% 60% at 65% 45%, #000, transparent 80%); }
+/* The site's moving glow (site/Glow.tsx), quieter here so it stays behind the controls: fainter, and faded out
+   on every side rather than just the bottom. */
+.content-glow .s-glow { inset: 0; -webkit-mask-image: radial-gradient(closest-side at 58% 45%, #000 25%, transparent);
+  mask-image: radial-gradient(closest-side at 58% 45%, #000 25%, transparent); }
+.content-glow .s-blobs { opacity: 0.4; }
+.content-glow .s-glow.tracking .s-blob-pointer { opacity: 0.5; }
 
 /* The sidebar stays dark in both themes. */
 .sidebar {
