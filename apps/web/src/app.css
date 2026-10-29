@@ -354,7 +354,7 @@ label.btn.disabled { opacity: 0.6; pointer-events: none; }
 .spot-map.teal .lit { background: var(--teal); }
 .spot-map.orange .lit { background: var(--orange); }
 .with-icon { display: flex; align-items: center; gap: 8px; }
-/* A screen part's switch: a tile that takes on its color when it's on. */
+/* A screen part's switch: its icon and switch take its color when it's on. */
 .part-toggle { display: flex; align-items: flex-start; gap: 12px; padding: 12px 14px; border-radius: 12px; border: 1px solid var(--line); background: var(--panel); cursor: pointer; transition: border-color 0.15s, background 0.15s; }
 .part-toggle:hover { border-color: var(--line-strong); }
 .part-toggle-text { flex: 1; display: flex; flex-direction: column; gap: 2px; min-width: 0; }
@@ -362,12 +362,6 @@ label.btn.disabled { opacity: 0.6; pointer-events: none; }
 .part-toggle .switch { padding-top: 5px; }
 .part-toggle:not(.on) .hue-icon { color: var(--muted); background: var(--panel2); }
 .part-toggle:not(.on) strong { color: var(--muted); }
-.part-toggle.red.on { border-color: color-mix(in srgb, var(--red) 35%, transparent); background: color-mix(in srgb, var(--red-soft) 50%, var(--panel)); }
-.part-toggle.indigo.on { border-color: color-mix(in srgb, var(--indigo) 35%, transparent); background: color-mix(in srgb, var(--indigo-soft) 50%, var(--panel)); }
-.part-toggle.sky.on { border-color: color-mix(in srgb, var(--sky) 35%, transparent); background: color-mix(in srgb, var(--sky-soft) 50%, var(--panel)); }
-.part-toggle.pink.on { border-color: color-mix(in srgb, var(--pink) 35%, transparent); background: color-mix(in srgb, var(--pink-soft) 50%, var(--panel)); }
-.part-toggle.violet.on { border-color: color-mix(in srgb, var(--violet) 35%, transparent); background: color-mix(in srgb, var(--violet-soft) 50%, var(--panel)); }
-.part-toggle.teal.on { border-color: color-mix(in srgb, var(--teal) 35%, transparent); background: color-mix(in srgb, var(--teal-soft) 50%, var(--panel)); }
 .part-toggle.sky.on input:checked { background: var(--sky-fill); }
 .part-toggle.pink.on input:checked { background: var(--pink-fill); }
 .part-toggle.violet.on input:checked { background: var(--violet-fill); }

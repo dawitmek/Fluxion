@@ -144,11 +144,10 @@ code { font-family: ui-monospace, 'SF Mono', Consolas, monospace; font-size: 0.9
 .btn-primary:hover { opacity: 0.88; }
 .btn-ghost { border-color: transparent; background: transparent; color: var(--muted); }
 .btn-ghost:hover { color: var(--ink); background: var(--panel2); border-color: transparent; }
-/* Ghost buttons that delete or revoke something are red, and fill in on hover. */
-.btn-ghost.btn-delete { color: color-mix(in srgb, var(--red) 80%, var(--muted)); }
+/* Ghost buttons that delete or revoke something turn red on hover. */
 .btn-ghost.btn-delete:hover { color: var(--red); background: var(--red-soft); }
 /* Buttons that try something out without changing it (Preview, Test) share one color across the dashboard. */
-.btn-try { color: var(--teal); background: var(--teal-soft); border-color: color-mix(in srgb, var(--teal) 30%, transparent); }
+.btn-try { color: var(--teal); border-color: color-mix(in srgb, var(--teal) 30%, var(--line-strong)); }
 .btn-try:hover { border-color: var(--teal); }
 .btn-try[aria-expanded='true'] { color: #fff; background: var(--teal-fill); border-color: var(--teal-fill); }
 .btn-sm { min-height: 32px; padding: 0 12px; border-radius: 10px; font-size: 13px; }
