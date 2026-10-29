@@ -32,6 +32,7 @@
   --grain: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='180' height='180'%3E%3Cfilter id='n'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='.9' numOctaves='2' stitchTiles='stitch'/%3E%3C/filter%3E%3Crect width='100%25' height='100%25' filter='url(%23n)' opacity='.55'/%3E%3C/svg%3E");
   color-scheme: dark;
   position: relative;
+  isolation: isolate; /* so a glow behind the content (z-index -1) still sits above this background */
   min-height: 100vh;
   overflow-x: clip;
   background: var(--ground);
@@ -267,7 +268,11 @@
 
 /* Inner pages */
 .s-page-hero { position: relative; padding: 96px 0 24px; }
-.s-page-hero .s-glow { inset: -40% -10% auto 20%; height: 640px; opacity: 0.7; }
+/* Inner pages: the glow fills the window behind the whole page and stays put while it scrolls, fading off towards
+   the bottom left without ever quite going out. */
+.s-page-hero .s-glow { position: fixed; inset: 0; z-index: -1; opacity: 0.7;
+  -webkit-mask-image: radial-gradient(150% 110% at 65% 15%, #000 35%, rgba(0, 0, 0, 0.3) 100%);
+  mask-image: radial-gradient(150% 110% at 65% 15%, #000 35%, rgba(0, 0, 0, 0.3) 100%); }
 .s-page-hero .s-wrap { position: relative; z-index: 1; }
 .s-page-hero h1 { font-size: clamp(40px, 5.6vw, 72px); font-weight: 500; letter-spacing: -0.045em; line-height: 1.04; max-width: 16ch; }
 .s-page-hero p { margin-top: 20px; max-width: 58ch; font-size: 19px; color: #b9bdcc; line-height: 1.55; }
