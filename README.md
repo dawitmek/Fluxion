@@ -42,6 +42,9 @@ TikTok LIVE chat ──▶ Fluxion server ──▶ Companion app on your gaming
 - **Key combinations:** a command can press a key or a combination like Ctrl+Shift+E. Set it by pressing the keys.
 - **Game profiles:** each game keeps its own commands, gift triggers and mode. The companion targets the game's
   process automatically.
+- **Activity and analytics:** a full feed of everything viewers did during a stream (chat, gifts, joins, follows,
+  shares and likes), and an Analytics page with trends across streams. It covers new and returning viewers,
+  diamonds, how often each command fired or was refused, peak moments, gifts, and vote and queue stats.
 - **Test mode:** type as a pretend viewer and watch the keys press before you go live.
 
 ## Safety

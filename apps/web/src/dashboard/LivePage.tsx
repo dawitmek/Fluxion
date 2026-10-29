@@ -2,10 +2,12 @@ import { useEffect, useState, type FormEvent } from 'react';
 import { levelForXp, MODES, type LeaderboardEntry, type ModeState } from '@fluxion/shared';
 import { api, type Command, type LiveStatus } from '../api';
 import { Link } from '../router';
-import { ErrorNotice, keyLabel, Seg, useError } from '../ui';
+import { Card, ErrorNotice, keyLabel, Seg, useError } from '../ui';
 import type { PageProps } from './Dashboard';
 import type { ActivityKind } from './live-feed';
 import { MODE_INFO } from './modes';
+import { ActivityFeed } from './ActivityFeed';
+import { ActivityChart, CommandUsage, useStreamDetail } from './StreamInsights';
 
 export function LivePage(props: PageProps) {
   return (
@@ -15,6 +17,8 @@ export function LivePage(props: PageProps) {
         <div className="stack live-main">
           <CommandsOverview {...props} />
           {props.status.live && props.status.source === 'simulated' && <TestConsole />}
+          <ActivityFeed status={props.status} />
+          {props.status.live && <ThisStream />}
         </div>
         <aside className="stack live-side" aria-label="Happening now">
           <ModeCard {...props} />
@@ -408,5 +412,19 @@ function TestConsole() {
         </button>
       </div>
     </section>
+  );
+}
+
+// Charts for the stream that's on now; past streams are on the Analytics page.
+function ThisStream() {
+  const detail = useStreamDetail('latest', true);
+  if (!detail) return null;
+  return (
+    <Card title="This stream" description="Updates every few seconds. Past streams are on the Analytics page.">
+      <h3>Chat over the stream</h3>
+      <ActivityChart detail={detail} />
+      <h3>Commands</h3>
+      <CommandUsage detail={detail} />
+    </Card>
   );
 }

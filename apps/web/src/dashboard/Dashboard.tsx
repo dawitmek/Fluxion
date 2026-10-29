@@ -10,6 +10,7 @@ import { CommandsPage } from './CommandsPage';
 import { GiftsPage } from './GiftsPage';
 import { VoicePage } from './VoicePage';
 import { LeaderboardPage } from './LeaderboardPage';
+import { AnalyticsPage } from './AnalyticsPage';
 import { ProfilesPage } from './ProfilesPage';
 import { CompanionPage } from './CompanionPage';
 import { OverlayPage } from './OverlayPage';
@@ -33,6 +34,7 @@ const SECTIONS: Section[][] = [
     { path: '/dashboard/gifts', label: 'Gifts and alerts', blurb: 'Gifts that press keys, and alerts that thank people on stream.', icon: 'gift', hue: 'pink', page: GiftsPage },
     { path: '/dashboard/voice', label: 'Voice', blurb: 'What gets read aloud on your stream, and how it sounds.', icon: 'voice', hue: 'violet', page: VoicePage },
     { path: '/dashboard/leaderboard', label: 'Leaderboard', blurb: 'Who plays the most, and the levels viewers earn.', icon: 'leaderboard', hue: 'sky', page: LeaderboardPage },
+    { path: '/dashboard/analytics', label: 'Analytics', blurb: 'How your streams are going, and how chat plays.', icon: 'analytics', hue: 'teal', page: AnalyticsPage },
     { path: '/dashboard/profiles', label: 'Game profiles', blurb: 'A set of commands, gifts and crowd mode for each game.', icon: 'profiles', hue: 'teal', page: ProfilesPage },
   ],
   [

@@ -1,0 +1,187 @@
+import { useEffect, useRef, useState } from 'react';
+import type { StreamEvent } from '@fluxion/shared';
+import { api, type LiveStatus } from '../api';
+import { Icon } from '../icons';
+
+type Kind = 'comment' | 'gift' | 'join' | 'follow' | 'share' | 'like';
+const FILTERS: { kind: Kind; label: string; tag: string }[] = [
+  { kind: 'comment', label: 'Chat', tag: 'sky' },
+  { kind: 'gift', label: 'Gifts', tag: 'pink' },
+  { kind: 'join', label: 'Joins', tag: 'teal' },
+  { kind: 'follow', label: 'Follows', tag: 'violet' },
+  { kind: 'share', label: 'Shares', tag: 'green' },
+  { kind: 'like', label: 'Likes', tag: 'amber' },
+];
+const PAGE = 100;
+const POLL_MS = 2000;
+const OPEN_KEY = 'fluxion-activity-open';
+
+interface Page {
+  stream: { id: string; source: 'tiktok' | 'simulated'; startedAt: number; live: boolean } | null;
+  events: StreamEvent[];
+}
+
+function describe(e: StreamEvent): string {
+  switch (e.kind) {
+    case 'comment':
+      return String(e.data.text);
+    case 'gift': {
+      const count = Number(e.data.count);
+      const diamonds = count * Number(e.data.diamonds);
+      return `sent ${count > 1 ? `${count}× ` : ''}${String(e.data.gift)} (${diamonds} diamond${diamonds === 1 ? '' : 's'})`;
+    }
+    case 'like':
+      return `liked the stream${Number(e.data.count) > 1 ? ` ×${e.data.count}` : ''}`;
+    case 'follow':
+      return 'followed you';
+    case 'share':
+      return 'shared the stream';
+    case 'join':
+      return 'joined';
+    default:
+      return '';
+  }
+}
+
+const readOpen = () => {
+  try {
+    return localStorage.getItem(OPEN_KEY) === '1';
+  } catch {
+    return false;
+  }
+};
+
+// Everything viewers did during the current stream (or the last one): chat, gifts, joins, follows, shares, likes.
+export function ActivityFeed({ status }: { status: LiveStatus }) {
+  const [open, setOpen] = useState(readOpen);
+  const [kinds, setKinds] = useState<Kind[]>(FILTERS.map((f) => f.kind));
+  const [search, setSearch] = useState('');
+  const [viewer, setViewer] = useState(''); // search, applied after typing pauses
+  const [page, setPage] = useState<Page | null>(null);
+  const [hasOlder, setHasOlder] = useState(false);
+  const [loadingOlder, setLoadingOlder] = useState(false);
+  const newest = useRef<number | undefined>(undefined);
+
+  const toggle = () => {
+    setOpen(!open);
+    try {
+      localStorage.setItem(OPEN_KEY, open ? '0' : '1');
+    } catch {
+      // not remembered, that's all
+    }
+  };
+
+  useEffect(() => {
+    const timer = setTimeout(() => setViewer(search.trim()), 300);
+    return () => clearTimeout(timer);
+  }, [search]);
+
+  const query = (extra: string) =>
+    `/analytics/activity?kinds=${kinds.join(',')}${viewer ? `&viewer=${encodeURIComponent(viewer)}` : ''}${extra}`;
+
+  // A fresh first page whenever the filters change or a stream starts or stops.
+  useEffect(() => {
+    if (!open || kinds.length === 0) return;
+    let cancelled = false;
+    api<Page>('GET', query(`&limit=${PAGE}`)).then((p) => {
+      if (cancelled) return;
+      setPage(p);
+      setHasOlder(p.events.length === PAGE);
+      newest.current = p.events[0]?.id;
+    });
+    return () => {
+      cancelled = true;
+    };
+  }, [open, kinds, viewer, status.live, status.startedAt]);
+
+  // While live, what's new every couple of seconds.
+  useEffect(() => {
+    if (!open || !page?.stream?.live || kinds.length === 0) return;
+    const timer = setInterval(() => {
+      api<Page>('GET', query(`&stream=${page.stream!.id}&after=${newest.current ?? 0}&limit=200`)).then((p) => {
+        if (p.events.length === 0) return;
+        newest.current = p.events[p.events.length - 1]!.id;
+        setPage((current) => current && { ...current, events: [...[...p.events].reverse(), ...current.events] });
+      });
+    }, POLL_MS);
+    return () => clearInterval(timer);
+  }, [open, page?.stream?.id, page?.stream?.live, kinds, viewer]);
+
+  const loadOlder = () => {
+    if (!page?.stream || page.events.length === 0) return;
+    setLoadingOlder(true);
+    api<Page>('GET', query(`&stream=${page.stream.id}&before=${page.events[page.events.length - 1]!.id}&limit=${PAGE}`))
+      .then((p) => {
+        setPage((current) => current && { ...current, events: [...current.events, ...p.events] });
+        setHasOlder(p.events.length === PAGE);
+      })
+      .finally(() => setLoadingOlder(false));
+  };
+
+  const toggleKind = (kind: Kind) => setKinds(kinds.includes(kind) ? kinds.filter((k) => k !== kind) : [...kinds, kind]);
+  const stream = page?.stream;
+
+  return (
+    <section className="card activity-feed" aria-labelledby="full-activity">
+      <button className="collapse-head" aria-expanded={open} aria-controls="full-activity-body" onClick={toggle}>
+        <span>
+          <h2 id="full-activity">Full activity</h2>
+          <span className="muted">Every chat message, gift, join, follow, share and like from your stream.</span>
+        </span>
+        <Icon name="chevron" size={18} />
+      </button>
+      {open && (
+        <div id="full-activity-body" className="stack activity-body">
+          <div className="activity-filters">
+            <div className="chips" role="group" aria-label="Show">
+              {FILTERS.map((f) => (
+                <button key={f.kind} className={`chip ${kinds.includes(f.kind) ? 'on' : ''}`} aria-pressed={kinds.includes(f.kind)} onClick={() => toggleKind(f.kind)}>
+                  {f.label}
+                </button>
+              ))}
+            </div>
+            <input className="input activity-search" type="search" placeholder="Search viewers" aria-label="Search viewers" value={search} onChange={(e) => setSearch(e.target.value)} />
+          </div>
+          {stream && (
+            <p className="muted small">
+              {stream.live
+                ? stream.source === 'simulated'
+                  ? 'Test mode, updating live.'
+                  : 'This stream, updating live.'
+                : `Your last ${stream.source === 'simulated' ? 'test session' : 'stream'}, ${new Date(stream.startedAt).toLocaleString()}.`}
+            </p>
+          )}
+          {kinds.length === 0 ? (
+            <p className="empty">Pick at least one kind of activity to show.</p>
+          ) : !page ? null : !stream ? (
+            <p className="empty">Activity shows up here once you go live or start test mode.</p>
+          ) : page.events.length === 0 ? (
+            <p className="empty">{viewer ? `Nothing from viewers matching “${viewer}”.` : 'Nothing yet.'}</p>
+          ) : (
+            <ol className="activity-list">
+              {page.events.map((e) => {
+                const filter = FILTERS.find((f) => f.kind === e.kind);
+                return (
+                  <li key={e.id}>
+                    <time className="muted" dateTime={new Date(e.at).toISOString()}>
+                      {new Date(e.at).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit', second: '2-digit' })}
+                    </time>
+                    <span className={`tag ${filter?.tag ?? ''}`}>{filter?.label.replace(/s$/, '') ?? e.kind}</span>
+                    <span className="activity-text">
+                      <strong>{e.viewer}</strong> <span className={e.kind === 'comment' ? '' : 'muted'}>{describe(e)}</span>
+                    </span>
+                  </li>
+                );
+              })}
+            </ol>
+          )}
+          {hasOlder && (
+            <button className="btn btn-ghost" onClick={loadOlder} disabled={loadingOlder}>
+              {loadingOlder ? 'Loading…' : 'Load older'}
+            </button>
+          )}
+        </div>
+      )}
+    </section>
+  );
+}

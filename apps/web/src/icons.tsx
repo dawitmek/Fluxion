@@ -20,6 +20,8 @@ const paths = {
   ),
   voice: <path d="M11 5 6 9H2v6h4l5 4V5zM15.5 8.5a5 5 0 0 1 0 7M19 5a10 10 0 0 1 0 14" />,
   leaderboard: <path d="M8 21V11M12 21V4M16 21v-7" />,
+  analytics: <path d="M4 19h16M5 15l4.5-4.5 3.5 3.5L19 7" />,
+  chevron: <path d="m6 9 6 6 6-6" />,
   profiles: <path d="m12 3 9 5-9 5-9-5 9-5zM3 13l9 5 9-5" />,
   companion: (
     <>
