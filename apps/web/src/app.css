@@ -8,7 +8,10 @@
 
 /* Shell: a flush dark sidebar, a translucent top bar, and the site's plasma glow behind the page title. */
 .app { display: flex; align-items: flex-start; min-height: 100vh; background: var(--ground); }
-.content { position: relative; flex: 1; min-width: 0; padding: 0 36px 56px; isolation: isolate; overflow-x: clip; }
+/* The page column is at most --content-max wide, centred beside the sidebar: the side padding (--gutter) grows on
+   wide screens. The top bar reaches the edges and pads its contents by the same amount, so they line up. */
+.content { --content-max: 1200px; --gutter: max(36px, calc((100vw - 248px - var(--content-max)) / 2));
+  position: relative; flex: 1; min-width: 0; padding: 0 var(--gutter) 56px; isolation: isolate; overflow-x: clip; }
 .content-glow { position: fixed; z-index: -1; inset: 0 0 0 248px; pointer-events: none; opacity: var(--glow-strength); }
 /* The site's moving glow (site/Glow.tsx) across the whole content area, fixed to the window so it stays in view
    while scrolling. Quieter than on the site, and faded out towards every edge. Cards are solid, so it shows
@@ -54,7 +57,7 @@
 .avatar { display: inline-grid; place-items: center; flex: none; width: 30px; height: 30px; border-radius: 50%; background: linear-gradient(135deg, #f784be, #8d5ef5); color: #fff; font-weight: 600; }
 .mobile-bar { display: none; }
 
-.topbar { position: sticky; top: 0; z-index: 5; display: flex; flex-wrap: wrap; align-items: center; gap: 10px 14px; min-height: 64px; margin: 0 -36px; padding: 10px 36px; box-sizing: border-box;
+.topbar { position: sticky; top: 0; z-index: 5; display: flex; flex-wrap: wrap; align-items: center; gap: 10px 14px; min-height: 64px; margin: 0 calc(-1 * var(--gutter)); padding: 10px var(--gutter); box-sizing: border-box;
   border-bottom: 1px solid var(--line); background: color-mix(in srgb, var(--ground) 72%, transparent); backdrop-filter: blur(14px); -webkit-backdrop-filter: blur(14px); }
 .crumbs { display: flex; flex-wrap: wrap; align-items: center; gap: 10px; color: var(--muted); font-size: 14px; }
 .crumbs span:last-child { color: var(--ink); }
@@ -146,7 +149,7 @@
   .sidebar.open { display: flex; }
   .sidebar > .brand { display: none; }
   .nav-item[aria-current='page']::before { left: 0; }
-  .content { padding: 0 16px 40px; }
+  .content { --gutter: 16px; padding: 0 16px 40px; }
   .topbar { position: static; margin: 0 -16px; padding: 10px 16px; background: transparent; backdrop-filter: none; -webkit-backdrop-filter: none; }
   .topbar .crumbs, .topbar .on-air { display: none; }
   .page-header { padding: 24px 0 24px; }
