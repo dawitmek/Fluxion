@@ -152,6 +152,10 @@ code { font-family: ui-monospace, 'SF Mono', Consolas, monospace; font-size: 0.9
 .btn-try[aria-expanded='true'] { color: #fff; background: var(--teal-fill); border-color: var(--teal-fill); }
 .btn-sm { min-height: 32px; padding: 0 12px; border-radius: 10px; font-size: 13px; }
 .btn-lg { min-height: 48px; padding: 0 22px; border-radius: 12px; font-size: 15px; }
+/* A button that's only an icon: square. It needs an aria-label. After the sizes, so its padding wins. */
+.btn-icon { padding: 0; width: 40px; }
+.btn-sm.btn-icon { width: 32px; }
+.btn-icon svg { flex: none; }
 
 /* Forms */
 .field { display: flex; flex-direction: column; gap: 6px; font-weight: 500; }

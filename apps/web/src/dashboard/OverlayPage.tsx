@@ -2,7 +2,7 @@ import { useCallback, useEffect, useState, type FormEvent } from 'react';
 import { ALERT_POSITIONS, GOAL_METRICS, MAX_WIDGETS, WIDGET_SPOTS, WIDGET_TYPES, type GoalMetric, type ScreenWidget, type WidgetSpot, type WidgetType } from '@fluxion/shared';
 import { api, type AlertPosition, type Goal, type Screen } from '../api';
 import { Card, ErrorNotice, HueIcon, NumberCell, Seg, TextCell, useError, type Hue } from '../ui';
-import type { IconName } from '../icons';
+import { Icon, type IconName } from '../icons';
 import { DEFAULT_FIREWORK_DIAMONDS, Fireworks, GiftBus, usePreview, Widget } from '../overlay-widgets';
 
 const POSITION_LABELS: Record<AlertPosition, string> = { top: 'Top', middle: 'Middle', bottom: 'Bottom' };
@@ -122,8 +122,14 @@ function WidgetsEditor({ widgets, onSave }: { widgets: ScreenWidget[]; onSave: (
                   ))}
                 </select>
               )}
-              <button className="btn btn-sm btn-try" aria-expanded={previewing === w.type} onClick={() => setPreviewing(previewing === w.type ? null : w.type)}>
-                {previewing === w.type ? 'Hide preview' : 'Preview'}
+              <button
+                className="btn btn-sm btn-try btn-icon"
+                aria-expanded={previewing === w.type}
+                aria-label={`${previewing === w.type ? 'Hide preview of' : 'Preview'} ${WIDGETS[w.type].label}`}
+                title={previewing === w.type ? 'Hide preview' : 'Preview'}
+                onClick={() => setPreviewing(previewing === w.type ? null : w.type)}
+              >
+                <Icon name={previewing === w.type ? 'eyeOff' : 'eye'} />
               </button>
               <button className="btn btn-ghost btn-sm btn-delete" onClick={() => onSave(widgets.filter((_, j) => j !== i))}>
                 Remove
