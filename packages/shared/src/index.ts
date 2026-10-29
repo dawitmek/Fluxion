@@ -166,6 +166,7 @@ export interface StreamSummary {
   id: string;
   source: 'tiktok' | 'simulated';
   profileName: string;
+  tiktokUsername: string | null; // the TikTok account streamed from
   startedAt: number;
   endedAt: number | null; // null while live
   participants: number; // viewers who chatted or gifted
@@ -192,3 +193,30 @@ export interface StreamDetail {
     queue: { joins: number; turns: number; avgWaitMs: number };
   };
 }
+
+// One viewer across the host's streams (optionally one TikTok account's).
+export interface ViewerProfile {
+  viewer: string;
+  firstSeen: number | null;
+  lastSeen: number | null;
+  streams: number; // streams they showed up in
+  comments: number;
+  commands: number;
+  gifts: number;
+  diamonds: number;
+  xp: number; // leaderboard XP, across all of the host's streams
+  level: number;
+  topCommands: { keyword: string; count: number }[];
+  perStream: {
+    streamId: string;
+    startedAt: number;
+    source: 'tiktok' | 'simulated';
+    tiktokUsername: string | null;
+    comments: number;
+    commands: number;
+    diamonds: number;
+  }[];
+}
+
+// An event with the stream it happened in, for a viewer's history across streams.
+export type ViewerHistoryEvent = StreamEvent & { streamId: string; streamStartedAt: number };

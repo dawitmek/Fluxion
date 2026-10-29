@@ -2,7 +2,7 @@ import type { FastifyInstance, FastifyReply } from 'fastify';
 import { and, desc, eq } from 'drizzle-orm';
 import { streams } from '../db/schema.js';
 import { requireHost } from '../auth/session.js';
-import { streamActivity, streamDetail, streamSummaries } from './queries.js';
+import { streamActivity, streamDetail, streamSummaries, viewerActivity, viewerProfile } from './queries.js';
 
 const VIEWER_KINDS = ['comment', 'gift', 'like', 'follow', 'share', 'join'];
 const UUID = '^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$';
@@ -27,6 +27,37 @@ export async function analyticsRoutes(app: FastifyInstance) {
 
   // Real streams, newest first, with their totals.
   app.get('/streams', async (req) => streamSummaries(db, req.hostId));
+
+  const viewerParams = { type: 'object', properties: { viewer: { type: 'string', minLength: 1, maxLength: 64 } } };
+  const account = { type: 'string', minLength: 1, maxLength: 64 };
+
+  // One viewer across the host's streams; `account` keeps to one TikTok account.
+  app.get<{ Params: { viewer: string }; Querystring: { account?: string } }>(
+    '/viewers/:viewer',
+    { schema: { params: viewerParams, querystring: { type: 'object', additionalProperties: false, properties: { account } } } },
+    async (req) => viewerProfile(db, req.hostId, req.params.viewer, req.query.account),
+  );
+
+  app.get<{ Params: { viewer: string }; Querystring: { account?: string; before?: number; limit?: number } }>(
+    '/viewers/:viewer/activity',
+    {
+      schema: {
+        params: viewerParams,
+        querystring: {
+          type: 'object',
+          additionalProperties: false,
+          properties: { account, before: { type: 'integer', minimum: 0 }, limit: { type: 'integer', minimum: 1, maximum: 200 } },
+        },
+      },
+    },
+    async (req) =>
+      viewerActivity(db, req.hostId, req.params.viewer, {
+        account: req.query.account,
+        before: req.query.before,
+        kinds: [...VIEWER_KINDS, 'command'],
+        limit: req.query.limit ?? 50,
+      }),
+  );
 
   app.get<{ Params: { id: string } }>(
     '/streams/:id',

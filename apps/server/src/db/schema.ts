@@ -136,6 +136,8 @@ export const streams = pgTable(
     hostId: uuid('host_id').notNull().references(() => hosts.id, { onDelete: 'cascade' }),
     source: text('source').$type<'tiktok' | 'simulated'>().notNull(),
     profileName: text('profile_name').notNull(),
+    // The TikTok account streamed from, so a host who switches accounts keeps their audiences apart.
+    tiktokUsername: text('tiktok_username'),
     startedAt: timestamp('started_at', { withTimezone: true }).notNull().defaultNow(),
     endedAt: timestamp('ended_at', { withTimezone: true }), // null while live
   },

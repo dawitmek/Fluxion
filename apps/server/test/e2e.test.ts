@@ -457,24 +457,38 @@ describe('stream activity and analytics', () => {
     const a = await signUp('a@example.com');
     const b = await signUp('b@example.com');
     const day = 24 * 3600 * 1000;
-    const stream = async (hostId: string, daysAgo: number, viewers: string[]) => {
+    const stream = async (hostId: string, daysAgo: number, viewers: string[], tiktokUsername = 'main_account') => {
       const startedAt = new Date(Date.now() - daysAgo * day);
       const [row] = await app.db
         .insert(streams)
-        .values({ hostId, source: 'tiktok', profileName: 'Default', startedAt, endedAt: new Date(startedAt.getTime() + 3600_000) })
+        .values({ hostId, source: 'tiktok', profileName: 'Default', tiktokUsername, startedAt, endedAt: new Date(startedAt.getTime() + 3600_000) })
         .returning();
       await app.db.insert(streamEvents).values(viewers.map((viewer) => ({ streamId: row!.id, at: startedAt, kind: 'comment' as const, viewer, data: { text: 'hi' } })));
       return row!.id;
     };
-    await stream(a.id, 2, ['mira', 'jules']);
-    await stream(a.id, 1, ['mira', 'kai', 'nova']);
+    await stream(a.id, 3, ['mira', 'jules']);
+    await stream(a.id, 2, ['mira', 'kai', 'nova']);
+    await stream(a.id, 1, ['mira', 'kai'], 'second_account'); // a different audience: both are new there
     const other = await stream(b.id, 1, ['mira']);
 
     const history = (await api(a.cookie, 'GET', '/api/analytics/streams')).json();
-    expect(history.map((s: { participants: number; newParticipants: number }) => [s.participants, s.newParticipants])).toEqual([
-      [3, 2], // mira returned; kai and nova are new
-      [2, 2],
+    expect(history.map((s: { tiktokUsername: string; participants: number; newParticipants: number }) => [s.tiktokUsername, s.participants, s.newParticipants])).toEqual([
+      ['second_account', 2, 2],
+      ['main_account', 3, 2], // mira returned; kai and nova are new
+      ['main_account', 2, 2],
     ]);
+
+    // A viewer's profile, across all streams or one account's.
+    const mira = (await api(a.cookie, 'GET', '/api/analytics/viewers/mira')).json();
+    expect(mira).toMatchObject({ viewer: 'mira', streams: 3, comments: 3 });
+    expect(mira.perStream.map((s: { tiktokUsername: string }) => s.tiktokUsername)).toEqual(['second_account', 'main_account', 'main_account']);
+    expect((await api(a.cookie, 'GET', '/api/analytics/viewers/mira?account=main_account')).json()).toMatchObject({ streams: 2 });
+    const recent = (await api(a.cookie, 'GET', '/api/analytics/viewers/mira/activity?limit=2')).json();
+    expect(recent).toHaveLength(2);
+    expect(recent[0]).toMatchObject({ kind: 'comment', data: { text: 'hi' } });
+    // Host B's mira is someone else as far as host A is concerned, and the other way round.
+    expect((await api(b.cookie, 'GET', '/api/analytics/viewers/mira')).json()).toMatchObject({ streams: 1 });
+    expect((await api(a.cookie, 'GET', '/api/analytics/viewers/nobody')).json()).toMatchObject({ streams: 0, firstSeen: null });
     // Another host's stream counts separately and can't be opened.
     expect((await api(b.cookie, 'GET', '/api/analytics/streams')).json()[0]).toMatchObject({ participants: 1, newParticipants: 1 });
     expect((await api(a.cookie, 'GET', `/api/analytics/streams/${other}`)).statusCode).toBe(404);

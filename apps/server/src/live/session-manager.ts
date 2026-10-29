@@ -104,7 +104,10 @@ export class SessionManager {
     };
     // Real streams are kept for analytics; a test-mode session is only kept until the next session starts.
     await this.db.delete(streams).where(and(eq(streams.hostId, hostId), eq(streams.source, 'simulated')));
-    const [stream] = await this.db.insert(streams).values({ hostId, source, profileName }).returning({ id: streams.id });
+    const [stream] = await this.db
+      .insert(streams)
+      .values({ hostId, source, profileName, tiktokUsername: host.tiktokUsername })
+      .returning({ id: streams.id });
     const recorder = new StreamRecorder(this.db, stream!.id, this.onError);
     ctx.note = (kind, viewer, data) => recorder.add(kind, viewer, data);
 

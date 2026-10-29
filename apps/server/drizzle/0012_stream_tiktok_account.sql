@@ -1,0 +1,1 @@
+ALTER TABLE "streams" ADD COLUMN "tiktok_username" text;
