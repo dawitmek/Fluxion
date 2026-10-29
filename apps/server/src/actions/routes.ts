@@ -195,7 +195,9 @@ export async function actionRoutes(app: FastifyInstance) {
   });
 
   // Shows an action's alert on the overlay with sample values, live or not, so hosts can check how it looks and
-  // sounds. Key presses and points are left out: a test shouldn't move the game or anyone's balance.
+  // sounds. Key presses and points are left out: a test shouldn't move the game or anyone's balance. Returns the
+  // alert, so the dashboard can play it too, and how many overlays on stream showed it.
+  // A sent alert reaches every screen's sockets; only screens that show alerts (and are its target) display it.
   app.post<{ Params: { id: string } }>('/:id/test', { schema: { params: idParam } }, async (req, reply) => {
     const [row] = await db
       .select({ profileId: actions.profileId })
@@ -218,13 +220,15 @@ export async function actionRoutes(app: FastifyInstance) {
         })
       : '';
     const speech = action.speak && text ? await app.speech.speak(voiceConfig(host!, app.secrets), text) : null;
-    app.hub.sendToOverlays(
-      req.hostId,
-      alertMessage(
-        { type: 'alert', text, sound: action.sound, soundFile: action.soundMediaId, media: action.media, speak: action.speak, durationMs: action.durationMs, screen: action.screenId },
-        speech,
-      ),
+    const alert = alertMessage(
+      { type: 'alert', text, sound: action.sound, soundFile: action.soundMediaId, media: action.media, speak: action.speak, durationMs: action.durationMs, screen: action.screenId },
+      speech,
     );
-    return { ok: true };
+    app.hub.sendToOverlays(req.hostId, alert);
+    const screens = await db
+      .select({ id: overlayScreens.id })
+      .from(overlayScreens)
+      .where(and(eq(overlayScreens.hostId, req.hostId), eq(overlayScreens.alerts, true), action.screenId ? eq(overlayScreens.id, action.screenId) : undefined));
+    return { alert, overlays: app.hub.overlayCount(req.hostId, screens.map((s) => s.id)) };
   });
 }

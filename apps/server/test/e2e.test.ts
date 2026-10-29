@@ -704,7 +704,7 @@ describe('overlay screens', () => {
     expect((await api(cookie, 'PATCH', `/api/screens/${side.id}`, { scale: 500 })).statusCode).toBe(400);
 
     const action = (await api(cookie, 'POST', '/api/actions', { name: 'Side follow', trigger: 'follow', text: 'side!', screenId: side.id })).json();
-    await api(cookie, 'POST', `/api/actions/${action.id}/test`);
+    expect((await api(cookie, 'POST', `/api/actions/${action.id}/test`)).json()).toMatchObject({ overlays: 1 });
     expect(await overlay.next()).toMatchObject({ type: 'alert', text: 'side!', screen: side.id });
 
     const other = await signUp('other@example.com');
@@ -735,8 +735,12 @@ describe('alerts and text-to-speech', () => {
     const overlay = connect(`/ws/overlay?token=${me.overlayToken}`);
     await overlay.opened;
     const follow = actions.find((a: any) => a.trigger === 'follow');
-    await api(cookie, 'POST', `/api/actions/${follow.id}/test`);
-    expect(await overlay.next()).toEqual({ type: 'alert', text: 'test_viewer followed!', sound: 'chime', speech: null });
+    const dashboard = connect(`/ws/overlay?token=${me.overlayToken}&dashboard=1`);
+    await dashboard.opened;
+    const tested = (await api(cookie, 'POST', `/api/actions/${follow.id}/test`)).json();
+    const alert = { type: 'alert', text: 'test_viewer followed!', sound: 'chime', speech: null };
+    expect(tested).toEqual({ alert, overlays: 1 }); // the dashboard's own listener isn't an overlay on stream
+    expect(await overlay.next()).toEqual(alert);
 
     // Validation: likes need a step, commands need a command; trigger-specific fields are cleared for other triggers.
     const create = (body: object) => api(cookie, 'POST', '/api/actions', { name: 'x', ...body });

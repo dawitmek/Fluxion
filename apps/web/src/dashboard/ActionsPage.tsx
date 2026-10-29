@@ -1,9 +1,10 @@
 import { useCallback, useEffect, useRef, useState, type ChangeEvent, type FormEvent, type ReactNode } from 'react';
-import { ACTION_TRIGGERS, ALERT_SOUNDS, AUDIENCES, MAX_KEY_REPEATS, MAX_MEDIA_TOTAL_BYTES } from '@fluxion/shared';
+import { ACTION_TRIGGERS, ALERT_SOUNDS, AUDIENCES, MAX_KEY_REPEATS, MAX_MEDIA_TOTAL_BYTES, type ServerToOverlay } from '@fluxion/shared';
 import { api, uploadMedia, type Action, type ActionTrigger, type Audience, type Command, type Host, type MediaItem, type Screen } from '../api';
 import { playSound } from '../sounds';
 import { Card, ErrorNotice, useError } from '../ui';
-import { previewAudio } from './audio';
+import { playAlertPreview, previewAudio } from './audio';
+import { Link } from '../router';
 import type { PageProps } from './Dashboard';
 
 export function ActionsPage({ host }: PageProps) {
@@ -71,7 +72,15 @@ function ActionsCard({ host, media }: { host: Host; media: MediaItem[] }) {
   const [commands, setCommands] = useState<Command[]>([]);
   const [screens, setScreens] = useState<Screen[]>([]);
   const [editing, setEditing] = useState<string | 'new' | null>(null);
+  const [tested, setTested] = useState<{ id: string; overlays: number } | null>(null);
   const { error, guard } = useError();
+  // Test runs on the overlay. With none open it plays here instead, so it's still heard; either way it says where it went.
+  const test = (id: string) =>
+    guard(async () => {
+      const result = await api<{ alert: Extract<ServerToOverlay, { type: 'alert' }>; overlays: number }>('POST', `/actions/${id}/test`);
+      if (result.overlays === 0) playAlertPreview(result.alert);
+      setTested({ id, overlays: result.overlays });
+    })();
   const load = useCallback(
     () =>
       Promise.all([api<Action[]>('GET', '/actions'), api<Command[]>('GET', '/commands'), api<Screen[]>('GET', '/screens')]).then(([a, c, s]) => {
@@ -95,7 +104,7 @@ function ActionsCard({ host, media }: { host: Host; media: MediaItem[] }) {
   return (
     <Card
       title="Actions"
-      description="What happens when viewers do something: an alert on your overlay, a sound, a picture or video, a voice, a key press, or points. Test shows an action's alert on your overlay, live or not."
+      description="What happens when viewers do something: an alert on your overlay, a sound, a picture or video, a voice, a key press, or points. Test sends an action's alert to your open overlays, live or not."
       actions={
         <button className="btn btn-primary" onClick={() => setEditing('new')} disabled={editing === 'new'}>
           New action
@@ -118,7 +127,7 @@ function ActionsCard({ host, media }: { host: Host; media: MediaItem[] }) {
                 <span className="action-does">{describeDoes(a, commands, media, host).map((d) => <span key={d} className="tag">{d}</span>)}</span>
               </div>
               <span className="action-buttons">
-                <button className="btn btn-sm" onClick={guard(() => api('POST', `/actions/${a.id}/test`))}>
+                <button className="btn btn-sm" onClick={() => test(a.id)} title="Show this alert on your open overlays">
                   Test
                 </button>
                 <button className="btn btn-ghost btn-sm" onClick={() => setEditing(editing === a.id ? null : a.id)} aria-expanded={editing === a.id}>
@@ -129,6 +138,18 @@ function ActionsCard({ host, media }: { host: Host; media: MediaItem[] }) {
                 </button>
               </span>
             </div>
+            {tested?.id === a.id && (
+              <p className="notice info test-result" role="status">
+                {tested.overlays > 0 ? (
+                  `Sent to ${tested.overlays} open overlay${tested.overlays === 1 ? '' : 's'}. The sound plays there, not on this page.`
+                ) : (
+                  <>
+                    No overlay is open, so the sound played on this page instead. To see the alert itself, open a preview on the{' '}
+                    <Link href="/dashboard/overlay">Stream overlay</Link> page and test again.
+                  </>
+                )}
+              </p>
+            )}
             {editing === a.id && <ActionEditor initial={a} {...context} onSave={(d) => save(a.id, d)} onCancel={() => setEditing(null)} />}
           </li>
         ))}

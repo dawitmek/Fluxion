@@ -37,7 +37,7 @@ export function useLiveFeed(overlayToken: string): LiveFeed {
 
     const connect = () => {
       const protocol = location.protocol === 'https:' ? 'wss' : 'ws';
-      socket = new WebSocket(`${protocol}://${location.host}/ws/overlay?token=${encodeURIComponent(overlayToken)}`);
+      socket = new WebSocket(`${protocol}://${location.host}/ws/overlay?token=${encodeURIComponent(overlayToken)}&dashboard=1`);
       socket.onmessage = (event) => {
         const message = JSON.parse(event.data) as ServerToOverlay;
         switch (message.type) {

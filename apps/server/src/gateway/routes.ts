@@ -62,11 +62,12 @@ export async function gatewayRoutes(app: FastifyInstance) {
   });
 
   // Overlays are read-only browser sources; the secret token in the URL is the norm for those.
-  app.get<{ Querystring: { token?: string } }>('/ws/overlay', { websocket: true }, async (socket, req) => {
+  // `dashboard=1` marks the dashboard's own listener, so it isn't counted as an overlay on stream.
+  app.get<{ Querystring: { token?: string; dashboard?: string } }>('/ws/overlay', { websocket: true }, async (socket, req) => {
     const token = req.query.token;
     const [row] = token ? await db.select().from(overlayScreens).where(eq(overlayScreens.token, token)) : [];
     if (!row) return socket.close(4001, 'Unauthorized');
-    hub.addOverlay(row.hostId, row.id, socket);
+    hub.addOverlay(row.hostId, row.id, socket, req.query.dashboard === '1');
     socket.send(JSON.stringify({ type: 'screen', screen: toScreen(row) }));
     for (const message of await app.live.overlaySnapshot(row.hostId)) socket.send(JSON.stringify(message));
   });
