@@ -29,6 +29,7 @@ export function SettingsPage({ host, refreshHost }: PageProps) {
           <div className="form-grid">
             <label className="field">
               TikTok username
+              <span className="hint">Each account keeps its own leaderboard and viewer points. Switching back brings them back.</span>
               <input value={username} onChange={(e) => (setUsername(e.target.value), setSaved(false))} placeholder="@yourname" />
             </label>
             <label className="field">

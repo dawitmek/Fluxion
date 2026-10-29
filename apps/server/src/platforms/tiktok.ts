@@ -17,7 +17,7 @@ type RawPayload = {
   repeatCount?: number;
   repeatEnd?: boolean | number;
   giftDetails?: { giftName?: string; giftType?: number; diamondCount?: number };
-  gift?: { name?: string; type?: number };
+  gift?: { name?: string; type?: number; diamondCount?: number }; // connector 2.5's shape; giftDetails is the legacy one
   likeCount?: number;
   count?: number;
 };
@@ -74,7 +74,7 @@ function mapEvent(type: MappedEvent, data: RawPayload, at: number): ViewerEvent 
         giftId: Number(data.giftId),
         giftName: data.giftDetails?.giftName ?? data.gift?.name ?? '',
         count: data.repeatCount || 1,
-        diamonds: data.giftDetails?.diamondCount ?? 0,
+        diamonds: data.giftDetails?.diamondCount ?? data.gift?.diamondCount ?? 0,
         at,
       };
     }

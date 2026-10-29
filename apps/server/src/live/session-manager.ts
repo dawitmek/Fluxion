@@ -166,7 +166,7 @@ export class SessionManager {
     });
 
     try {
-      await this.stats.load(hostId);
+      await this.stats.load(hostId, host.tiktokUsername);
       await adapter.start();
     } catch (err) {
       clearInterval(session.ticker);

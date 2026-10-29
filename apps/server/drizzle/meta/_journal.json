@@ -141,6 +141,13 @@
       "when": 1793252118782,
       "tag": "0019_widgets_goals",
       "breakpoints": true
+    },
+    {
+      "idx": 20,
+      "version": "7",
+      "when": 1793305270129,
+      "tag": "0020_viewer_stats_streamer",
+      "breakpoints": true
     }
   ]
 }

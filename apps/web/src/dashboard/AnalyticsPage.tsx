@@ -14,10 +14,10 @@ const shortDate = (at: number) => new Date(at).toLocaleDateString([], { month: '
 const longDate = (at: number) => new Date(at).toLocaleString([], { weekday: 'short', month: 'short', day: 'numeric', hour: 'numeric', minute: '2-digit' });
 const number = (n: number) => n.toLocaleString();
 
-export function AnalyticsPage({ status }: PageProps) {
+export function AnalyticsPage({ host, status }: PageProps) {
   const [streams, setStreams] = useState<StreamSummary[] | null>(null);
   const [selected, setSelected] = useState<string | null>(null);
-  const [account, setAccount] = useState<string>(''); // '' is every TikTok account
+  const [account, setAccount] = useState<string | null>(null); // '' is every TikTok account; null is the one in settings
   useEffect(() => {
     const load = () => api<StreamSummary[]>('GET', '/analytics/streams').then(setStreams);
     void load();
@@ -34,14 +34,16 @@ export function AnalyticsPage({ status }: PageProps) {
   }
   // Streams on different TikTok accounts reach different audiences, so they can be looked at separately.
   const accounts = [...new Set(streams.map((s) => s.tiktokUsername).filter((a): a is string => a !== null))];
-  const shown = account ? streams.filter((s) => s.tiktokUsername === account) : streams;
+  const mine = accounts.find((a) => a.toLowerCase() === host.tiktokUsername?.toLowerCase()) ?? '';
+  const picked = account ?? mine;
+  const shown = picked ? streams.filter((s) => s.tiktokUsername === picked) : streams;
   const current = shown.find((s) => s.id === selected) ?? shown[0];
   return (
     <div className="stack">
       {accounts.length > 1 && (
         <label className="row account-picker">
           <span className="muted">TikTok account</span>
-          <select className="input" value={account} onChange={(e) => (setAccount(e.target.value), setSelected(null))}>
+          <select className="input" value={picked} onChange={(e) => (setAccount(e.target.value), setSelected(null))}>
             <option value="">All accounts</option>
             {accounts.map((a) => (
               <option key={a} value={a}>
@@ -54,7 +56,7 @@ export function AnalyticsPage({ status }: PageProps) {
       {current && (
         <>
           <Trends streams={shown} />
-          <StreamList streams={shown} showAccount={accounts.length > 1 && !account} selected={current.id} onSelect={setSelected} />
+          <StreamList streams={shown} showAccount={accounts.length > 1 && !picked} selected={current.id} onSelect={setSelected} />
           <StreamReport key={current.id} summary={current} status={status} />
         </>
       )}

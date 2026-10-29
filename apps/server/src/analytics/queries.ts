@@ -194,7 +194,8 @@ export async function streamActivity(
 // Limits a query on streams `s` to one TikTok account, when given.
 const onAccount = (account?: string) => (account ? sql`and s.tiktok_username = ${account}` : sql``);
 
-export async function viewerProfile(db: Db, hostId: string, viewer: string, account?: string): Promise<ViewerProfile> {
+// Level and points are the ones held on `streamer` (see streamerKey); the rest covers `account`, or every account.
+export async function viewerProfile(db: Db, hostId: string, viewer: string, streamer: string, account?: string): Promise<ViewerProfile> {
   const [perStream, topCommands, [stats]] = await Promise.all([
     db.execute<{
       id: string; started_at: Date; source: 'tiktok' | 'simulated'; tiktok_username: string | null;
@@ -214,7 +215,10 @@ export async function viewerProfile(db: Db, hostId: string, viewer: string, acco
       from stream_events e join streams s on s.id = e.stream_id
       where s.host_id = ${hostId} and e.viewer = ${viewer} and e.kind = 'command' ${onAccount(account)}
       group by 1 order by 2 desc, 1 limit 5`),
-    db.select({ xp: viewerStats.xp, points: viewerStats.points }).from(viewerStats).where(and(eq(viewerStats.hostId, hostId), eq(viewerStats.viewerId, viewer))),
+    db
+      .select({ xp: viewerStats.xp, points: viewerStats.points })
+      .from(viewerStats)
+      .where(and(eq(viewerStats.hostId, hostId), eq(viewerStats.streamer, streamer), eq(viewerStats.viewerId, viewer))),
   ]);
   const sum = (key: 'comments' | 'commands' | 'gifts' | 'diamonds') => perStream.reduce((n, r) => n + Number(r[key]), 0);
   const times = perStream.flatMap((r) => [new Date(r.first_at).getTime(), new Date(r.last_at).getTime()]);

@@ -2,6 +2,7 @@ import type { FastifyInstance, FastifyReply } from 'fastify';
 import { and, desc, eq } from 'drizzle-orm';
 import { streams } from '../db/schema.js';
 import { requireHost } from '../auth/session.js';
+import { streamerKey } from '../leaderboard/stats.js';
 import { streamActivity, streamDetail, streamSummaries, viewerActivity, viewerProfile } from './queries.js';
 
 const VIEWER_KINDS = ['comment', 'gift', 'like', 'follow', 'share', 'join', 'subscribe', 'emote'];
@@ -35,7 +36,8 @@ export async function analyticsRoutes(app: FastifyInstance) {
   app.get<{ Params: { viewer: string }; Querystring: { account?: string } }>(
     '/viewers/:viewer',
     { schema: { params: viewerParams, querystring: { type: 'object', additionalProperties: false, properties: { account } } } },
-    async (req) => viewerProfile(db, req.hostId, req.params.viewer, req.query.account),
+    async (req) =>
+      viewerProfile(db, req.hostId, req.params.viewer, req.query.account ? streamerKey(req.query.account) : await app.stats.streamerOf(req.hostId), req.query.account),
   );
 
   app.get<{ Params: { viewer: string }; Querystring: { account?: string; before?: number; limit?: number } }>(

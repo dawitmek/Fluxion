@@ -522,6 +522,37 @@ describe('points', () => {
   });
 });
 
+describe('stats per TikTok account', () => {
+  it("keeps each account's leaderboard and points apart, and each host's apart on the same account", async () => {
+    const play = async (cookie: string, viewer: string) => {
+      await api(cookie, 'POST', '/api/live/start', { source: 'simulated' });
+      await api(cookie, 'POST', '/api/live/simulate', { viewer, gift: 'Rose', diamonds: 1, count: 5 });
+      await api(cookie, 'POST', '/api/live/stop');
+      await app.live.flushStats();
+    };
+    const leaders = async (cookie: string) => (await api(cookie, 'GET', '/api/leaderboard')).json().map((e: any) => [e.viewer, e.points]);
+    const a = (await signUp('a@example.com')).cookie;
+    const b = (await signUp('b@example.com')).cookie;
+    await api(a, 'PATCH', '/api/settings', { tiktokUsername: '@StreamerX', points: true });
+    await api(b, 'PATCH', '/api/settings', { tiktokUsername: 'streamerx', points: true });
+    await play(a, 'alice');
+    await play(b, 'bob');
+    expect(await leaders(a)).toEqual([['alice', 50]]);
+    expect(await leaders(b)).toEqual([['bob', 50]]);
+
+    // Another account starts empty; switching back brings the old one's leaderboard and balances back.
+    await api(a, 'PATCH', '/api/settings', { tiktokUsername: 'streamery' });
+    expect(await leaders(a)).toEqual([]);
+    expect((await api(a, 'GET', '/api/analytics/viewers/alice')).json()).toMatchObject({ points: 0, xp: 0 });
+    await play(a, 'carol');
+    await api(a, 'DELETE', '/api/leaderboard/points');
+    expect(await leaders(a)).toEqual([['carol', 0]]);
+    await api(a, 'PATCH', '/api/settings', { tiktokUsername: 'StreamerX' });
+    expect(await leaders(a)).toEqual([['alice', 50]]);
+    expect((await api(a, 'GET', '/api/analytics/viewers/alice')).json()).toMatchObject({ points: 50, xp: 5 });
+  });
+});
+
 describe('stream activity and analytics', () => {
   it('records what viewers do and what Fluxion did, and sums it up per stream', async () => {
     const { cookie } = await signUp();

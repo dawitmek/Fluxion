@@ -28,7 +28,7 @@ function LeaderboardCard({ host, live }: { host: Host; live: LeaderboardEntry[] 
   return (
     <Card
       title="Leaderboard"
-      description="Commands that pressed a key and gifts sent, per viewer, ranked by XP (1 per command plus gift diamonds). Updates every few seconds."
+      description={`${host.tiktokUsername ? `For @${host.tiktokUsername.replace(/^@/, '')}. Each TikTok account you set has its own leaderboard and points. ` : ''}Commands that pressed a key and gifts sent, per viewer, ranked by XP (1 per command plus gift diamonds). Updates every few seconds.`}
       actions={
         <button
           className="btn btn-ghost"

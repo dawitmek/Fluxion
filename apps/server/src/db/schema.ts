@@ -127,6 +127,8 @@ export const viewerStats = pgTable(
   'viewer_stats',
   {
     hostId: uuid('host_id').notNull().references(() => hosts.id, { onDelete: 'cascade' }),
+    // The TikTok account (lowercase, no @) these were earned on; '' when none was set. See streamerKey.
+    streamer: text('streamer').notNull().default(''),
     viewerId: text('viewer_id').notNull(),
     commands: integer('commands').notNull().default(0),
     gifts: integer('gifts').notNull().default(0),
@@ -134,7 +136,7 @@ export const viewerStats = pgTable(
     points: integer('points').notNull().default(0), // balance: earned minus spent, never below 0
     updatedAt: timestamp('updated_at', { withTimezone: true }).notNull().defaultNow(),
   },
-  (t) => [primaryKey({ columns: [t.hostId, t.viewerId] })],
+  (t) => [primaryKey({ columns: [t.hostId, t.streamer, t.viewerId] })],
 );
 
 export const companions = pgTable('companions', {

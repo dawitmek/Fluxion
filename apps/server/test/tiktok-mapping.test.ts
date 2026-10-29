@@ -39,8 +39,8 @@ describe('toViewerEvent', () => {
 
   it('emits non-streak gifts immediately, including proto-shaped ones', () => {
     expect(
-      toViewerEvent(WebcastEvent.GIFT, { user: { uniqueId: 'a' }, giftId: '7', repeatCount: 1, gift: { name: 'Lion', type: 2 } }, 1),
-    ).toEqual({ kind: 'gift', viewerId: 'a', giftId: 7, giftName: 'Lion', count: 1, diamonds: 0, at: 1 });
+      toViewerEvent(WebcastEvent.GIFT, { user: { uniqueId: 'a' }, giftId: '7', repeatCount: 1, gift: { name: 'Lion', type: 2, diamondCount: 29999 } }, 1),
+    ).toEqual({ kind: 'gift', viewerId: 'a', giftId: 7, giftName: 'Lion', count: 1, diamonds: 29999, at: 1 });
   });
 
   it('maps likes, follows and shares', () => {
