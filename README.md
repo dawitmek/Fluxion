@@ -53,6 +53,9 @@ Chat is unpredictable, so the companion is built so it can't take over your PC:
 
 - **Allowed keys only:** each PC keeps its own list. The Windows/Cmd key, Escape, Tab and the F-keys are never
   pressed. Ctrl and Alt are only pressed as part of a command's combination.
+- **Combinations need the PC's OK:** the companion lists the dashboard's commands, and each key combination (like
+  Ctrl+Shift+E) is only pressed once it's allowed on that PC. The server can propose a combination but never approve
+  one.
 - **Blocked combinations:** shortcuts that act outside the game, like Ctrl+Alt+Del, Ctrl+W, Alt+F4 and Alt+Enter, are
   refused by both the server and the companion. A combination is pressed on its own, so viewers' overlapping key
   holds can't add up to one.

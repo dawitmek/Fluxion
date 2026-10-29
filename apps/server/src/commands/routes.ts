@@ -4,7 +4,7 @@ import { keyProblem, MAX_LEVEL, QUEUE_JOIN } from '@fluxion/shared';
 import { commands } from '../db/schema.js';
 import { requireHost } from '../auth/session.js';
 import { isUniqueViolation } from '../db/client.js';
-import { activeProfile } from '../profiles/active.js';
+import { activeProfile, sendCommandsToCompanions } from '../profiles/active.js';
 
 type CommandBody = { keyword: string; key: string; holdMs: number; cooldownMs: number; enabled?: boolean; minLevel?: number };
 
@@ -61,6 +61,7 @@ export async function commandRoutes(app: FastifyInstance) {
         .returning();
       if (!created) return reply.code(409).send({ error: 'Keyword already exists' });
       await app.live.reload(req.hostId);
+      await sendCommandsToCompanions(app, req.hostId);
       return reply.code(201).send(created);
     },
   );
@@ -88,6 +89,7 @@ export async function commandRoutes(app: FastifyInstance) {
           .returning();
         if (!updated) return reply.code(404).send({ error: 'Command not found' });
         await app.live.reload(req.hostId);
+        await sendCommandsToCompanions(app, req.hostId);
         return updated;
       } catch (err) {
         if (isUniqueViolation(err)) return reply.code(409).send({ error: 'Keyword already exists' });
@@ -103,6 +105,7 @@ export async function commandRoutes(app: FastifyInstance) {
       .returning({ id: commands.id });
     if (!deleted) return reply.code(404).send({ error: 'Command not found' });
     await app.live.reload(req.hostId);
+    await sendCommandsToCompanions(app, req.hostId);
     return reply.code(204).send();
   });
 }

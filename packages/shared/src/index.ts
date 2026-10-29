@@ -30,7 +30,10 @@ export type ServerToCompanion =
   | { type: 'ready'; hostId: string }
   | { type: 'error'; reason: string }
   | { type: 'action'; action: KeyAction }
-  | { type: 'profile'; name: string; gameProcess: string | null };
+  | { type: 'profile'; name: string; gameProcess: string | null }
+  // The active profile's commands, so the companion can show them and ask for its own OK on key combinations.
+  // Sent on connect and whenever commands or the active profile change.
+  | { type: 'commands'; commands: { keyword: string; key: string; enabled: boolean }[] };
 
 // Crowd-control modes. The host picks one and can switch while live.
 export const MODES = ['anarchy', 'democracy', 'queue', 'gift'] as const;

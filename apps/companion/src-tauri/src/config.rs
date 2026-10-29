@@ -11,6 +11,9 @@ pub struct Config {
     pub target_process: Option<String>,
     /// Keys this PC allows. None means every key in keys::ALL_KEYS.
     pub allowed_keys: Option<Vec<String>>,
+    /// Key combinations this PC has approved, exactly as commands name them ("Control+Shift+KeyE").
+    /// None until the first command list arrives, when approvals carry over from the old Ctrl/Alt toggles.
+    pub approved_combos: Option<Vec<String>>,
 }
 
 impl Config {

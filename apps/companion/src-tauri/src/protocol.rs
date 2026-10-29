@@ -2,6 +2,14 @@
 
 use serde::{Deserialize, Serialize};
 
+/// One of the dashboard's commands, as the server describes it.
+#[derive(Deserialize, Serialize, Clone, Debug, PartialEq)]
+pub struct CommandInfo {
+    pub keyword: String,
+    pub key: String,
+    pub enabled: bool,
+}
+
 pub const PROTOCOL_VERSION: u32 = 1;
 
 #[derive(Deserialize, Debug)]
@@ -21,6 +29,8 @@ pub enum ServerMessage {
     // The host's active profile. A game process, when set, becomes this PC's target.
     #[serde(rename_all = "camelCase")]
     Profile { name: String, game_process: Option<String> },
+    // The active profile's commands. Key combinations among them still need this PC's own approval.
+    Commands { commands: Vec<CommandInfo> },
 }
 
 #[derive(Serialize)]
@@ -40,5 +50,12 @@ mod tests {
         assert!(matches!(with_game, ServerMessage::Profile { ref name, game_process: Some(ref p) } if name == "GTA V" && p == "gta5.exe"));
         let without: ServerMessage = serde_json::from_str(r#"{"type":"profile","name":"Default","gameProcess":null}"#).unwrap();
         assert!(matches!(without, ServerMessage::Profile { game_process: None, .. }));
+    }
+
+    #[test]
+    fn parses_command_lists() {
+        let message: ServerMessage =
+            serde_json::from_str(r#"{"type":"commands","commands":[{"keyword":"emote","key":"Control+Shift+KeyE","enabled":true}]}"#).unwrap();
+        assert!(matches!(message, ServerMessage::Commands { ref commands } if commands[0].key == "Control+Shift+KeyE"));
     }
 }

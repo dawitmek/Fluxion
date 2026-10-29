@@ -77,16 +77,6 @@ impl Modifier {
             Modifier::Shift => sc(0x2A, 0x38),
         }
     }
-
-    /// Whether this PC allows the modifier: Control and Alt are their own toggles; Shift goes with the Shift keys.
-    pub fn allowed_by(self, allowed: &[String]) -> bool {
-        let has = |k: &str| allowed.iter().any(|a| a == k);
-        match self {
-            Modifier::Control => has("Control"),
-            Modifier::Alt => has("Alt"),
-            Modifier::Shift => has("ShiftLeft") || has("ShiftRight"),
-        }
-    }
 }
 
 /// A key, alone ("KeyE") or with modifiers ("Control+Shift+KeyE"), as in packages/shared/src/keys.ts.
@@ -138,8 +128,25 @@ impl Combo {
     }
 }
 
-/// Ctrl and Alt toggles in the allowed-keys grid, after ALL_KEYS. Not pressable on their own.
-pub const MODIFIER_TOGGLES: &[&str] = &["Control", "Alt"];
+/// Ctrl and Alt used to be toggles in the allowed-keys grid; a saved list may still name them. They now only
+/// matter once, to carry approvals over to per-combination approval.
+pub const OLD_MODIFIER_TOGGLES: &[&str] = &["Control", "Alt"];
+
+/// How people write a key or combination: "Control+Shift+KeyE" -> "Ctrl+Shift+E".
+pub fn label(value: &str) -> String {
+    value
+        .split('+')
+        .map(|part| match part {
+            "Control" => "Ctrl".to_string(),
+            "ArrowUp" => "↑".to_string(),
+            "ArrowDown" => "↓".to_string(),
+            "ArrowLeft" => "←".to_string(),
+            "ArrowRight" => "→".to_string(),
+            _ => part.strip_prefix("Key").or_else(|| part.strip_prefix("Digit")).unwrap_or(part).to_string(),
+        })
+        .collect::<Vec<_>>()
+        .join("+")
+}
 
 #[cfg(test)]
 mod tests {
@@ -165,6 +172,13 @@ mod tests {
         for fine in ["Control+KeyE", "Control+Shift+KeyE", "Shift+KeyW", "Alt+Digit1", "Enter"] {
             assert_eq!(Combo::parse(fine).unwrap().blocked(), None, "{fine}");
         }
+    }
+
+    #[test]
+    fn labels_keys_as_people_write_them() {
+        assert_eq!(label("Control+Shift+KeyE"), "Ctrl+Shift+E");
+        assert_eq!(label("Alt+Digit1"), "Alt+1");
+        assert_eq!(label("ArrowUp"), "↑");
     }
 
     #[test]

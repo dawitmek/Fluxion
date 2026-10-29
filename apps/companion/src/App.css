@@ -30,3 +30,14 @@ body { background: var(--aurora), var(--ground); background-repeat: no-repeat; m
 /* Shift held: clicks select, so show it. */
 .keys.selecting .keycap { cursor: copy; }
 .keys.selecting .keycap:not(.selected):hover { outline: 2px dashed var(--indigo-fill); outline-offset: 2px; }
+.command-list { list-style: none; margin: 0; padding: 0; }
+.command-list li { display: grid; grid-template-columns: minmax(70px, 110px) 1fr auto; align-items: center; gap: 10px; padding: 9px 0; border-bottom: 1px solid var(--line); }
+.command-list li:last-child { border-bottom: 0; }
+.command-list li.off { opacity: 0.55; }
+.command-word { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.command-keys { display: flex; flex-wrap: wrap; align-items: center; gap: 2px; }
+.command-keys .kbd { padding: 1px 7px 0; font-size: 12px; }
+.command-keys .plus { margin: 0 3px; color: var(--muted); font-size: 12px; }
+.command-status { display: flex; justify-content: flex-end; }
+.command-status .tag { max-width: 190px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.approve { display: inline-flex; align-items: center; gap: 8px; cursor: pointer; }

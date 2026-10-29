@@ -26,6 +26,18 @@ interface Snapshot {
   platformSupported: boolean;
   permissionProblem: string | null;
   panicHotkey: string;
+  commands: CommandView[];
+  pendingApprovals: number;
+}
+
+interface CommandView {
+  keyword: string;
+  key: string;
+  label: string;
+  enabled: boolean;
+  combo: boolean;
+  approved: boolean;
+  problem: string | null;
 }
 
 interface GameWindow {
@@ -220,7 +232,16 @@ function Paired({ state, run }: { state: Snapshot; run: Run }) {
         </div>
       </section>
 
+      {state.pendingApprovals > 0 && (
+        <p className="notice warning">
+          {state.pendingApprovals} key combination{state.pendingApprovals === 1 ? " needs" : "s need"} your OK before this PC
+          will press {state.pendingApprovals === 1 ? "it" : "them"}. See Commands below.
+        </p>
+      )}
+
       <AllowedKeys state={state} run={run} />
+
+      <Commands state={state} run={run} />
 
       <TiktokVoices serverUrl={state.serverUrl} />
 
@@ -390,7 +411,7 @@ function AllowedKeys({ state, run }: { state: Snapshot; run: Run }) {
         <p className="muted">
           The server can only press the keys lit up here. Click a key to allow or block it. To change several at once, select
           them first: Shift-click selects a range from the last key you clicked, Ctrl-click (⌘-click on a Mac) picks single
-          keys. Ctrl and Alt are only ever pressed as part of a combination, like Ctrl+E.
+          keys. Key combinations like Ctrl+E are allowed one by one under Commands.
         </p>
       </div>
       <div className={`keys ${selecting ? "selecting" : ""}`}>
@@ -426,6 +447,61 @@ function AllowedKeys({ state, run }: { state: Snapshot; run: Run }) {
           </button>
         </div>
       )}
+    </section>
+  );
+}
+
+// The dashboard's commands for the active profile, and whether this PC will press each one. Single keys follow the
+// allowed-keys grid; each key combination needs its own OK here, which the server can't give.
+function Commands({ state, run }: { state: Snapshot; run: Run }) {
+  if (state.commands.length === 0) return null;
+  return (
+    <section className="card stack" aria-labelledby="commands-title">
+      <div>
+        <h2 id="commands-title">Commands{state.profileName ? ` for ${state.profileName}` : ""}</h2>
+        <p className="muted">
+          What chat can trigger, from your dashboard. Key combinations are only pressed once you allow them here, so a
+          change on the dashboard can't add one without your OK.
+        </p>
+      </div>
+      <ul className="command-list">
+        {state.commands.map((c) => (
+          <li key={c.keyword} className={c.enabled ? "" : "off"}>
+            <strong className="command-word">{c.keyword}</strong>
+            <span className="command-keys">
+              {c.label.split("+").map((part, i) => (
+                <span key={i}>
+                  {i > 0 && <span className="plus">+</span>}
+                  <kbd className="kbd">{part}</kbd>
+                </span>
+              ))}
+            </span>
+            <span className="command-status">
+              {!c.enabled ? (
+                <span className="muted small">Off on the dashboard</span>
+              ) : c.problem ? (
+                <span className="tag red" title={c.problem}>
+                  {c.problem}
+                </span>
+              ) : c.combo ? (
+                <label className="approve">
+                  <span className={`small ${c.approved ? "" : "muted"}`}>{c.approved ? "Allowed" : "Needs your OK"}</span>
+                  <span className="switch">
+                    <input
+                      type="checkbox"
+                      checked={c.approved}
+                      aria-label={`Allow ${c.label} for ${c.keyword}`}
+                      onChange={(e) => run("set_combo_approved", { key: c.key, approved: e.target.checked })}
+                    />
+                  </span>
+                </label>
+              ) : (
+                <span className="tag green">Will press</span>
+              )}
+            </span>
+          </li>
+        ))}
+      </ul>
     </section>
   );
 }

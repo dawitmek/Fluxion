@@ -85,6 +85,9 @@ async fn session(
                 Ok(ServerMessage::Profile { name, game_process }) => {
                     let _ = controller.apply_profile(name, game_process);
                 }
+                Ok(ServerMessage::Commands { commands }) => {
+                    let _ = controller.set_commands(commands);
+                }
                 Ok(ServerMessage::Error { reason }) => controller.set_connection(format!("server error: {reason}")),
                 Ok(ServerMessage::Action { action }) => {
                     let result = controller.perform(&action.key, action.hold_ms);

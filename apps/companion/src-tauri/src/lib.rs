@@ -43,6 +43,8 @@ async fn pair(ctl: Ctl<'_>, server_url: String, code: String, name: String) -> R
         c.server_url = Some(server_url);
         c.device_token = Some(token);
         c.device_name = Some(name);
+        // Approvals carry over from the old Ctrl/Alt toggles only for companions paired before they existed.
+        c.approved_combos.get_or_insert_with(Vec::new);
     })?;
     connection::restart(&ctl);
     Ok(())
@@ -72,6 +74,11 @@ fn set_target(ctl: Ctl, process: Option<String>) -> Result<(), String> {
 #[tauri::command]
 fn set_allowed_keys(ctl: Ctl, keys: Vec<String>) -> Result<(), String> {
     ctl.update_config(|c| c.allowed_keys = Some(keys))
+}
+
+#[tauri::command]
+fn set_combo_approved(ctl: Ctl, key: String, approved: bool) -> Result<(), String> {
+    ctl.set_combo_approved(&key, approved)
 }
 
 #[tauri::command]
@@ -128,6 +135,7 @@ pub fn run() {
             list_windows,
             set_target,
             set_allowed_keys,
+            set_combo_approved,
             set_paused,
             request_permission,
             tiktok_sign_in,

@@ -88,28 +88,34 @@ async function pairCompanion(cookie: string) {
 }
 
 // A WebSocket client that buffers messages so tests can await them in order.
-function connect(path: string) {
+// Messages of the `aside` types go to their own queue (nextAside), so tests that count messages ignore them.
+function connect(path: string, aside: string[] = []) {
   const socket = new WebSocket(baseWs + path);
   sockets.push(socket);
   const inbox: any[] = [];
   const waiters: ((m: any) => void)[] = [];
+  const asideInbox: any[] = [];
+  const asideWaiters: ((m: any) => void)[] = [];
   socket.on('message', (data) => {
     const message = JSON.parse(data.toString());
-    const waiter = waiters.shift();
-    waiter ? waiter(message) : inbox.push(message);
+    const [queue, queueWaiters] = aside.includes(message.type) ? [asideInbox, asideWaiters] : [inbox, waiters];
+    const waiter = queueWaiters.shift();
+    waiter ? waiter(message) : queue.push(message);
   });
+  const take = (queue: any[], queueWaiters: ((m: any) => void)[]) =>
+    queue.length > 0
+      ? Promise.resolve(queue.shift())
+      : new Promise<any>((resolve, reject) => {
+          const timer = setTimeout(() => reject(new Error('No message within 2s')), 2000);
+          queueWaiters.push((m) => (clearTimeout(timer), resolve(m)));
+        });
   const closed = new Promise<number>((resolve) => socket.on('close', (code) => resolve(code)));
   return {
     socket,
     closed,
     opened: new Promise<void>((resolve) => socket.on('open', () => resolve())),
-    next: () =>
-      inbox.length > 0
-        ? Promise.resolve(inbox.shift())
-        : new Promise<any>((resolve, reject) => {
-            const timer = setTimeout(() => reject(new Error('No message within 2s')), 2000);
-            waiters.push((m) => (clearTimeout(timer), resolve(m)));
-          }),
+    next: () => take(inbox, waiters),
+    nextAside: () => take(asideInbox, asideWaiters),
     // Resolves to the messages that arrived within `ms`; used to assert nothing was sent.
     drain: (ms = 200) => new Promise<any[]>((resolve) => setTimeout(() => resolve(inbox.splice(0)), ms)),
     send: (message: object) => socket.send(JSON.stringify(message)),
@@ -117,7 +123,7 @@ function connect(path: string) {
 }
 
 async function connectCompanion(token: string) {
-  const companion = connect('/ws/companion');
+  const companion = connect('/ws/companion', ['commands']);
   await companion.opened;
   companion.send({ type: 'hello', token, protocol: PROTOCOL_VERSION });
   return companion;
@@ -235,6 +241,19 @@ describe('live pipeline (simulated source)', () => {
     await api(cookie, 'POST', '/api/commands', { keyword: 'emote', key: 'Control+Shift+KeyE', holdMs: 50, cooldownMs: 0 });
     await api(cookie, 'POST', '/api/live/simulate', { viewer: 'alice', text: 'emote' });
     expect(await companion.next()).toMatchObject({ type: 'action', action: { key: 'Control+Shift+KeyE' } });
+  });
+
+  it('tells the companion what each command presses, on connect and whenever commands change', async () => {
+    const { cookie } = await signUp();
+    const companion = await connectCompanion((await pairCompanion(cookie)).token);
+    expect((await companion.nextAside()).commands.map((c: { keyword: string }) => c.keyword)).toEqual(['left', 'right', 'up', 'down', 'jump']);
+    await api(cookie, 'POST', '/api/commands', { keyword: 'emote', key: 'Control+Shift+KeyE', holdMs: 100, cooldownMs: 0 });
+    expect((await companion.nextAside()).commands.at(-1)).toEqual({ keyword: 'emote', key: 'Control+Shift+KeyE', enabled: true });
+    const emote = (await api(cookie, 'GET', '/api/commands')).json().find((c: { keyword: string }) => c.keyword === 'emote');
+    await api(cookie, 'PATCH', `/api/commands/${emote.id}`, { enabled: false });
+    expect((await companion.nextAside()).commands.at(-1)).toMatchObject({ keyword: 'emote', enabled: false });
+    await api(cookie, 'DELETE', `/api/commands/${emote.id}`);
+    expect((await companion.nextAside()).commands).toHaveLength(5);
   });
 
   it("keeps hosts isolated from each other's sessions", async () => {
