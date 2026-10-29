@@ -2,6 +2,7 @@ import { useCallback, useEffect, useState, type FormEvent } from 'react';
 import { ALERT_POSITIONS, GOAL_METRICS, MAX_WIDGETS, WIDGET_SPOTS, WIDGET_TYPES, type GoalMetric, type ScreenWidget, type WidgetSpot, type WidgetType } from '@fluxion/shared';
 import { api, type AlertPosition, type Goal, type Screen } from '../api';
 import { Card, ErrorNotice, NumberCell, Seg, Switch, TextCell, useError } from '../ui';
+import { DEFAULT_FIREWORK_DIAMONDS, Fireworks, GiftBus, usePreview, Widget } from '../overlay-widgets';
 
 const POSITION_LABELS: Record<AlertPosition, string> = { top: 'Top', middle: 'Middle', bottom: 'Bottom' };
 
@@ -62,6 +63,7 @@ const SPOT_LABELS: Record<WidgetSpot, string> = {
 
 function WidgetsEditor({ widgets, onSave }: { widgets: ScreenWidget[]; onSave: (widgets: ScreenWidget[]) => void }) {
   const [type, setType] = useState<WidgetType>('goals');
+  const [previewing, setPreviewing] = useState<WidgetType | null>(null);
   const change = (i: number, patch: Partial<ScreenWidget>) => onSave(widgets.map((w, j) => (j === i ? { ...w, ...patch } : w)));
   const used = new Set(widgets.map((w) => w.type));
   const available = WIDGET_TYPES.filter((t) => !used.has(t));
@@ -103,9 +105,13 @@ function WidgetsEditor({ widgets, onSave }: { widgets: ScreenWidget[]; onSave: (
                   ))}
                 </select>
               )}
+              <button className="btn btn-sm" aria-expanded={previewing === w.type} onClick={() => setPreviewing(previewing === w.type ? null : w.type)}>
+                {previewing === w.type ? 'Hide preview' : 'Preview'}
+              </button>
               <button className="btn btn-ghost btn-sm btn-delete" onClick={() => onSave(widgets.filter((_, j) => j !== i))}>
                 Remove
               </button>
+              {previewing === w.type && <WidgetPreview widget={w} />}
             </li>
           ))}
         </ul>
@@ -124,6 +130,27 @@ function WidgetsEditor({ widgets, onSave }: { widgets: ScreenWidget[]; onSave: (
           </button>
         </div>
       )}
+    </div>
+  );
+}
+
+// The widget as it looks on stream, fed sample viewers and a gift every few seconds.
+function WidgetPreview({ widget }: { widget: ScreenWidget }) {
+  const [bus] = useState(() => new GiftBus());
+  const { stats, chat } = usePreview(true, bus);
+  return (
+    <div className="widget-stage">
+      {widget.type === 'firework' ? (
+        <Fireworks min={widget.minDiamonds ?? DEFAULT_FIREWORK_DIAMONDS} bus={bus} />
+      ) : (
+        <Widget widget={widget} stats={stats} chat={chat} bus={bus} />
+      )}
+      {widget.type === 'goals' && stats?.goals.length === 0 && <p className="widget-stage-empty">Add a goal in the Goals card to see it here.</p>}
+      <span className="widget-stage-note">
+        {widget.type === 'firework'
+          ? `Sample gifts of up to 1,500 diamonds. Only those worth ${(widget.minDiamonds ?? DEFAULT_FIREWORK_DIAMONDS).toLocaleString()} or more set off fireworks.`
+          : 'Sample viewers and gifts'}
+      </span>
     </div>
   );
 }

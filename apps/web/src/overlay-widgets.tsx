@@ -159,7 +159,7 @@ export function Fireworks({ min, bus }: { min: number; bus: GiftBus }) {
     const c = canvas.current;
     const g = c?.getContext('2d');
     if (!c || !g) return;
-    if (c.width !== innerWidth || c.height !== innerHeight) (c.width = innerWidth), (c.height = innerHeight);
+    if (c.width !== c.clientWidth || c.height !== c.clientHeight) (c.width = c.clientWidth), (c.height = c.clientHeight);
     // Fade what's there rather than clearing it, which leaves trails; the canvas stays transparent underneath.
     g.globalCompositeOperation = 'destination-out';
     g.globalAlpha = 1;
@@ -203,7 +203,11 @@ export function Fireworks({ min, bus }: { min: number; bus: GiftBus }) {
     if (gift.diamonds < min) return;
     const bursts = Math.min(6, 1 + Math.floor(Math.log2(gift.diamonds / min)));
     for (let i = 0; i < bursts; i++) {
-      setTimeout(() => burst(innerWidth * (0.2 + Math.random() * 0.6), innerHeight * (0.15 + Math.random() * 0.35)), i * 350);
+      // The canvas fills the screen on stream, or a small box in the dashboard's preview.
+      setTimeout(() => {
+        const c = canvas.current;
+        if (c) burst(c.clientWidth * (0.2 + Math.random() * 0.6), c.clientHeight * (0.15 + Math.random() * 0.35));
+      }, i * 350);
     }
   });
   useEffect(() => () => void (frame.current !== null && cancelAnimationFrame(frame.current)), []);
