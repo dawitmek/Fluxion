@@ -10,6 +10,7 @@ const QUEUE_PREVIEW = 5;
 // The turn holder isn't subject to per-command cooldowns, only the global rate.
 export function createQueue(ctx: EngineContext): Engine {
   const queue: string[] = [];
+  const joinedAt = new Map<string, number>(); // for how long each viewer waited
   let turn: { viewer: string; endsAt: number; lastActionAt: number } | null = null;
   const rate = createRateLimit(ctx);
 
@@ -17,11 +18,23 @@ export function createQueue(ctx: EngineContext): Engine {
     handle(event) {
       if (event.kind === 'comment') {
         if (event.text.trim().toLowerCase() === QUEUE_JOIN) {
-          if (turn?.viewer !== event.viewerId && !queue.includes(event.viewerId)) queue.push(event.viewerId);
+          if (turn?.viewer !== event.viewerId && !queue.includes(event.viewerId)) {
+            queue.push(event.viewerId);
+            joinedAt.set(event.viewerId, ctx.now());
+            ctx.note?.('queue_join', event.viewerId);
+          }
           return [];
         }
         const command = matchComment(ctx, event);
-        if (!command || turn?.viewer !== event.viewerId || !rate.take()) return [];
+        if (!command) return [];
+        if (turn?.viewer !== event.viewerId) {
+          ctx.note?.('refused', event.viewerId, { keyword: command.keyword, reason: 'not their turn' });
+          return [];
+        }
+        if (!rate.take()) {
+          ctx.note?.('refused', event.viewerId, { keyword: command.keyword, reason: 'rate limit' });
+          return [];
+        }
         turn.lastActionAt = ctx.now();
         return [decide(ctx, command, event.viewerId, [event.viewerId])];
       }
@@ -30,6 +43,7 @@ export function createQueue(ctx: EngineContext): Engine {
         const at = queue.indexOf(event.viewerId);
         if (at !== -1) queue.splice(at, 1);
         queue.unshift(event.viewerId);
+        if (!joinedAt.has(event.viewerId)) joinedAt.set(event.viewerId, ctx.now());
       }
       return [];
     },
@@ -38,7 +52,11 @@ export function createQueue(ctx: EngineContext): Engine {
       const t = ctx.now();
       if (turn && (t >= turn.endsAt || t - turn.lastActionAt >= IDLE_MS)) turn = null;
       const next = turn ? undefined : queue.shift();
-      if (next !== undefined) turn = { viewer: next, endsAt: t + ctx.config.turnMs, lastActionAt: t };
+      if (next !== undefined) {
+        turn = { viewer: next, endsAt: t + ctx.config.turnMs, lastActionAt: t };
+        ctx.note?.('turn', next, { waitedMs: t - (joinedAt.get(next) ?? t) });
+        joinedAt.delete(next);
+      }
       return [];
     },
 

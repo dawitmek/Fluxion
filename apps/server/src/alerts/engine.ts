@@ -110,6 +110,8 @@ export function createAlerts(ctx: AlertContext) {
             return [alert(r, { viewer: event.viewerId, total: Math.floor(totalLikes / step) * step, count: event.count })];
           });
         }
+        case 'join':
+          return []; // shown in the activity feed, but too frequent for an alert
       }
     },
   };

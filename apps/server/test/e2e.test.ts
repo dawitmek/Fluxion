@@ -9,7 +9,7 @@ import type { PlatformAdapter } from '../src/platforms/types.js';
 import { Piper } from '../src/tts/piper.js';
 import { fileURLToPath } from 'node:url';
 import { randomBytes } from 'node:crypto';
-import { hosts, serviceStatus } from '../src/db/schema.js';
+import { hosts, serviceStatus, streamEvents, streams } from '../src/db/schema.js';
 import { Secrets } from '../src/crypto.js';
 
 const databaseUrl = process.env.TEST_DATABASE_URL ?? 'postgres://fluxion:fluxion@127.0.0.1:5432/fluxion_test';
@@ -414,6 +414,71 @@ describe('viewer progression', () => {
     expect(await companion.next()).toMatchObject({ type: 'action', action: { key: 'KeyA' } });
     await app.live.flushStats();
     expect((await api(cookie, 'GET', '/api/leaderboard')).json()).toEqual([{ viewer: 'alice', commands: 2, gifts: 1, xp: 12 }]);
+  });
+});
+
+describe('stream activity and analytics', () => {
+  it('records what viewers do and what Fluxion did, and sums it up per stream', async () => {
+    const { cookie } = await signUp();
+    await api(cookie, 'POST', '/api/live/start', { source: 'simulated' });
+    const sim = (body: object) => api(cookie, 'POST', '/api/live/simulate', body);
+    await sim({ viewer: 'alice', event: 'join' });
+    await sim({ viewer: 'alice', text: 'hello stream' });
+    await sim({ viewer: 'alice', text: 'left' }); // fires
+    await sim({ viewer: 'alice', text: 'left' }); // within the 1 s cooldown: refused
+    await sim({ viewer: 'bob', gift: 'Rose', count: 3, diamonds: 1 });
+    await sim({ viewer: 'bob', event: 'follow' });
+    await sim({ viewer: 'carol', event: 'like', count: 15 });
+    await api(cookie, 'POST', '/api/live/stop');
+
+    const activity = (await api(cookie, 'GET', '/api/analytics/activity')).json();
+    expect(activity.stream).toMatchObject({ source: 'simulated', live: false });
+    // Newest first, viewer interactions only (the fired command shows as alice's comment).
+    expect(activity.events.map((e: { kind: string; viewer: string }) => `${e.kind}:${e.viewer}`)).toEqual([
+      'like:carol', 'follow:bob', 'gift:bob', 'comment:alice', 'comment:alice', 'comment:alice', 'join:alice',
+    ]);
+    expect(activity.events[2].data).toEqual({ gift: 'Rose', count: 3, diamonds: 1 });
+    const chatOnly = (await api(cookie, 'GET', '/api/analytics/activity?kinds=comment&viewer=ALI')).json();
+    expect(chatOnly.events).toHaveLength(3);
+    const older = (await api(cookie, 'GET', `/api/analytics/activity?before=${activity.events[1].id}&limit=2`)).json();
+    expect(older.events.map((e: { kind: string }) => e.kind)).toEqual(['gift', 'comment']);
+
+    const detail = (await api(cookie, 'GET', '/api/analytics/streams/latest')).json();
+    expect(detail.summary).toMatchObject({ source: 'simulated', participants: 2, comments: 3, commands: 1, gifts: 3, diamonds: 3, follows: 1, joins: 1, topCommand: 'left', topPlayer: 'alice' });
+    expect(detail.commandUsage).toEqual([{ keyword: 'left', fired: 1, refused: 1, reasons: { cooldown: 1 } }]);
+    expect(detail.gifts.byGift).toEqual([{ gift: 'Rose', count: 3, diamonds: 3 }]);
+    expect(detail.markers.map((m: { label: string }) => m.label)).toEqual(['bob sent 3× Rose', 'bob followed']);
+    expect(detail.peaks[0]).toMatchObject({ events: 6 }); // 3 comments, the gift, the follow and the fired command
+    // Test mode stays out of the stream history.
+    expect((await api(cookie, 'GET', '/api/analytics/streams')).json()).toEqual([]);
+  });
+
+  it('counts new and returning viewers across real streams, and keeps hosts apart', async () => {
+    const a = await signUp('a@example.com');
+    const b = await signUp('b@example.com');
+    const day = 24 * 3600 * 1000;
+    const stream = async (hostId: string, daysAgo: number, viewers: string[]) => {
+      const startedAt = new Date(Date.now() - daysAgo * day);
+      const [row] = await app.db
+        .insert(streams)
+        .values({ hostId, source: 'tiktok', profileName: 'Default', startedAt, endedAt: new Date(startedAt.getTime() + 3600_000) })
+        .returning();
+      await app.db.insert(streamEvents).values(viewers.map((viewer) => ({ streamId: row!.id, at: startedAt, kind: 'comment' as const, viewer, data: { text: 'hi' } })));
+      return row!.id;
+    };
+    await stream(a.id, 2, ['mira', 'jules']);
+    await stream(a.id, 1, ['mira', 'kai', 'nova']);
+    const other = await stream(b.id, 1, ['mira']);
+
+    const history = (await api(a.cookie, 'GET', '/api/analytics/streams')).json();
+    expect(history.map((s: { participants: number; newParticipants: number }) => [s.participants, s.newParticipants])).toEqual([
+      [3, 2], // mira returned; kai and nova are new
+      [2, 2],
+    ]);
+    // Another host's stream counts separately and can't be opened.
+    expect((await api(b.cookie, 'GET', '/api/analytics/streams')).json()[0]).toMatchObject({ participants: 1, newParticipants: 1 });
+    expect((await api(a.cookie, 'GET', `/api/analytics/streams/${other}`)).statusCode).toBe(404);
+    expect((await api(a.cookie, 'GET', `/api/analytics/activity?stream=${other}`)).json()).toEqual({ stream: null, events: [] });
   });
 });
 

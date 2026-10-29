@@ -34,8 +34,14 @@ export function createDemocracy(ctx: EngineContext): Engine {
     tick() {
       if (!window || ctx.now() < window.endsAt) return [];
       let winner: { keyword: string; votes: number } | undefined;
-      for (const entry of tally()) if (!winner || entry.votes > winner.votes) winner = entry;
+      const entries = tally();
+      for (const entry of entries) if (!winner || entry.votes > winner.votes) winner = entry;
       const voters = [...window.votes].filter(([, k]) => k === winner?.keyword).map(([v]) => v);
+      if (winner) {
+        const runnerUp = Math.max(0, ...entries.filter((e) => e !== winner).map((e) => e.votes));
+        const total = entries.reduce((sum, e) => sum + e.votes, 0);
+        ctx.note?.('vote', null, { winner: winner.keyword, votes: winner.votes, total, voters: window.votes.size, margin: winner.votes - runnerUp });
+      }
       window = null;
       const command = ctx.config.commands.find((c) => c.enabled && c.keyword === winner?.keyword);
       if (!winner || !command) return [];

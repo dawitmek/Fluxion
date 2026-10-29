@@ -71,6 +71,20 @@
       "when": 1793235020345,
       "tag": "0009_command_order",
       "breakpoints": true
+    },
+    {
+      "idx": 10,
+      "version": "7",
+      "when": 1793236873724,
+      "tag": "0010_stream_history",
+      "breakpoints": true
+    },
+    {
+      "idx": 11,
+      "version": "7",
+      "when": 1793236964172,
+      "tag": "0011_stream_events_viewer",
+      "breakpoints": true
     }
   ]
 }

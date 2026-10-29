@@ -9,7 +9,8 @@ export type ViewerEvent =
   | { kind: 'gift'; viewerId: string; giftId: number; giftName: string; count: number; diamonds: number; at: number } // diamonds per gift
   | { kind: 'like'; viewerId: string; count: number; at: number }
   | { kind: 'follow'; viewerId: string; at: number }
-  | { kind: 'share'; viewerId: string; at: number };
+  | { kind: 'share'; viewerId: string; at: number }
+  | { kind: 'join'; viewerId: string; at: number };
 
 // A key press the server asks the companion to perform. The companion enforces its own whitelist.
 export interface KeyAction {
@@ -143,3 +144,51 @@ export type ServerToOverlay =
   | { type: 'levelUp'; viewer: string; level: number }
   | { type: 'alert'; text: string; sound: AlertSound | null; speech: Speech | null }
   | { type: 'tts'; viewer: string; text: string; speech: Speech };
+
+// What's recorded during a stream: what viewers did, and what Fluxion did in response.
+//   comment {text}, gift {gift, count, diamonds}, like {count}, follow, share, join: viewer interactions
+//   command {keyword, via: 'chat' | 'vote' | 'gift'}: a key press fired (viewer is null for a vote's winner)
+//   refused {keyword, reason}: a command that matched but didn't fire (cooldown, rate limit, level, not their turn)
+//   level {level}, vote {winner, votes, total, voters, margin}, queue_join, turn {waitedMs}
+export type ActivityKind =
+  | 'comment' | 'gift' | 'like' | 'follow' | 'share' | 'join'
+  | 'command' | 'refused' | 'level' | 'vote' | 'queue_join' | 'turn';
+
+export interface StreamEvent {
+  id: number;
+  at: number;
+  kind: ActivityKind;
+  viewer: string | null;
+  data: Record<string, unknown>;
+}
+
+export interface StreamSummary {
+  id: string;
+  source: 'tiktok' | 'simulated';
+  profileName: string;
+  startedAt: number;
+  endedAt: number | null; // null while live
+  participants: number; // viewers who chatted or gifted
+  newParticipants: number; // ... for the first time on any of the host's streams
+  comments: number;
+  commands: number;
+  gifts: number;
+  diamonds: number;
+  follows: number;
+  joins: number;
+  topCommand: string | null;
+  topPlayer: string | null;
+}
+
+export interface StreamDetail {
+  summary: StreamSummary;
+  perMinute: { minute: number; commands: number; comments: number }[]; // minute 0 is the stream's first
+  markers: { at: number; kind: 'gift' | 'follow' | 'level'; viewer: string | null; label: string }[];
+  commandUsage: { keyword: string; fired: number; refused: number; reasons: Record<string, number> }[];
+  peaks: { start: number; end: number; events: number }[]; // busiest two-minute windows, busiest first
+  gifts: { byGift: { gift: string; count: number; diamonds: number }[]; perHour: { hour: number; diamonds: number }[] };
+  modes: {
+    votes: { rounds: number; avgVoters: number; closeRounds: number }; // close: won by one vote or a tie
+    queue: { joins: number; turns: number; avgWaitMs: number };
+  };
+}

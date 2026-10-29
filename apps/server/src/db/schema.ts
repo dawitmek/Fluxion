@@ -1,5 +1,5 @@
-import { boolean, integer, pgTable, primaryKey, serial, text, timestamp, unique, uuid, type AnyPgColumn } from 'drizzle-orm/pg-core';
-import type { AlertEvent, AlertSound, CloudProvider, Mode, TtsEngine, TtsMode, VoiceEffect } from '@fluxion/shared';
+import { bigserial, boolean, index, integer, jsonb, pgTable, primaryKey, serial, text, timestamp, unique, uuid, type AnyPgColumn } from 'drizzle-orm/pg-core';
+import type { ActivityKind, AlertEvent, AlertSound, CloudProvider, Mode, TtsEngine, TtsMode, VoiceEffect } from '@fluxion/shared';
 
 export const hosts = pgTable('hosts', {
   id: uuid('id').primaryKey().defaultRandom(),
@@ -127,6 +127,34 @@ export const pairingCodes = pgTable('pairing_codes', {
   hostId: uuid('host_id').notNull().references(() => hosts.id, { onDelete: 'cascade' }),
   expiresAt: timestamp('expires_at', { withTimezone: true }).notNull(),
 });
+
+// One row per live session (TikTok or test mode). Test-mode sessions are kept only until the next one starts.
+export const streams = pgTable(
+  'streams',
+  {
+    id: uuid('id').primaryKey().defaultRandom(),
+    hostId: uuid('host_id').notNull().references(() => hosts.id, { onDelete: 'cascade' }),
+    source: text('source').$type<'tiktok' | 'simulated'>().notNull(),
+    profileName: text('profile_name').notNull(),
+    startedAt: timestamp('started_at', { withTimezone: true }).notNull().defaultNow(),
+    endedAt: timestamp('ended_at', { withTimezone: true }), // null while live
+  },
+  (t) => [index('streams_host_idx').on(t.hostId, t.startedAt)],
+);
+
+// Everything that happened during a stream, for the activity feed and analytics. See ActivityKind for what's in data.
+export const streamEvents = pgTable(
+  'stream_events',
+  {
+    id: bigserial('id', { mode: 'number' }).primaryKey(),
+    streamId: uuid('stream_id').notNull().references(() => streams.id, { onDelete: 'cascade' }),
+    at: timestamp('at', { withTimezone: true }).notNull(),
+    kind: text('kind').$type<ActivityKind>().notNull(),
+    viewer: text('viewer'),
+    data: jsonb('data').$type<Record<string, unknown>>().notNull().default({}),
+  },
+  (t) => [index('stream_events_stream_idx').on(t.streamId, t.id), index('stream_events_viewer_idx').on(t.viewer, t.kind)],
+);
 
 // Health of server-wide services, shared by every server process on the database. One row per service:
 // 'tiktok-account' is the TIKTOK_SESSION_ID account that TikTok voices fall back to.

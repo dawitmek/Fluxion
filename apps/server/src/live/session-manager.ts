@@ -1,8 +1,9 @@
-import { eq } from 'drizzle-orm';
+import { and, eq, isNull, sql } from 'drizzle-orm';
 import { QUEUE_JOIN, XP_PER_COMMAND, type Mode, type ServerToOverlay, type ViewerEvent } from '@fluxion/shared';
 import type { Secrets } from '../crypto.js';
 import type { Db } from '../db/client.js';
-import { alertRules, commands, giftTriggers, hosts } from '../db/schema.js';
+import { alertRules, commands, giftTriggers, hosts, streamEvents, streams } from '../db/schema.js';
+import { StreamRecorder } from './recorder.js';
 import { createAlerts, parseBlockedWords, type AlertContext, type AlertOutput } from '../alerts/engine.js';
 import { voiceConfig, type SpeechService, type VoiceConfig } from '../tts/speech.js';
 import { activeProfile } from '../profiles/active.js';
@@ -32,6 +33,7 @@ interface LiveSession {
   ticker: NodeJS.Timeout;
   delayed: Set<NodeJS.Timeout>; // pending repeats of gift-triggered presses
   lastState: string;
+  recorder: StreamRecorder;
 }
 
 export class LiveError extends Error {
@@ -55,13 +57,27 @@ export class SessionManager {
     private speech: SpeechService,
     private secrets: Secrets,
     private createTikTok: (username: string) => PlatformAdapter,
+    private onError: (err: unknown) => void = () => {},
   ) {}
+
+  // Streams left open by a server that stopped without stopping them end at their last event.
+  async closeAbandonedStreams() {
+    await this.db
+      .update(streams)
+      .set({ endedAt: sql`coalesce((select max(${streamEvents.at}) from ${streamEvents} where ${streamEvents.streamId} = ${streams.id}), ${streams.startedAt})` })
+      .where(isNull(streams.endedAt));
+  }
+
+  // The stream being recorded for a host right now, if any.
+  currentStreamId(hostId: string): string | null {
+    return this.sessions.get(hostId)?.recorder.streamId ?? null;
+  }
 
   async start(hostId: string, source: Source) {
     await this.stop(hostId);
     const loaded = await this.loadConfig(hostId);
     if (!loaded) throw new LiveError('Host not found', 404);
-    const { host, mode, config, alertConfig, voice } = loaded;
+    const { host, mode, config, alertConfig, voice, profileName } = loaded;
 
     let adapter: PlatformAdapter;
     if (source === 'simulated') {
@@ -86,6 +102,12 @@ export class SessionManager {
         return keyword === QUEUE_JOIN || ctx.config.commands.some((c) => c.enabled && c.keyword === keyword);
       },
     };
+    // Real streams are kept for analytics; a test-mode session is only kept until the next session starts.
+    await this.db.delete(streams).where(and(eq(streams.hostId, hostId), eq(streams.source, 'simulated')));
+    const [stream] = await this.db.insert(streams).values({ hostId, source, profileName }).returning({ id: streams.id });
+    const recorder = new StreamRecorder(this.db, stream!.id, this.onError);
+    ctx.note = (kind, viewer, data) => recorder.add(kind, viewer, data);
+
     const session: LiveSession = {
       source,
       startedAt: Date.now(),
@@ -101,6 +123,7 @@ export class SessionManager {
       ticker: setInterval(() => this.run(hostId, session, session.engine.tick()), TICK_MS),
       delayed: new Set(),
       lastState: '',
+      recorder,
     };
     adapter.onEvent((event) => this.onEvent(hostId, session, event));
     adapter.onEnd(() => {
@@ -113,6 +136,8 @@ export class SessionManager {
     } catch (err) {
       clearInterval(session.ticker);
       this.stats.unload(hostId);
+      await recorder.close();
+      await this.db.delete(streams).where(eq(streams.id, recorder.streamId));
       throw new LiveError(`Could not connect to TikTok LIVE: ${(err as Error).message}`, 409);
     }
     this.sessions.set(hostId, session);
@@ -128,6 +153,8 @@ export class SessionManager {
     for (const timer of session.delayed) clearTimeout(timer);
     this.stats.unload(hostId);
     await session.adapter.stop();
+    await session.recorder.close();
+    await this.db.update(streams).set({ endedAt: new Date() }).where(eq(streams.id, session.recorder.streamId));
     this.hub.sendToOverlays(hostId, { type: 'live', state: 'stopped' });
   }
 
@@ -201,6 +228,7 @@ export class SessionManager {
   }
 
   private onEvent(hostId: string, session: LiveSession, event: ViewerEvent) {
+    session.recorder.add(event.kind, event.viewerId, eventData(event), event.at);
     if (event.kind === 'gift') {
       const xp = Math.max(1, event.diamonds) * event.count;
       this.levelUp(hostId, session, event.viewerId, this.stats.record(hostId, event.viewerId, { gifts: event.count, xp }));
@@ -240,6 +268,9 @@ export class SessionManager {
 
   private fire(hostId: string, session: LiveSession, decision: Decision) {
     this.hub.sendToCompanions(hostId, { type: 'action', action: decision.action });
+    // Gift triggers credit nobody; a democracy vote names its tally ("3 votes") rather than a viewer.
+    const via = decision.credit.length === 0 ? 'gift' : decision.credit.includes(decision.viewer) ? 'chat' : 'vote';
+    session.recorder.add('command', via === 'vote' ? null : decision.viewer, { keyword: decision.keyword, via });
     const levelUps = decision.credit.map((viewerId) => {
       const level = this.stats.record(hostId, viewerId, { commands: 1, xp: XP_PER_COMMAND });
       return [viewerId, level] as const;
@@ -257,6 +288,7 @@ export class SessionManager {
   }
 
   private levelUp(hostId: string, session: LiveSession, viewer: string, level: number | null) {
+    if (level !== null) session.recorder.add('level', viewer, { level });
     if (level !== null && session.progression) this.hub.sendToOverlays(hostId, { type: 'levelUp', viewer, level });
   }
 
@@ -283,6 +315,7 @@ export class SessionManager {
         .where(eq(giftTriggers.profileId, profile.id)),
       this.db.select().from(alertRules).where(eq(alertRules.hostId, hostId)),
     ]);
+    const profileName = profile.name;
     const config: EngineConfig = {
       commands: commandRows,
       giftTriggers: triggerRows,
@@ -304,6 +337,20 @@ export class SessionManager {
         blockedWords: parseBlockedWords(host.ttsBlockedWords),
       },
     };
-    return { host, mode: profile.mode, config, alertConfig, voice: voiceConfig(host, this.secrets) };
+    return { host, mode: profile.mode, config, alertConfig, voice: voiceConfig(host, this.secrets), profileName };
+  }
+}
+
+// What's kept of each viewer event besides its kind, viewer and time.
+function eventData(event: ViewerEvent): Record<string, unknown> {
+  switch (event.kind) {
+    case 'comment':
+      return { text: event.text };
+    case 'gift':
+      return { gift: event.giftName, count: event.count, diamonds: event.diamonds };
+    case 'like':
+      return { count: event.count };
+    default:
+      return {};
   }
 }

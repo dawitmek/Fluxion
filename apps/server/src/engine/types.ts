@@ -30,6 +30,9 @@ export interface EngineContext {
   now: () => number;
   newId: () => string;
   levelOf: (viewerId: string) => number;
+  // Reports what the engine decided not to do, and mode moments, for stream analytics:
+  // refused {keyword, reason}, vote {winner, votes, total, voters, margin}, queue_join, turn {waitedMs}.
+  note?: (kind: 'refused' | 'vote' | 'queue_join' | 'turn', viewer: string | null, data?: Record<string, unknown>) => void;
 }
 
 export interface Decision {

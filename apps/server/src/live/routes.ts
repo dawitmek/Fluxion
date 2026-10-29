@@ -37,9 +37,9 @@ export async function liveRoutes(app: FastifyInstance) {
 
   app.get('/status', async (req) => live.status(req.hostId));
 
-  // A fake comment ({viewer, text}), gift ({viewer, gift, count}) or follow/share/like ({viewer, event, count}).
+  // A fake comment ({viewer, text}), gift ({viewer, gift, count}) or follow/share/join/like ({viewer, event, count}).
   app.post<{
-    Body: { viewer: string; text?: string; gift?: string; event?: 'follow' | 'share' | 'like'; count?: number; diamonds?: number };
+    Body: { viewer: string; text?: string; gift?: string; event?: 'follow' | 'share' | 'join' | 'like'; count?: number; diamonds?: number };
   }>(
     '/simulate',
     {
@@ -53,7 +53,7 @@ export async function liveRoutes(app: FastifyInstance) {
             viewer: { type: 'string', minLength: 1, maxLength: 64 },
             text: { type: 'string', minLength: 1, maxLength: 200 },
             gift: { type: 'string', minLength: 1, maxLength: 64 },
-            event: { enum: ['follow', 'share', 'like'] },
+            event: { enum: ['follow', 'share', 'join', 'like'] },
             count: { type: 'integer', minimum: 1, maximum: 1000 },
             diamonds: { type: 'integer', minimum: 0, maximum: 100000 },
           },

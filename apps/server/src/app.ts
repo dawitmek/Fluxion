@@ -26,6 +26,7 @@ import { leaderboardRoutes } from './leaderboard/routes.js';
 import { profileRoutes } from './profiles/routes.js';
 import { alertRoutes } from './alerts/routes.js';
 import { ttsRoutes } from './tts/routes.js';
+import { analyticsRoutes } from './analytics/routes.js';
 import { Piper } from './tts/piper.js';
 import { SpeechService } from './tts/speech.js';
 import { ServerTiktokAccount } from './tts/tiktok-account.js';
@@ -81,7 +82,10 @@ export async function buildApp(config: Config, options: Options = {}) {
   app.decorate('stats', stats);
   app.decorate('piper', piper);
   app.decorate('speech', speech);
-  app.decorate('live', new SessionManager(db, hub, stats, speech, secrets, createTikTok));
+  app.decorate(
+    'live',
+    new SessionManager(db, hub, stats, speech, secrets, createTikTok, (err) => app.log.warn({ err }, 'Could not record stream events')),
+  );
   app.decorate('tiktokAccount', tiktokAccount);
   tiktokAccount.start();
   app.addHook('onClose', async () => {
@@ -105,6 +109,7 @@ export async function buildApp(config: Config, options: Options = {}) {
   await app.register(profileRoutes, { prefix: '/api/profiles' });
   await app.register(alertRoutes, { prefix: '/api/alerts' });
   await app.register(ttsRoutes, { prefix: '/api/tts' });
+  await app.register(analyticsRoutes, { prefix: '/api/analytics' });
   await app.register(gatewayRoutes);
 
   // In production the server also serves the built web app, so everything lives on one address.

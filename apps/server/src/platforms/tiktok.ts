@@ -21,7 +21,7 @@ type RawPayload = {
 // The connector's emitter typings come from a CommonJS package that NodeNext can't resolve, so `.on` goes untyped.
 type Emitter = { on(event: string, listener: (data: unknown) => void): unknown };
 
-const MAPPED = [WebcastEvent.CHAT, WebcastEvent.GIFT, WebcastEvent.LIKE, WebcastEvent.FOLLOW, WebcastEvent.SHARE] as const;
+const MAPPED = [WebcastEvent.CHAT, WebcastEvent.GIFT, WebcastEvent.LIKE, WebcastEvent.FOLLOW, WebcastEvent.SHARE, WebcastEvent.MEMBER] as const;
 type MappedEvent = (typeof MAPPED)[number];
 
 export function toViewerEvent(type: MappedEvent, data: RawPayload, at = Date.now()): ViewerEvent | null {
@@ -54,6 +54,8 @@ export function toViewerEvent(type: MappedEvent, data: RawPayload, at = Date.now
       return { kind: 'follow', viewerId, at };
     case WebcastEvent.SHARE:
       return { kind: 'share', viewerId, at };
+    case WebcastEvent.MEMBER:
+      return { kind: 'join', viewerId, at };
   }
 }
 

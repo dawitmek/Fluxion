@@ -6,7 +6,10 @@ import type { Decision, EngineCommand, EngineContext } from './types.js';
 export function matchComment(ctx: EngineContext, event: Extract<ViewerEvent, { kind: 'comment' }>): EngineCommand | undefined {
   const keyword = event.text.trim().toLowerCase();
   const command = ctx.config.commands.find((c) => c.enabled && c.keyword === keyword);
-  if (command && ctx.config.levelGating && ctx.levelOf(event.viewerId) < command.minLevel) return undefined;
+  if (command && ctx.config.levelGating && ctx.levelOf(event.viewerId) < command.minLevel) {
+    ctx.note?.('refused', event.viewerId, { keyword, reason: 'level' });
+    return undefined;
+  }
   return command;
 }
 

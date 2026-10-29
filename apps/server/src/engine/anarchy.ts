@@ -14,8 +14,14 @@ export function createAnarchy(ctx: EngineContext): Engine {
 
       const cooldownKey = `${event.viewerId}:${command.keyword}`;
       const last = lastFired.get(cooldownKey);
-      if (last !== undefined && ctx.now() - last < command.cooldownMs) return [];
-      if (!rate.take()) return [];
+      if (last !== undefined && ctx.now() - last < command.cooldownMs) {
+        ctx.note?.('refused', event.viewerId, { keyword: command.keyword, reason: 'cooldown' });
+        return [];
+      }
+      if (!rate.take()) {
+        ctx.note?.('refused', event.viewerId, { keyword: command.keyword, reason: 'rate limit' });
+        return [];
+      }
 
       lastFired.set(cooldownKey, ctx.now());
       return [decide(ctx, command, event.viewerId, [event.viewerId])];
