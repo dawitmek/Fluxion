@@ -85,6 +85,11 @@ async fn tiktok_sign_in(app: AppHandle, ctl: Ctl<'_>) -> Result<bool, String> {
 }
 
 #[tauri::command]
+async fn tiktok_status(ctl: Ctl<'_>) -> Result<bool, String> {
+    tiktok::status(ctl.inner().clone()).await
+}
+
+#[tauri::command]
 fn request_permission() {
     input::request_permission();
 }
@@ -95,6 +100,7 @@ pub fn run() {
     let panic_key = Shortcut::new(Some(Modifiers::CONTROL | Modifiers::SHIFT), Code::Backspace);
 
     tauri::Builder::default()
+        .plugin(tauri_plugin_opener::init())
         .plugin(
             tauri_plugin_global_shortcut::Builder::new()
                 .with_handler(move |app, shortcut, event| {
@@ -124,7 +130,8 @@ pub fn run() {
             set_allowed_keys,
             set_paused,
             request_permission,
-            tiktok_sign_in
+            tiktok_sign_in,
+            tiktok_status
         ])
         .run(tauri::generate_context!())
         .expect("error while running the Fluxion companion");

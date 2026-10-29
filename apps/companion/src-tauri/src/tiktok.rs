@@ -57,6 +57,22 @@ pub async fn sign_in(app: AppHandle, controller: Arc<Controller>) -> Result<bool
     Ok(true)
 }
 
+/// Whether the server has a TikTok session for this host. The dashboard can sign out, so the server decides.
+pub async fn status(controller: Arc<Controller>) -> Result<bool, String> {
+    let config = controller.config();
+    let (Some(server_url), Some(token)) = (config.server_url, config.device_token) else {
+        return Ok(false);
+    };
+    let response = reqwest::Client::new()
+        .get(format!("{server_url}/api/companions/tiktok-session"))
+        .bearer_auth(token)
+        .send()
+        .await
+        .map_err(|e| format!("Could not reach the server: {e}"))?;
+    let body: serde_json::Value = response.json().await.map_err(|e| e.to_string())?;
+    Ok(body["signedIn"].as_bool().unwrap_or(false))
+}
+
 fn find_session(cookies: &[tauri::webview::Cookie<'static>]) -> Option<String> {
     cookies
         .iter()

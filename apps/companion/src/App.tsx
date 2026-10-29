@@ -1,6 +1,7 @@
 import { useEffect, useState } from "react";
 import { invoke } from "@tauri-apps/api/core";
 import { listen } from "@tauri-apps/api/event";
+import { openUrl } from "@tauri-apps/plugin-opener";
 import "@fluxion/theme/theme.css";
 import "./App.css";
 
@@ -242,7 +243,7 @@ function Paired({ state, run }: { state: Snapshot; run: Run }) {
         </div>
       </section>
 
-      <TiktokVoices />
+      <TiktokVoices serverUrl={state.serverUrl} />
 
       <section className="card" aria-labelledby="activity-title">
         <h2 id="activity-title" style={{ marginBottom: 8 }}>
@@ -267,16 +268,31 @@ function Paired({ state, run }: { state: Snapshot; run: Run }) {
 }
 
 // Signs in to TikTok in a separate window so the server can use TikTok's own voices for text-to-speech.
-function TiktokVoices() {
-  const [status, setStatus] = useState<{ busy: boolean; message: string | null; ok: boolean }>({ busy: false, message: null, ok: false });
+function TiktokVoices({ serverUrl }: { serverUrl: string | null }) {
+  const [signedIn, setSignedIn] = useState<boolean | null>(null); // null until the server answers
+  const [busy, setBusy] = useState(false);
+  const [message, setMessage] = useState<{ ok: boolean; text: string } | null>(null);
+
+  // The dashboard can sign out too, so check again whenever this window comes back into focus.
+  useEffect(() => {
+    const check = () => invoke<boolean>("tiktok_status").then(setSignedIn, () => {});
+    check();
+    window.addEventListener("focus", check);
+    return () => window.removeEventListener("focus", check);
+  }, []);
 
   const signIn = () => {
-    setStatus({ busy: true, message: null, ok: false });
+    setBusy(true);
+    setMessage(null);
     invoke<boolean>("tiktok_sign_in")
-      .then((done) =>
-        setStatus({ busy: false, ok: done, message: done ? "Signed in. Choose TikTok voices on the dashboard's Voice page." : null }),
-      )
-      .catch((e) => setStatus({ busy: false, ok: false, message: String(e) }));
+      .then((done) => {
+        if (done) {
+          setSignedIn(true);
+          setMessage({ ok: true, text: "Signed in to TikTok." });
+        }
+      })
+      .catch((e) => setMessage({ ok: false, text: String(e) }))
+      .finally(() => setBusy(false));
   };
 
   return (
@@ -287,15 +303,30 @@ function TiktokVoices() {
           Read chat aloud in TikTok's own voices. Sign in to TikTok here and Fluxion uses your account to make the speech.
         </p>
       </div>
-      {status.message && (
-        <p className={`notice ${status.ok ? "info" : "error"}`} role="status">
-          {status.message}
-        </p>
+      {message && (
+        <div className={`notice ${message.ok ? "info" : "error"}`} role="status">
+          {message.text}
+          {message.ok && serverUrl && (
+            <>
+              {" "}
+              <a href="#" onClick={(e) => (e.preventDefault(), void openUrl(`${serverUrl}/dashboard/voice`))}>
+                Choose a TikTok voice on the dashboard
+              </a>
+            </>
+          )}
+        </div>
       )}
       <div className="row">
-        <button className="btn" disabled={status.busy} onClick={signIn}>
-          {status.busy ? "Waiting for you to sign in…" : "Sign in to TikTok"}
-        </button>
+        {signedIn ? (
+          <span className="tag green signed-in">
+            <span className="dot" aria-hidden="true" />
+            Signed in to TikTok
+          </span>
+        ) : (
+          <button className="btn" disabled={busy || signedIn === null} onClick={signIn}>
+            {busy ? "Waiting for you to sign in…" : "Sign in to TikTok"}
+          </button>
+        )}
       </div>
     </section>
   );

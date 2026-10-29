@@ -14,6 +14,14 @@ const newPairingCode = () => Array.from({ length: 6 }, () => CODE_ALPHABET[rando
 export async function companionRoutes(app: FastifyInstance) {
   const { db } = app;
 
+  // The companion's own requests carry its device token instead of a login session.
+  const deviceHost = async (authorization: string | undefined) => {
+    const token = authorization?.match(/^Bearer (\S+)$/)?.[1];
+    if (!token) return null;
+    const [companion] = await db.select({ hostId: companions.hostId }).from(companions).where(eq(companions.tokenHash, sha256(token)));
+    return companion?.hostId ?? null;
+  };
+
   app.post('/pairing-code', { preHandler: requireHost }, async (req) => {
     const code = newPairingCode();
     const expiresAt = new Date(Date.now() + PAIRING_TTL_MS);
@@ -69,22 +77,27 @@ export async function companionRoutes(app: FastifyInstance) {
       },
     },
     async (req, reply) => {
-      const token = req.headers.authorization?.match(/^Bearer (\S+)$/)?.[1];
-      const [companion] = token
-        ? await db.select({ hostId: companions.hostId }).from(companions).where(eq(companions.tokenHash, sha256(token)))
-        : [];
-      if (!companion) return reply.code(401).send({ error: 'This companion is not paired. Pair it again.' });
+      const hostId = await deviceHost(req.headers.authorization);
+      if (!hostId) return reply.code(401).send({ error: 'This companion is not paired. Pair it again.' });
       try {
         await synthesizeTiktok({ session: req.body.sessionId, voice: null }, 'test', app.speech.fetchImpl);
       } catch (err) {
         if (err instanceof TiktokError) return reply.code(400).send({ error: err.message });
         throw err;
       }
-      await db.update(hosts).set({ ttsTiktokSession: app.secrets.seal(req.body.sessionId) }).where(eq(hosts.id, companion.hostId));
-      await app.live.reload(companion.hostId);
+      await db.update(hosts).set({ ttsTiktokSession: app.secrets.seal(req.body.sessionId) }).where(eq(hosts.id, hostId));
+      await app.live.reload(hostId);
       return { ok: true };
     },
   );
+
+  // Whether the host has signed in to TikTok (the dashboard can sign them out), so the companion shows it.
+  app.get('/tiktok-session', async (req, reply) => {
+    const hostId = await deviceHost(req.headers.authorization);
+    if (!hostId) return reply.code(401).send({ error: 'This companion is not paired. Pair it again.' });
+    const [host] = await db.select({ session: hosts.ttsTiktokSession }).from(hosts).where(eq(hosts.id, hostId));
+    return { signedIn: host?.session != null };
+  });
 
   app.get('/', { preHandler: requireHost }, async (req) =>
     db

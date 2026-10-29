@@ -537,7 +537,11 @@ describe('alerts and text-to-speech', () => {
     expect((await sendSession('goodsession0123456789', 'Bearer not-a-token')).statusCode).toBe(401);
     const expired = await sendSession('expiredsession0123456');
     expect([expired.statusCode, expired.json().error]).toEqual([400, 'TikTok signed you out. Sign in to TikTok again from the companion app.']);
+    const signedIn = async () =>
+      (await app.inject({ method: 'GET', url: '/api/companions/tiktok-session', headers: { authorization: `Bearer ${token}` } })).json().signedIn;
+    expect(await signedIn()).toBe(false);
     expect((await sendSession('goodsession0123456789')).statusCode).toBe(200);
+    expect(await signedIn()).toBe(true);
 
     const me = (await api(cookie, 'GET', '/api/auth/me')).json();
     expect(me).toMatchObject({ ttsEngine: 'tiktok', ttsTiktokVoice: 'en_us_002', ttsTiktokConnected: true });
@@ -554,6 +558,7 @@ describe('alerts and text-to-speech', () => {
     expect((await api(cookie, 'PATCH', '/api/settings', { ttsTiktokSession: 'goodsession0123456789' })).statusCode).toBe(400);
     await api(cookie, 'PATCH', '/api/settings', { ttsTiktokSession: null });
     expect((await api(cookie, 'GET', '/api/auth/me')).json().ttsTiktokConnected).toBe(false);
+    expect(await signedIn()).toBe(false);
   });
 
   it('encrypts secrets saved before encryption existed when the server starts', async () => {

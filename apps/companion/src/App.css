@@ -20,3 +20,4 @@ body { background: var(--aurora), var(--ground); background-repeat: no-repeat; m
 .log li { display: flex; align-items: center; gap: 10px; padding: 6px 0; border-bottom: 1px solid var(--line); }
 .log li:last-child { border-bottom: 0; }
 .log .tag { justify-content: center; width: 64px; border-radius: 8px; font-size: 12px; padding: 2px 0; }
+.signed-in { font-size: 14px; padding: 6px 12px; }
