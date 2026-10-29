@@ -9,6 +9,8 @@ const MAX_PENDING = 5; // busy chat: drop new lines rather than fall minutes beh
 export class SpeechPlayer {
   private queue: Speech[] = [];
   private speaking = false;
+  private source: AudioBufferSourceNode | null = null; // the line playing now, if it's audio
+  private generation = 0; // bumped by stop(), so a line still being made isn't played after it
 
   constructor(private audio: () => AudioContext) {}
 
@@ -18,21 +20,25 @@ export class SpeechPlayer {
     void this.pump();
   }
 
+  // Drops what's waiting and cuts off what's playing.
   stop() {
     this.queue = [];
+    this.generation++;
+    this.source?.stop();
     if ('speechSynthesis' in window) speechSynthesis.cancel();
   }
 
   // Plays one line now and reports failures; the dashboard's preview uses it.
   async play(speech: Speech) {
     const effect = speech.effect ?? 'none';
+    const generation = this.generation;
     switch (speech.kind) {
       case 'browser':
         return this.browser(speech.text, speech.voice, effect);
       case 'espeak':
-        return this.buffer(await espeakWav(speech.text, speech.voice), effect);
+        return this.buffer(await espeakWav(speech.text, speech.voice), effect, generation);
       case 'audio':
-        return this.buffer(Uint8Array.from(atob(speech.data), (c) => c.charCodeAt(0)).buffer, effect);
+        return this.buffer(Uint8Array.from(atob(speech.data), (c) => c.charCodeAt(0)).buffer, effect, generation);
     }
   }
 
@@ -50,16 +56,19 @@ export class SpeechPlayer {
     }
   }
 
-  private async buffer(bytes: ArrayBuffer, effect: VoiceEffect) {
+  private async buffer(bytes: ArrayBuffer, effect: VoiceEffect, generation: number) {
     const ctx = this.audio();
     const buffer = await ctx.decodeAudioData(bytes);
+    if (generation !== this.generation) return; // stopped while it was being made
     const source = ctx.createBufferSource();
     source.buffer = buffer;
     applyEffect(ctx, source, effect).connect(ctx.destination);
+    this.source = source;
     await new Promise<void>((resolve) => {
       source.onended = () => resolve();
       source.start();
     });
+    if (this.source === source) this.source = null;
   }
 
   private browser(text: string, voiceName: string | null, effect: VoiceEffect) {

@@ -219,6 +219,8 @@ export class SessionManager {
     if (!loaded || this.sessions.get(hostId) !== session) return;
     session.ctx.config = loaded.config;
     session.actionCtx.config = loaded.actionConfig;
+    // Lines the overlay already holds were made with the old voice; without this a switch waits for them all.
+    if (JSON.stringify(loaded.voice) !== JSON.stringify(session.voice)) this.hub.sendToOverlays(hostId, { type: 'clearSpeech' });
     session.voice = loaded.voice;
     session.points = loaded.points;
     session.stats.setGoals(loaded.goalRows);

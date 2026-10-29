@@ -252,7 +252,8 @@ export type ServerToOverlay =
   | { type: 'stats'; stats: StreamStats }
   | { type: 'chat'; viewer: string; text: string }
   | { type: 'gift'; viewer: string; gift: string; count: number; diamonds: number } // diamonds: the whole streak's
-  | { type: 'tts'; viewer: string; text: string; speech: Speech };
+  | { type: 'tts'; viewer: string; text: string; speech: Speech }
+  | { type: 'clearSpeech' } // the voice changed: drop lines made with the old one
 
 // What's recorded during a stream: what viewers did, and what Fluxion did in response.
 //   comment {text}, gift {gift, count, diamonds}, like {count}, follow, share, join, subscribe {months}, emote {emoteId}:

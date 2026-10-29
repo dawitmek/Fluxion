@@ -13,6 +13,7 @@ const MAX_QUEUED_ALERTS = 20; // a follow storm shouldn't keep alerts running fo
 export class AlertPlayer {
   private queue: AlertMessage[] = [];
   private showing = false;
+  private timer: number | undefined; // ends the alert on screen
   private audio: AudioContext | null = null;
   private speech = new SpeechPlayer(() => this.context());
   private sounds = new Map<string, Promise<AudioBuffer>>(); // uploaded sounds, decoded once
@@ -45,6 +46,19 @@ export class AlertPlayer {
     void this.context().resume();
   }
 
+  // The voice changed: drop speech made with the old one.
+  clearSpeech() {
+    this.speech.stop();
+  }
+
+  // The stream ended: drop the alerts and speech still waiting, and take down the one showing.
+  clear() {
+    this.queue = [];
+    this.speech.stop();
+    clearTimeout(this.timer);
+    if (this.showing) (this.showing = false), this.onShow(null);
+  }
+
   stop() {
     this.queue = [];
     this.speech.stop();
@@ -63,7 +77,7 @@ export class AlertPlayer {
       if (alert.soundFile) void this.playFile(alert.soundFile);
     }
     if (alert.speech) this.say(alert.speech);
-    setTimeout(() => {
+    this.timer = window.setTimeout(() => {
       this.showing = false;
       this.onShow(null);
       this.next();

@@ -522,6 +522,23 @@ describe('points', () => {
   });
 });
 
+describe('voice changes mid-stream', () => {
+  it('tells overlays to drop speech made with the old voice, and only when the voice changed', async () => {
+    const { cookie } = await signUp();
+    const me = (await api(cookie, 'GET', '/api/auth/me')).json();
+    await api(cookie, 'POST', '/api/live/start', { source: 'simulated' });
+    const overlay = connect(`/ws/overlay?token=${me.overlayToken}`);
+    await overlay.next(); // live
+    await overlay.next(); // mode
+    await overlay.next(); // leaderboard
+    await api(cookie, 'PATCH', '/api/settings', { actionsPerSecond: 7 });
+    expect((await overlay.drain()).filter((m: any) => m.type === 'clearSpeech')).toEqual([]);
+    await api(cookie, 'PATCH', '/api/settings', { ttsEngine: me.ttsEngine === 'espeak' ? 'browser' : 'espeak' });
+    expect((await overlay.drain()).filter((m: any) => m.type === 'clearSpeech')).toEqual([{ type: 'clearSpeech' }]);
+    await api(cookie, 'POST', '/api/live/stop');
+  });
+});
+
 describe('stats per TikTok account', () => {
   it("keeps each account's leaderboard and points apart, and each host's apart on the same account", async () => {
     const play = async (cookie: string, viewer: string) => {
