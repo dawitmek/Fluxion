@@ -63,7 +63,7 @@ export function CompanionPage({ status }: PageProps) {
                 <strong>{c.name}</strong>
                 <span className="muted">{c.lastSeenAt ? `last seen ${new Date(c.lastSeenAt).toLocaleString()}` : 'never connected'}</span>
                 <span className="spacer" />
-                <button className="btn btn-ghost btn-sm" onClick={guard(() => api('DELETE', `/companions/${c.id}`).then(load))}>
+                <button className="btn btn-ghost btn-sm btn-delete" onClick={guard(() => api('DELETE', `/companions/${c.id}`).then(load))}>
                   Revoke
                 </button>
               </li>

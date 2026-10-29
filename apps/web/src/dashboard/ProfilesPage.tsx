@@ -64,7 +64,7 @@ export function ProfilesPage({ host, refreshHost }: PageProps) {
                       <button className="btn btn-sm" onClick={() => activate(p.id)}>
                         Switch to
                       </button>
-                      <button className="btn btn-ghost btn-sm" onClick={() => remove(p.id)}>
+                      <button className="btn btn-ghost btn-sm btn-delete" onClick={() => remove(p.id)}>
                         Delete
                       </button>
                     </>

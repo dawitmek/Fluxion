@@ -144,6 +144,8 @@ code { font-family: ui-monospace, 'SF Mono', Consolas, monospace; font-size: 0.9
 .btn-primary:hover { opacity: 0.88; }
 .btn-ghost { border-color: transparent; background: transparent; color: var(--muted); }
 .btn-ghost:hover { color: var(--ink); background: var(--panel2); border-color: transparent; }
+/* Ghost buttons that delete or revoke something turn red on hover. */
+.btn-ghost.btn-delete:hover { color: var(--red); background: var(--red-soft); }
 .btn-sm { min-height: 32px; padding: 0 12px; border-radius: 10px; font-size: 13px; }
 .btn-lg { min-height: 48px; padding: 0 22px; border-radius: 12px; font-size: 15px; }
 
@@ -178,10 +180,31 @@ select.input, .field select { padding-right: 32px; }
 .seg button { min-height: 36px; padding: 0 16px; border: 0; border-radius: 10px; background: transparent; color: var(--muted); font: 600 14px var(--font); cursor: pointer; }
 .seg button:hover { color: var(--ink); }
 .seg button[aria-checked='true'] { color: #fff; background: linear-gradient(180deg, #7174ff, #5357ec); box-shadow: 0 6px 16px -8px rgba(83, 87, 236, 0.9); }
+/* Seg (ui.tsx): the highlight is one element that slides between options instead of each button's background. */
+.seg.sliding { position: relative; }
+.seg.sliding button { position: relative; z-index: 1; transition: color 0.2s; }
+.seg.sliding button[aria-checked='true'] { background: none; box-shadow: none; }
+.seg-indicator { position: absolute; border-radius: 10px; background: linear-gradient(180deg, #7174ff, #5357ec); box-shadow: 0 6px 16px -8px rgba(83, 87, 236, 0.9);
+  transition: left 0.35s cubic-bezier(0.2, 0.8, 0.2, 1), top 0.35s cubic-bezier(0.2, 0.8, 0.2, 1), width 0.35s cubic-bezier(0.2, 0.8, 0.2, 1), height 0.35s; }
 
 /* Choice cards: a larger one-of-many with a description each */
 .choices { display: grid; grid-template-columns: repeat(auto-fit, minmax(200px, 1fr)); gap: 10px; }
-.choice { position: relative; display: flex; flex-direction: column; gap: 4px; padding: 14px 16px; border-radius: 16px; border: 1px solid var(--line-strong); background: var(--panel); cursor: pointer; }
+.choice { position: relative; display: flex; flex-direction: column; gap: 4px; padding: 14px 16px; border-radius: 16px; border: 1px solid var(--line-strong); background: var(--panel); cursor: pointer;
+  transition: transform 0.18s cubic-bezier(0.2, 0.8, 0.2, 1), border-color 0.2s, box-shadow 0.3s; }
+.choice:hover { transform: translateY(-1px); border-color: color-mix(in srgb, var(--indigo-fill) 45%, var(--line-strong)); }
+.choice:active { transform: scale(0.98); }
+/* Plays on the option just clicked (Choices in ui.tsx). */
+.choice.pop { animation: choice-pop 0.45s cubic-bezier(0.2, 0.9, 0.3, 1.25); }
+@keyframes choice-pop {
+  0% { transform: scale(0.96); box-shadow: 0 0 0 0 rgba(168, 85, 247, 0.55); }
+  45% { transform: scale(1.02); box-shadow: 0 0 0 6px rgba(168, 85, 247, 0.18), 0 0 36px -8px rgba(168, 85, 247, 0.8); }
+  100% { transform: scale(1); }
+}
+@media (prefers-reduced-motion: reduce) {
+  .choice, .seg-indicator { transition: none; }
+  .choice:hover, .choice:active { transform: none; }
+  .choice.pop { animation: none; }
+}
 .choice input { position: absolute; opacity: 0; pointer-events: none; }
 .choice span { color: var(--muted); font-size: 13px; }
 .choice.selected { border-color: transparent; background-image: linear-gradient(var(--panel), var(--panel)), var(--plasma); background-origin: border-box; background-clip: padding-box, border-box; box-shadow: 0 0 30px -12px rgba(168, 85, 247, 0.6); }

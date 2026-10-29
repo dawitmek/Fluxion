@@ -87,7 +87,7 @@ function CommandsCard({ host }: { host: Host }) {
                   </td>
                 )}
                 <td className="actions">
-                  <button className="btn btn-ghost btn-sm" onClick={() => remove(c.id)}>
+                  <button className="btn btn-ghost btn-sm btn-delete" onClick={() => remove(c.id)}>
                     Delete
                   </button>
                 </td>

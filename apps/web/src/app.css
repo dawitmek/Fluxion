@@ -188,3 +188,11 @@
 .blocked-combos p { margin: 10px 0; max-width: 70ch; }
 .blocked-combos ul { list-style: none; margin: 0; padding: 0; display: grid; grid-template-columns: repeat(auto-fill, minmax(280px, 1fr)); gap: 8px 20px; }
 .blocked-combos li { font-size: 13px; }
+
+/* Settings that don't apply right now: a disabled fieldset greys out and locks its fields; .dimmed only fades,
+   for settings that still apply in part (the voice is still used for alerts when chat isn't read). */
+fieldset.stack { margin: 0; padding: 0; border: 0; min-width: 0; transition: opacity 0.25s; }
+fieldset:disabled { opacity: 0.45; }
+fieldset:disabled * { cursor: not-allowed; }
+.dimmed { opacity: 0.6; transition: opacity 0.25s; }
+.dimmed:hover, .dimmed:focus-within { opacity: 1; }

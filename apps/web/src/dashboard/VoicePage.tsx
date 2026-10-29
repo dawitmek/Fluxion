@@ -71,32 +71,37 @@ export function VoicePage({ host, refreshHost }: PageProps) {
         />
       </Card>
       <VoiceCard host={host} save={save} guard={guard} setError={setError} refreshHost={refreshHost} />
-      <Card title="Chat filters" description="Applies to chat only; alerts are always read.">
-        <div className="form-grid">
-          <label className="field">
-            Prefix
-            <TextCell value={host.ttsPrefix} required label="Prefix" onSave={(ttsPrefix) => save({ ttsPrefix })} />
-          </label>
-          <label className="field">
-            Max length, in characters
-            <NumberCell value={host.ttsMaxLength} min={10} max={300} onSave={(ttsMaxLength) => save({ ttsMaxLength })} />
-          </label>
-          <label className="field">
-            Cooldown per viewer, in seconds
-            <NumberCell value={host.ttsCooldownMs / 1000} min={0} max={600} onSave={(s) => save({ ttsCooldownMs: s * 1000 })} />
-          </label>
-          {host.progression && (
+      <Card
+        title="Chat filters"
+        description={host.ttsMode === 'off' ? 'Turn on reading chat above to use these.' : 'Applies to chat only; alerts are always read.'}
+      >
+        <fieldset className="stack" disabled={host.ttsMode === 'off'}>
+          <div className="form-grid">
             <label className="field">
-              Minimum level
-              <NumberCell value={host.ttsMinLevel} min={1} max={MAX_LEVEL} onSave={(ttsMinLevel) => save({ ttsMinLevel })} />
+              Prefix
+              <TextCell value={host.ttsPrefix} required label="Prefix" onSave={(ttsPrefix) => save({ ttsPrefix })} />
             </label>
-          )}
-        </div>
-        <label className="field">
-          Blocked words
-          <span className="hint">Comma-separated. A comment containing one is not read.</span>
-          <TextCell value={host.ttsBlockedWords} label="Blocked words" onSave={(ttsBlockedWords) => save({ ttsBlockedWords })} />
-        </label>
+            <label className="field">
+              Max length, in characters
+              <NumberCell value={host.ttsMaxLength} min={10} max={300} onSave={(ttsMaxLength) => save({ ttsMaxLength })} />
+            </label>
+            <label className="field">
+              Cooldown per viewer, in seconds
+              <NumberCell value={host.ttsCooldownMs / 1000} min={0} max={600} onSave={(s) => save({ ttsCooldownMs: s * 1000 })} />
+            </label>
+            {host.progression && (
+              <label className="field">
+                Minimum level
+                <NumberCell value={host.ttsMinLevel} min={1} max={MAX_LEVEL} onSave={(ttsMinLevel) => save({ ttsMinLevel })} />
+              </label>
+            )}
+          </div>
+          <label className="field">
+            Blocked words
+            <span className="hint">Comma-separated. A comment containing one is not read.</span>
+            <TextCell value={host.ttsBlockedWords} label="Blocked words" onSave={(ttsBlockedWords) => save({ ttsBlockedWords })} />
+          </label>
+        </fieldset>
       </Card>
     </div>
   );
@@ -156,203 +161,206 @@ function VoiceCard({
   return (
     <Card
       title="Voice"
+      description={host.ttsMode === 'off' ? 'Chat isn\u2019t read aloud right now. This voice is still used for alerts marked "Read aloud".' : undefined}
       actions={
         <button className="btn btn-primary" onClick={() => void preview()} disabled={previewing}>
           {previewing ? 'Speaking…' : 'Preview voice'}
         </button>
       }
     >
-      <Choices label="Voice engine" value={host.ttsEngine} options={ENGINES} onChange={(ttsEngine) => save({ ttsEngine })} />
-      {tiktokWaiting && (
-        <p className="notice info">
-          Sign in to TikTok from the companion app: open it on your PC and choose Sign in to TikTok. Until then, chat is read
-          with eSpeak.
-        </p>
-      )}
-      {piperMissing && (
-        <p className="notice warning">This server has no Piper voices installed, so eSpeak is used instead. The Docker image includes Piper.</p>
-      )}
-      <div className="form-grid">
-        {host.ttsEngine === 'piper' && options.piperVoices.length > 0 && (
-          <label className="field">
-            Piper voice
-            <select
-              value={host.ttsPiperVoice ?? ''}
-              // A speaker number from the previous voice means nothing for the new one.
-              onChange={(e) => save({ ttsPiperVoice: e.target.value || null, ttsPiperSpeaker: null })}
-            >
-              <option value="">Default ({options.piperVoices[0]!.name})</option>
-              {options.piperVoices.map((v) => (
-                <option key={v.name} value={v.name}>
-                  {v.name}
-                  {v.speakers > 1 ? ` (${v.speakers} speakers)` : ''}
-                </option>
-              ))}
-            </select>
-          </label>
+      <div className={`stack ${host.ttsMode === 'off' ? 'dimmed' : ''}`}>
+        <Choices label="Voice engine" value={host.ttsEngine} options={ENGINES} onChange={(ttsEngine) => save({ ttsEngine })} />
+        {tiktokWaiting && (
+          <p className="notice info">
+            Sign in to TikTok from the companion app: open it on your PC and choose Sign in to TikTok. Until then, chat is read
+            with eSpeak.
+          </p>
         )}
-        {host.ttsEngine === 'piper' && piperVoice && piperVoice.speakers > 1 && (
-          <div className="field">
-            Speaker
-            <span className="hint">0–{piperVoice.speakers - 1}; each one sounds different.</span>
-            <span className="row" style={{ flexWrap: 'nowrap' }}>
-              <NumberCell
-                value={host.ttsPiperSpeaker ?? 0}
-                min={0}
-                max={piperVoice.speakers - 1}
-                label="Speaker"
-                onSave={(ttsPiperSpeaker) => save({ ttsPiperSpeaker })}
-              />
-              <button className="btn" onClick={() => save({ ttsPiperSpeaker: Math.floor(Math.random() * piperVoice.speakers) })}>
-                Random
-              </button>
-            </span>
-          </div>
+        {piperMissing && (
+          <p className="notice warning">This server has no Piper voices installed, so eSpeak is used instead. The Docker image includes Piper.</p>
         )}
-        {host.ttsEngine === 'tiktok' && (
-          <>
+        <div className="form-grid">
+          {host.ttsEngine === 'piper' && options.piperVoices.length > 0 && (
             <label className="field">
-              TikTok voice
-              <select value={host.ttsTiktokVoice ?? ''} onChange={(e) => save({ ttsTiktokVoice: e.target.value || null })}>
-                {TIKTOK_VOICES.map((v, i) => (
-                  <option key={v.id} value={i === 0 ? '' : v.id}>
-                    {v.label}
+              Piper voice
+              <select
+                value={host.ttsPiperVoice ?? ''}
+                // A speaker number from the previous voice means nothing for the new one.
+                onChange={(e) => save({ ttsPiperVoice: e.target.value || null, ttsPiperSpeaker: null })}
+              >
+                <option value="">Default ({options.piperVoices[0]!.name})</option>
+                {options.piperVoices.map((v) => (
+                  <option key={v.name} value={v.name}>
+                    {v.name}
+                    {v.speakers > 1 ? ` (${v.speakers} speakers)` : ''}
                   </option>
                 ))}
               </select>
             </label>
-            {host.ttsTiktokConnected ? (
-              <div className="field">
-                TikTok account
-                <span className="row" style={{ flexWrap: 'nowrap' }}>
-                  <span className="tag green">Your account</span>
-                  <button className="btn btn-ghost" onClick={() => save({ ttsTiktokSession: null })}>
-                    Sign out
-                  </button>
-                </span>
-              </div>
-            ) : (
-              options.tiktokServerAccount && (
-                <div className="field">
-                  TikTok account
-                  <span className="hint">To use your own instead, sign in to TikTok from the companion app.</span>
-                  <span className="row">
-                    <span className="tag green">This server&apos;s account</span>
-                  </span>
-                </div>
-              )
-            )}
-          </>
-        )}
-        {(host.ttsEngine === 'espeak' || piperMissing || host.ttsEngine === 'cloud' || host.ttsEngine === 'tiktok') && (
-          <label className="field">
-            eSpeak language{host.ttsEngine !== 'espeak' && ' (fallback)'}
-            <select value={host.ttsEspeakVoice} onChange={(e) => save({ ttsEspeakVoice: e.target.value })}>
-              {options.espeakVoices.map((v) => (
-                <option key={v} value={v}>
-                  {v}
-                </option>
-              ))}
-            </select>
-          </label>
-        )}
-        {host.ttsEngine === 'browser' && (
-          <label className="field">
-            Voice installed on this PC
-            <select value={host.ttsVoice ?? ''} onChange={(e) => save({ ttsVoice: e.target.value || null })}>
-              <option value="">Default voice</option>
-              {voices.map((v) => (
-                <option key={v.name} value={v.name}>
-                  {v.name} ({v.lang})
-                </option>
-              ))}
-            </select>
-          </label>
-        )}
-        {host.ttsEngine === 'cloud' && (
-          <>
-            <label className="field">
-              Provider
-              <select value={host.ttsCloudProvider ?? ''} onChange={(e) => save({ ttsCloudProvider: (e.target.value || null) as CloudProvider | null })}>
-                <option value="">Choose…</option>
-                {CLOUD_PROVIDERS.map((p) => (
-                  <option key={p} value={p}>
-                    {CLOUD_LABELS[p]}
-                  </option>
-                ))}
-              </select>
-            </label>
+          )}
+          {host.ttsEngine === 'piper' && piperVoice && piperVoice.speakers > 1 && (
             <div className="field">
-              API key
-              {host.ttsCloudKeySet && <span className="hint">Saved. Enter a new one to replace it.</span>}
+              Speaker
+              <span className="hint">0–{piperVoice.speakers - 1}; each one sounds different.</span>
               <span className="row" style={{ flexWrap: 'nowrap' }}>
-                <input
-                  className="input"
-                  type="password"
-                  autoComplete="off"
-                  value={cloudKey}
-                  placeholder={host.ttsCloudKeySet ? '••••••••' : 'paste your key'}
-                  onChange={(e) => setCloudKey(e.target.value)}
-                  aria-label="Cloud API key"
+                <NumberCell
+                  value={host.ttsPiperSpeaker ?? 0}
+                  min={0}
+                  max={piperVoice.speakers - 1}
+                  label="Speaker"
+                  onSave={(ttsPiperSpeaker) => save({ ttsPiperSpeaker })}
                 />
-                <button className="btn" disabled={!cloudKey.trim()} onClick={() => (save({ ttsCloudKey: cloudKey.trim() }), setCloudKey(''))}>
-                  Save key
+                <button className="btn" onClick={() => save({ ttsPiperSpeaker: Math.floor(Math.random() * piperVoice.speakers) })}>
+                  Random
                 </button>
-                {host.ttsCloudKeySet && (
-                  <button className="btn btn-ghost" onClick={() => save({ ttsCloudKey: null })}>
-                    Remove
-                  </button>
-                )}
               </span>
             </div>
-            {host.ttsCloudProvider && (
+          )}
+          {host.ttsEngine === 'tiktok' && (
+            <>
+              <label className="field">
+                TikTok voice
+                <select value={host.ttsTiktokVoice ?? ''} onChange={(e) => save({ ttsTiktokVoice: e.target.value || null })}>
+                  {TIKTOK_VOICES.map((v, i) => (
+                    <option key={v.id} value={i === 0 ? '' : v.id}>
+                      {v.label}
+                    </option>
+                  ))}
+                </select>
+              </label>
+              {host.ttsTiktokConnected ? (
+                <div className="field">
+                  TikTok account
+                  <span className="row" style={{ flexWrap: 'nowrap' }}>
+                    <span className="tag green">Your account</span>
+                    <button className="btn btn-ghost" onClick={() => save({ ttsTiktokSession: null })}>
+                      Sign out
+                    </button>
+                  </span>
+                </div>
+              ) : (
+                options.tiktokServerAccount && (
+                  <div className="field">
+                    TikTok account
+                    <span className="hint">To use your own instead, sign in to TikTok from the companion app.</span>
+                    <span className="row">
+                      <span className="tag green">This server&apos;s account</span>
+                    </span>
+                  </div>
+                )
+              )}
+            </>
+          )}
+          {(host.ttsEngine === 'espeak' || piperMissing || host.ttsEngine === 'cloud' || host.ttsEngine === 'tiktok') && (
+            <label className="field">
+              eSpeak language{host.ttsEngine !== 'espeak' && ' (fallback)'}
+              <select value={host.ttsEspeakVoice} onChange={(e) => save({ ttsEspeakVoice: e.target.value })}>
+                {options.espeakVoices.map((v) => (
+                  <option key={v} value={v}>
+                    {v}
+                  </option>
+                ))}
+              </select>
+            </label>
+          )}
+          {host.ttsEngine === 'browser' && (
+            <label className="field">
+              Voice installed on this PC
+              <select value={host.ttsVoice ?? ''} onChange={(e) => save({ ttsVoice: e.target.value || null })}>
+                <option value="">Default voice</option>
+                {voices.map((v) => (
+                  <option key={v.name} value={v.name}>
+                    {v.name} ({v.lang})
+                  </option>
+                ))}
+              </select>
+            </label>
+          )}
+          {host.ttsEngine === 'cloud' && (
+            <>
+              <label className="field">
+                Provider
+                <select value={host.ttsCloudProvider ?? ''} onChange={(e) => save({ ttsCloudProvider: (e.target.value || null) as CloudProvider | null })}>
+                  <option value="">Choose…</option>
+                  {CLOUD_PROVIDERS.map((p) => (
+                    <option key={p} value={p}>
+                      {CLOUD_LABELS[p]}
+                    </option>
+                  ))}
+                </select>
+              </label>
               <div className="field">
-                Cloud voice
+                API key
+                {host.ttsCloudKeySet && <span className="hint">Saved. Enter a new one to replace it.</span>}
                 <span className="row" style={{ flexWrap: 'nowrap' }}>
-                  {cloudVoices ? (
-                    <select className="input" value={host.ttsCloudVoice ?? ''} onChange={(e) => save({ ttsCloudVoice: e.target.value || null })}>
-                      <option value="">Default</option>
-                      {cloudVoices.map((v) => (
-                        <option key={v.id} value={v.id}>
-                          {v.label}
-                        </option>
-                      ))}
-                    </select>
-                  ) : (
-                    <TextCell
-                      value={host.ttsCloudVoice ?? ''}
-                      placeholder={CLOUD_VOICE_HINTS[host.ttsCloudProvider]}
-                      label="Cloud voice"
-                      onSave={(v) => save({ ttsCloudVoice: v || null })}
-                    />
-                  )}
-                  {host.ttsCloudKeySet && !cloudVoices && (
-                    <button className="btn" onClick={loadCloudVoices}>
-                      List my voices
+                  <input
+                    className="input"
+                    type="password"
+                    autoComplete="off"
+                    value={cloudKey}
+                    placeholder={host.ttsCloudKeySet ? '••••••••' : 'paste your key'}
+                    onChange={(e) => setCloudKey(e.target.value)}
+                    aria-label="Cloud API key"
+                  />
+                  <button className="btn" disabled={!cloudKey.trim()} onClick={() => (save({ ttsCloudKey: cloudKey.trim() }), setCloudKey(''))}>
+                    Save key
+                  </button>
+                  {host.ttsCloudKeySet && (
+                    <button className="btn btn-ghost btn-delete" onClick={() => save({ ttsCloudKey: null })}>
+                      Remove
                     </button>
                   )}
                 </span>
               </div>
-            )}
-            {host.ttsCloudProvider === 'azure' && (
-              <label className="field">
-                Region
-                <TextCell value={host.ttsCloudRegion ?? ''} placeholder="e.g. eastus" label="Azure region" onSave={(v) => save({ ttsCloudRegion: v || null })} />
-              </label>
-            )}
-          </>
-        )}
-        <label className="field">
-          Voice effect
-          <span className="hint">Any engine; browser voices only get pitch and speed.</span>
-          <select value={host.ttsEffect} onChange={(e) => save({ ttsEffect: e.target.value as VoiceEffect })}>
-            {VOICE_EFFECTS.map((effect) => (
-              <option key={effect} value={effect}>
-                {EFFECT_LABELS[effect]}
-              </option>
-            ))}
-          </select>
-        </label>
+              {host.ttsCloudProvider && (
+                <div className="field">
+                  Cloud voice
+                  <span className="row" style={{ flexWrap: 'nowrap' }}>
+                    {cloudVoices ? (
+                      <select className="input" value={host.ttsCloudVoice ?? ''} onChange={(e) => save({ ttsCloudVoice: e.target.value || null })}>
+                        <option value="">Default</option>
+                        {cloudVoices.map((v) => (
+                          <option key={v.id} value={v.id}>
+                            {v.label}
+                          </option>
+                        ))}
+                      </select>
+                    ) : (
+                      <TextCell
+                        value={host.ttsCloudVoice ?? ''}
+                        placeholder={CLOUD_VOICE_HINTS[host.ttsCloudProvider]}
+                        label="Cloud voice"
+                        onSave={(v) => save({ ttsCloudVoice: v || null })}
+                      />
+                    )}
+                    {host.ttsCloudKeySet && !cloudVoices && (
+                      <button className="btn" onClick={loadCloudVoices}>
+                        List my voices
+                      </button>
+                    )}
+                  </span>
+                </div>
+              )}
+              {host.ttsCloudProvider === 'azure' && (
+                <label className="field">
+                  Region
+                  <TextCell value={host.ttsCloudRegion ?? ''} placeholder="e.g. eastus" label="Azure region" onSave={(v) => save({ ttsCloudRegion: v || null })} />
+                </label>
+              )}
+            </>
+          )}
+          <label className="field">
+            Voice effect
+            <span className="hint">Any engine; browser voices only get pitch and speed.</span>
+            <select value={host.ttsEffect} onChange={(e) => save({ ttsEffect: e.target.value as VoiceEffect })}>
+              {VOICE_EFFECTS.map((effect) => (
+                <option key={effect} value={effect}>
+                  {EFFECT_LABELS[effect]}
+                </option>
+              ))}
+            </select>
+          </label>
+        </div>
       </div>
     </Card>
   );

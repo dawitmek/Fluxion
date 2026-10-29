@@ -51,7 +51,7 @@ function GiftTriggersCard() {
               <span className="muted">presses</span>
               <strong>{t.keyword}</strong>
               <span className="spacer" />
-              <button className="btn btn-ghost btn-sm" onClick={guard(() => api('DELETE', `/gift-triggers/${t.id}`).then(load))}>
+              <button className="btn btn-ghost btn-sm btn-delete" onClick={guard(() => api('DELETE', `/gift-triggers/${t.id}`).then(load))}>
                 Delete
               </button>
             </li>
@@ -182,7 +182,7 @@ function AlertsCard() {
                   <button className="btn btn-sm" onClick={guard(() => api('POST', `/alerts/${a.id}/test`))}>
                     Test
                   </button>
-                  <button className="btn btn-ghost btn-sm" onClick={guard(() => api('DELETE', `/alerts/${a.id}`).then(load))}>
+                  <button className="btn btn-ghost btn-sm btn-delete" onClick={guard(() => api('DELETE', `/alerts/${a.id}`).then(load))}>
                     Delete
                   </button>
                 </td>

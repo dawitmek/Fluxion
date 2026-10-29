@@ -2,7 +2,7 @@ import { useEffect, useState, type FormEvent } from 'react';
 import { levelForXp, MODES, type LeaderboardEntry, type ModeState } from '@fluxion/shared';
 import { api, type Command, type LiveStatus } from '../api';
 import { Link } from '../router';
-import { ErrorNotice, keyLabel, useError } from '../ui';
+import { ErrorNotice, keyLabel, Seg, useError } from '../ui';
 import type { PageProps } from './Dashboard';
 import type { ActivityKind } from './live-feed';
 import { MODE_INFO } from './modes';
@@ -195,13 +195,7 @@ function CommandsOverview({ host, refreshHost, feed }: PageProps) {
         })}
       </div>
       <h3 style={{ margin: '24px 0 10px' }}>Crowd mode</h3>
-      <div className="seg" role="radiogroup" aria-label="Crowd mode">
-        {MODES.map((mode) => (
-          <button key={mode} role="radio" aria-checked={host.mode === mode} onClick={() => setMode(mode)}>
-            {MODE_INFO[mode].label}
-          </button>
-        ))}
-      </div>
+      <Seg label="Crowd mode" value={host.mode} options={MODES.map((m) => [m, MODE_INFO[m].label] as const)} onChange={setMode} />
       <p className="muted" style={{ marginTop: 8 }}>
         {MODE_INFO[host.mode].help}
       </p>

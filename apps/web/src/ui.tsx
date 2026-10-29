@@ -1,4 +1,4 @@
-import { useEffect, useRef, useState, type ReactNode } from 'react';
+import { useEffect, useLayoutEffect, useRef, useState, type ReactNode } from 'react';
 import { formatKey, keyProblem, type Modifier } from '@fluxion/shared';
 import { ApiError } from './api';
 
@@ -288,14 +288,58 @@ export function Choices<T extends string>({
   onChange: (value: T) => void;
 }) {
   const name = label.toLowerCase().replace(/\W+/g, '-');
+  // The option just clicked gets a short "pop" (not every selected option on page load).
+  const [popped, setPopped] = useState<T | null>(null);
   return (
     <div className="choices" role="radiogroup" aria-label={label}>
       {options.map(([option, title, help]) => (
-        <label key={option} className={`choice ${value === option ? 'selected' : ''}`}>
-          <input type="radio" name={name} checked={value === option} onChange={() => onChange(option)} />
+        <label
+          key={option}
+          className={`choice ${value === option ? 'selected' : ''} ${popped === option ? 'pop' : ''}`}
+          onAnimationEnd={() => setPopped(null)}
+        >
+          <input type="radio" name={name} checked={value === option} onChange={() => (setPopped(option), onChange(option))} />
           <strong>{title}</strong>
           <span>{help}</span>
         </label>
+      ))}
+    </div>
+  );
+}
+
+// A segmented control: a row of options with a highlight that slides to the chosen one.
+export function Seg<T extends string>({
+  label,
+  value,
+  options,
+  onChange,
+}: {
+  label: string;
+  value: T;
+  options: readonly (readonly [T, string])[];
+  onChange: (value: T) => void;
+}) {
+  const group = useRef<HTMLDivElement>(null);
+  const [box, setBox] = useState<{ left: number; top: number; width: number; height: number } | null>(null);
+  // Measures the chosen button, again whenever the control resizes (its options can wrap onto two lines).
+  useLayoutEffect(() => {
+    const measure = () => {
+      const chosen = group.current?.querySelector<HTMLElement>('[aria-checked="true"]');
+      setBox(chosen ? { left: chosen.offsetLeft, top: chosen.offsetTop, width: chosen.offsetWidth, height: chosen.offsetHeight } : null);
+    };
+    measure();
+    const resize = new ResizeObserver(measure);
+    resize.observe(group.current!);
+    return () => resize.disconnect();
+  }, [value]);
+
+  return (
+    <div className="seg sliding" role="radiogroup" aria-label={label} ref={group}>
+      {box && <span className="seg-indicator" style={box} aria-hidden="true" />}
+      {options.map(([option, title]) => (
+        <button key={option} type="button" role="radio" aria-checked={value === option} onClick={() => onChange(option)}>
+          {title}
+        </button>
       ))}
     </div>
   );

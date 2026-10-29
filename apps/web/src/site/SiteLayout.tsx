@@ -16,6 +16,44 @@ const PAGES = [
 ];
 const DOWNLOAD = { href: '/download', label: 'Download' };
 
+// What slides in as it scrolls into view: section headings, cards, feature rows, steps and questions.
+// The hero is already on screen, so it doesn't.
+const REVEAL = [
+  '.s-carousel-head', '.s-card', '.s-center', '.s-box', '.s-flow-copy', '.s-flow-art', '.s-split > *', '.s-feature-row',
+  '.s-timeline > li', '.s-faq details', '.s-downloads > *', '.s-download-source', '.s-cta .s-wrap > :not(.s-footer)',
+].join(', ');
+
+// Content fades and slides up a little as it scrolls into view, neighbours one after another. Without JavaScript,
+// or with reduced motion, it's simply there.
+function useScrollReveal(path: string) {
+  useEffect(() => {
+    if (matchMedia('(prefers-reduced-motion: reduce)').matches) return;
+    const site = document.querySelector('.site');
+    if (!site) return;
+    const items = [...site.querySelectorAll<HTMLElement>(REVEAL)];
+    const seen = new IntersectionObserver(
+      (entries) => {
+        for (const entry of entries) {
+          if (!entry.isIntersecting) continue;
+          entry.target.classList.add('revealed');
+          seen.unobserve(entry.target);
+        }
+      },
+      { rootMargin: '0px 0px -8% 0px', threshold: 0.12 },
+    );
+    for (const item of items) {
+      const siblings = [...(item.parentElement?.children ?? [])].filter((el) => el.matches(REVEAL));
+      item.style.setProperty('--reveal-delay', `${Math.min(siblings.indexOf(item), 4) * 90}ms`);
+      item.classList.add('reveal');
+      seen.observe(item);
+    }
+    return () => {
+      seen.disconnect();
+      for (const item of items) item.classList.remove('reveal', 'revealed');
+    };
+  }, [path]);
+}
+
 // Signed-in visitors get a way back into the app instead of Log in / Sign up.
 function useSignedIn() {
   const [signedIn, setSignedIn] = useState(false);
@@ -31,6 +69,7 @@ function useSignedIn() {
 export function SiteLayout({ children }: { children: ReactNode }) {
   const path = usePath();
   const signedIn = useSignedIn();
+  useScrollReveal(path);
   const [menuOpen, setMenuOpen] = useState(false);
   useEffect(() => setMenuOpen(false), [path]);
 
