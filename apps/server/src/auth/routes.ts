@@ -7,10 +7,10 @@ import { newToken } from '../crypto.js';
 import { endSession, requireHost, startSession } from './session.js';
 
 const DEFAULT_COMMANDS = [
-  { keyword: 'left', key: 'KeyA', holdMs: 300 },
-  { keyword: 'right', key: 'KeyD', holdMs: 300 },
-  { keyword: 'up', key: 'KeyW', holdMs: 300 },
-  { keyword: 'down', key: 'KeyS', holdMs: 300 },
+  { keyword: 'w', key: 'KeyW', holdMs: 300 },
+  { keyword: 'a', key: 'KeyA', holdMs: 300 },
+  { keyword: 's', key: 'KeyS', holdMs: 300 },
+  { keyword: 'd', key: 'KeyD', holdMs: 300 },
   { keyword: 'jump', key: 'Space', holdMs: 300 },
   { keyword: 'run', key: 'Shift+KeyW', holdMs: 1000 }, // running needs a longer hold than a step to get anywhere
 ].map((c) => ({ ...c, cooldownMs: 1000 }));

@@ -1,6 +1,7 @@
 // Ready-made profiles for popular games: each game's default keyboard controls as chat commands.
 // Fluxion presses keys only (no mouse), so these are games that play well from the keyboard.
-// Hold times are longer for moving and driving, short for one-off presses.
+// Movement on WASD is typed as the key itself (w, a, s, d). Hold times are longer for moving and driving, short for
+// one-off presses.
 
 export interface GameTemplate {
   id: string;
@@ -15,10 +16,10 @@ export const GAME_TEMPLATES: readonly GameTemplate[] = [
     name: 'GTA V',
     process: 'gta5.exe',
     commands: [
-      { keyword: 'forward', key: 'KeyW', holdMs: 1500 },
-      { keyword: 'back', key: 'KeyS', holdMs: 1000 },
-      { keyword: 'left', key: 'KeyA', holdMs: 600 },
-      { keyword: 'right', key: 'KeyD', holdMs: 600 },
+      { keyword: 'w', key: 'KeyW', holdMs: 1500 },
+      { keyword: 's', key: 'KeyS', holdMs: 1000 },
+      { keyword: 'a', key: 'KeyA', holdMs: 600 },
+      { keyword: 'd', key: 'KeyD', holdMs: 600 },
       { keyword: 'run', key: 'Shift+KeyW', holdMs: 1500 },
       { keyword: 'jump', key: 'Space', holdMs: 300 },
       { keyword: 'enter', key: 'KeyF', holdMs: 300 },
@@ -31,10 +32,10 @@ export const GAME_TEMPLATES: readonly GameTemplate[] = [
     name: 'Minecraft',
     process: 'javaw.exe',
     commands: [
-      { keyword: 'forward', key: 'KeyW', holdMs: 1000 },
-      { keyword: 'back', key: 'KeyS', holdMs: 600 },
-      { keyword: 'left', key: 'KeyA', holdMs: 600 },
-      { keyword: 'right', key: 'KeyD', holdMs: 600 },
+      { keyword: 'w', key: 'KeyW', holdMs: 1000 },
+      { keyword: 's', key: 'KeyS', holdMs: 600 },
+      { keyword: 'a', key: 'KeyA', holdMs: 600 },
+      { keyword: 'd', key: 'KeyD', holdMs: 600 },
       { keyword: 'jump', key: 'Space', holdMs: 300 },
       { keyword: 'sneak', key: 'ShiftLeft', holdMs: 1000 },
       { keyword: 'inventory', key: 'KeyE', holdMs: 100 },
@@ -50,10 +51,10 @@ export const GAME_TEMPLATES: readonly GameTemplate[] = [
     name: 'Roblox',
     process: 'robloxplayerbeta.exe',
     commands: [
-      { keyword: 'forward', key: 'KeyW', holdMs: 1000 },
-      { keyword: 'back', key: 'KeyS', holdMs: 600 },
-      { keyword: 'left', key: 'KeyA', holdMs: 600 },
-      { keyword: 'right', key: 'KeyD', holdMs: 600 },
+      { keyword: 'w', key: 'KeyW', holdMs: 1000 },
+      { keyword: 's', key: 'KeyS', holdMs: 600 },
+      { keyword: 'a', key: 'KeyA', holdMs: 600 },
+      { keyword: 'd', key: 'KeyD', holdMs: 600 },
       { keyword: 'jump', key: 'Space', holdMs: 300 },
       { keyword: 'turnleft', key: 'ArrowLeft', holdMs: 400 },
       { keyword: 'turnright', key: 'ArrowRight', holdMs: 400 },
@@ -66,10 +67,10 @@ export const GAME_TEMPLATES: readonly GameTemplate[] = [
     name: 'Euro Truck Simulator 2',
     process: 'eurotrucks2.exe',
     commands: [
-      { keyword: 'gas', key: 'KeyW', holdMs: 2000 },
-      { keyword: 'brake', key: 'KeyS', holdMs: 1000 },
-      { keyword: 'left', key: 'KeyA', holdMs: 700 },
-      { keyword: 'right', key: 'KeyD', holdMs: 700 },
+      { keyword: 'w', key: 'KeyW', holdMs: 2000 },
+      { keyword: 's', key: 'KeyS', holdMs: 1000 },
+      { keyword: 'a', key: 'KeyA', holdMs: 700 },
+      { keyword: 'd', key: 'KeyD', holdMs: 700 },
       { keyword: 'handbrake', key: 'Space', holdMs: 300 },
       { keyword: 'horn', key: 'KeyH', holdMs: 500 },
       { keyword: 'lights', key: 'KeyL', holdMs: 100 },

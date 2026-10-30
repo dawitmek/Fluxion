@@ -363,7 +363,7 @@ function TopPlayers({ host, feed }: PageProps) {
 
 function TestConsole() {
   const [viewer, setViewer] = useState('tester');
-  const [text, setText] = useState('left');
+  const [text, setText] = useState('w');
   const [gift, setGift] = useState('Rose');
   const [count, setCount] = useState(1);
   const { error, guard } = useError();

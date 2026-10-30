@@ -154,12 +154,12 @@ describe('accounts', () => {
     const { cookie } = await signUp();
     const commands = (await api(cookie, 'GET', '/api/commands')).json();
     expect(commands.map((c: any) => [c.keyword, c.key]).sort()).toEqual([
-      ['down', 'KeyS'],
+      ['a', 'KeyA'],
+      ['d', 'KeyD'],
       ['jump', 'Space'],
-      ['left', 'KeyA'],
-      ['right', 'KeyD'],
       ['run', 'Shift+KeyW'],
-      ['up', 'KeyW'],
+      ['s', 'KeyS'],
+      ['w', 'KeyW'],
     ]);
     const dup = await app.inject({ method: 'POST', url: '/api/auth/signup', payload: { email: 'HOST@example.com', password: 'whatever123' } });
     expect(dup.statusCode).toBe(409);
@@ -227,17 +227,17 @@ describe('live pipeline (simulated source)', () => {
     expect(await overlay.next()).toEqual({ type: 'live', state: 'started' });
     expect(await overlay.next()).toMatchObject({ type: 'mode', state: { mode: 'anarchy' } });
 
-    await api(cookie, 'POST', '/api/live/simulate', { viewer: 'alice', text: 'LEFT' });
+    await api(cookie, 'POST', '/api/live/simulate', { viewer: 'alice', text: 'A' });
     expect(await companion.next()).toMatchObject({ type: 'action', action: { key: 'KeyA', holdMs: 300 } });
-    expect(await overlay.next()).toMatchObject({ type: 'command', viewer: 'alice', keyword: 'left' });
+    expect(await overlay.next()).toMatchObject({ type: 'command', viewer: 'alice', keyword: 'a' });
 
     // Same viewer within the 1s cooldown: nothing. Another viewer: fires.
-    await api(cookie, 'POST', '/api/live/simulate', { viewer: 'alice', text: 'left' });
+    await api(cookie, 'POST', '/api/live/simulate', { viewer: 'alice', text: 'a' });
     expect(await companion.drain()).toEqual([]);
-    await api(cookie, 'POST', '/api/live/simulate', { viewer: 'bob', text: 'left' });
+    await api(cookie, 'POST', '/api/live/simulate', { viewer: 'bob', text: 'a' });
     expect(await companion.next()).toMatchObject({ type: 'action', action: { key: 'KeyA' } });
 
-    expect(await overlay.next()).toMatchObject({ type: 'command', viewer: 'bob', keyword: 'left' });
+    expect(await overlay.next()).toMatchObject({ type: 'command', viewer: 'bob', keyword: 'a' });
 
     await api(cookie, 'POST', '/api/live/stop');
     expect(await overlay.next()).toEqual({ type: 'live', state: 'stopped' });
@@ -283,7 +283,7 @@ describe('live pipeline (simulated source)', () => {
   it('tells the companion what each command presses, on connect and whenever commands change', async () => {
     const { cookie } = await signUp();
     const companion = await connectCompanion((await pairCompanion(cookie)).token);
-    expect((await companion.nextAside()).commands.map((c: { keyword: string }) => c.keyword)).toEqual(['left', 'right', 'up', 'down', 'jump', 'run']);
+    expect((await companion.nextAside()).commands.map((c: { keyword: string }) => c.keyword)).toEqual(['w', 'a', 's', 'd', 'jump', 'run']);
     await api(cookie, 'POST', '/api/commands', { keyword: 'emote', key: 'Control+Shift+KeyE', holdMs: 100, cooldownMs: 0 });
     expect((await companion.nextAside()).commands.at(-1)).toEqual({ keyword: 'emote', key: 'Control+Shift+KeyE', enabled: true });
     const emote = (await api(cookie, 'GET', '/api/commands')).json().find((c: { keyword: string }) => c.keyword === 'emote');
@@ -301,10 +301,10 @@ describe('live pipeline (simulated source)', () => {
     await companionB.next(); // profile
 
     await api(a.cookie, 'POST', '/api/live/start', { source: 'simulated' });
-    await api(a.cookie, 'POST', '/api/live/simulate', { viewer: 'alice', text: 'left' });
+    await api(a.cookie, 'POST', '/api/live/simulate', { viewer: 'alice', text: 'a' });
     expect(await companionB.drain()).toEqual([]);
     // B has no session of its own to simulate into.
-    expect((await api(b.cookie, 'POST', '/api/live/simulate', { viewer: 'x', text: 'left' })).statusCode).toBe(409);
+    expect((await api(b.cookie, 'POST', '/api/live/simulate', { viewer: 'x', text: 'a' })).statusCode).toBe(409);
   });
 });
 
@@ -332,14 +332,14 @@ describe('modes, gifts and leaderboard (simulated source)', () => {
     expect(await overlay.next()).toMatchObject({ type: 'mode', state: { mode: 'democracy', tally: [], endsAt: null } });
     expect((await api(cookie, 'GET', '/api/live/status')).json().mode).toBe('democracy');
 
-    await say('alice', 'left');
-    await say('bob', 'right');
-    await say('carol', 'right');
+    await say('alice', 'a');
+    await say('bob', 'd');
+    await say('carol', 'd');
     expect(await companion.drain(300)).toEqual([]); // nothing until the window closes
     expect(await companion.next()).toMatchObject({ type: 'action', action: { key: 'KeyD' } });
     expect(await companion.drain(1200)).toEqual([]); // exactly one press
     const messages = await overlay.drain(0);
-    expect(messages).toContainEqual(expect.objectContaining({ type: 'command', viewer: '2 votes', keyword: 'right' }));
+    expect(messages).toContainEqual(expect.objectContaining({ type: 'command', viewer: '2 votes', keyword: 'd' }));
   });
 
   it("presses a gift action's key once per gift and counts gifts on the leaderboard", async () => {
@@ -355,7 +355,7 @@ describe('modes, gifts and leaderboard (simulated source)', () => {
     await api(cookie, 'POST', '/api/live/simulate', { viewer: 'alice', gift: 'Rose', count: 2 });
     expect(await companion.next()).toMatchObject({ action: { key: 'Space' } });
     expect(await companion.next()).toMatchObject({ action: { key: 'Space' } }); // repeat, 400 ms later
-    await say('bob', 'left');
+    await say('bob', 'a');
     await companion.next();
 
     await app.live.flushStats();
@@ -377,7 +377,7 @@ describe('modes, gifts and leaderboard (simulated source)', () => {
     const { cookie } = await liveHost();
     const bad = (payload: object) => api(cookie, 'POST', '/api/live/simulate', payload);
     expect((await bad({ viewer: 'a' })).statusCode).toBe(400);
-    expect((await bad({ viewer: 'a', text: 'left', gift: 'Rose' })).statusCode).toBe(400);
+    expect((await bad({ viewer: 'a', text: 'a', gift: 'Rose' })).statusCode).toBe(400);
   });
 });
 
@@ -413,12 +413,12 @@ describe('game profiles', () => {
     expect((await api(cookie, 'POST', `/api/profiles/${gta.id}/activate`)).statusCode).toBe(200);
     expect(await companion.next()).toEqual({ type: 'profile', name: 'GTA V', gameProcess: 'gta5.exe' });
     const gtaCommands = (await api(cookie, 'GET', '/api/commands')).json();
-    expect(gtaCommands.map((c: any) => c.keyword).sort()).toEqual(['down', 'jump', 'left', 'right', 'run', 'up']);
-    const left = gtaCommands.find((c: any) => c.keyword === 'left');
+    expect(gtaCommands.map((c: any) => c.keyword).sort()).toEqual(['a', 'd', 'jump', 'run', 's', 'w']);
+    const left = gtaCommands.find((c: any) => c.keyword === 'a');
     await api(cookie, 'PATCH', `/api/commands/${left.id}`, { key: 'KeyQ' });
 
     // The live session uses the active profile's commands immediately.
-    await api(cookie, 'POST', '/api/live/simulate', { viewer: 'alice', text: 'left' });
+    await api(cookie, 'POST', '/api/live/simulate', { viewer: 'alice', text: 'a' });
     expect(await companion.next()).toMatchObject({ type: 'action', action: { key: 'KeyQ' } });
 
     const list = (await api(cookie, 'GET', '/api/profiles')).json();
@@ -431,7 +431,7 @@ describe('game profiles', () => {
     expect((await api(cookie, 'DELETE', `/api/profiles/${gta.id}`)).statusCode).toBe(409); // active
     await api(cookie, 'POST', `/api/profiles/${original.id}/activate`);
     expect(await companion.next()).toMatchObject({ type: 'profile', name: 'Default' });
-    await api(cookie, 'POST', '/api/live/simulate', { viewer: 'bob', text: 'left' });
+    await api(cookie, 'POST', '/api/live/simulate', { viewer: 'bob', text: 'a' });
     expect(await companion.next()).toMatchObject({ type: 'action', action: { key: 'KeyA' } });
     expect((await api(cookie, 'DELETE', `/api/profiles/${gta.id}`)).statusCode).toBe(204);
   });
@@ -453,7 +453,7 @@ describe('viewer progression', () => {
     await companion.next(); // profile
     const me = (await api(cookie, 'GET', '/api/auth/me')).json();
     expect([me.progression, me.levelGating]).toEqual([false, false]);
-    const left = (await api(cookie, 'GET', '/api/commands')).json().find((c: any) => c.keyword === 'left');
+    const left = (await api(cookie, 'GET', '/api/commands')).json().find((c: any) => c.keyword === 'a');
     await api(cookie, 'PATCH', `/api/commands/${left.id}`, { minLevel: 2 });
     await api(cookie, 'PATCH', '/api/settings', { progression: true, levelGating: true });
 
@@ -463,22 +463,22 @@ describe('viewer progression', () => {
     await overlay.next(); // mode
     expect(await overlay.next()).toEqual({ type: 'leaderboard', entries: [], progression: true });
 
-    await api(cookie, 'POST', '/api/live/simulate', { viewer: 'alice', text: 'left' });
+    await api(cookie, 'POST', '/api/live/simulate', { viewer: 'alice', text: 'a' });
     expect(await companion.drain()).toEqual([]); // level 1 < 2
 
     // A 10-diamond gift is 10 XP: level 2.
     await api(cookie, 'POST', '/api/live/simulate', { viewer: 'alice', gift: 'Lion', diamonds: 10 });
     expect(await overlay.next()).toEqual({ type: 'levelUp', viewer: 'alice', level: 2 });
     expect(await overlay.next()).toMatchObject({ type: 'alert', text: 'alice sent 1× Lion!', sound: 'coin' }); // starter alert
-    await api(cookie, 'POST', '/api/live/simulate', { viewer: 'alice', text: 'left' });
+    await api(cookie, 'POST', '/api/live/simulate', { viewer: 'alice', text: 'a' });
     expect(await companion.next()).toMatchObject({ type: 'action', action: { key: 'KeyA' } });
-    expect(await overlay.next()).toMatchObject({ type: 'command', viewer: 'alice', keyword: 'left', level: 2 });
+    expect(await overlay.next()).toMatchObject({ type: 'command', viewer: 'alice', keyword: 'a', level: 2 });
 
     // XP survives going offline and back.
     await api(cookie, 'POST', '/api/live/stop');
     await app.live.flushStats();
     await api(cookie, 'POST', '/api/live/start', { source: 'simulated' });
-    await api(cookie, 'POST', '/api/live/simulate', { viewer: 'alice', text: 'left' });
+    await api(cookie, 'POST', '/api/live/simulate', { viewer: 'alice', text: 'a' });
     expect(await companion.next()).toMatchObject({ type: 'action', action: { key: 'KeyA' } });
     await app.live.flushStats();
     expect((await api(cookie, 'GET', '/api/leaderboard')).json()).toEqual([{ viewer: 'alice', commands: 2, gifts: 1, xp: 12, points: 0 }]);
@@ -493,7 +493,7 @@ describe('points', () => {
     await companion.next(); // profile
     const me = (await api(cookie, 'GET', '/api/auth/me')).json();
     expect(me).toMatchObject({ points: false, pointsPerChat: 1, pointsPerDiamond: 10, pointsCheck: false });
-    const left = (await api(cookie, 'GET', '/api/commands')).json().find((c: any) => c.keyword === 'left');
+    const left = (await api(cookie, 'GET', '/api/commands')).json().find((c: any) => c.keyword === 'a');
     await api(cookie, 'PATCH', `/api/commands/${left.id}`, { cost: 25 });
     expect((await api(cookie, 'POST', '/api/commands', { keyword: '!points', key: 'KeyB', holdMs: 100, cooldownMs: 0 })).statusCode).toBe(400);
     await api(cookie, 'PATCH', '/api/settings', { points: true, pointsPerDiamond: 10, pointsPerFollow: 20 });
@@ -506,13 +506,13 @@ describe('points', () => {
     const sim = (body: object) => api(cookie, 'POST', '/api/live/simulate', body);
 
     await sim({ viewer: 'alice', text: 'hi' }); // 1 point for chatting
-    await sim({ viewer: 'alice', text: 'left' }); // a minute hasn't passed: no point, and 1 < 25
+    await sim({ viewer: 'alice', text: 'a' }); // a minute hasn't passed: no point, and 1 < 25
     expect(await companion.drain()).toEqual([]);
     await sim({ viewer: 'alice', event: 'follow' }); // 21
     await sim({ viewer: 'alice', event: 'share' }); // 26
-    await sim({ viewer: 'alice', text: 'left' });
+    await sim({ viewer: 'alice', text: 'a' });
     expect(await companion.next()).toMatchObject({ type: 'action', action: { key: 'KeyA' } }); // 1 left
-    await sim({ viewer: 'alice', text: 'left' });
+    await sim({ viewer: 'alice', text: 'a' });
     expect(await companion.drain()).toEqual([]);
 
     // !points is off until the host allows it.
@@ -589,8 +589,8 @@ describe('stream activity and analytics', () => {
     const sim = (body: object) => api(cookie, 'POST', '/api/live/simulate', body);
     await sim({ viewer: 'alice', event: 'join' });
     await sim({ viewer: 'alice', text: 'hello stream' });
-    await sim({ viewer: 'alice', text: 'left' }); // fires
-    await sim({ viewer: 'alice', text: 'left' }); // within the 1 s cooldown: refused
+    await sim({ viewer: 'alice', text: 'a' }); // fires
+    await sim({ viewer: 'alice', text: 'a' }); // within the 1 s cooldown: refused
     await sim({ viewer: 'bob', gift: 'Rose', count: 3, diamonds: 1 });
     await sim({ viewer: 'bob', event: 'follow' });
     await sim({ viewer: 'carol', event: 'like', count: 15 });
@@ -609,8 +609,8 @@ describe('stream activity and analytics', () => {
     expect(older.events.map((e: { kind: string }) => e.kind)).toEqual(['gift', 'comment']);
 
     const detail = (await api(cookie, 'GET', '/api/analytics/streams/latest')).json();
-    expect(detail.summary).toMatchObject({ source: 'simulated', participants: 2, comments: 3, commands: 1, gifts: 3, diamonds: 3, follows: 1, joins: 1, topCommand: 'left', topPlayer: 'alice' });
-    expect(detail.commandUsage).toEqual([{ keyword: 'left', fired: 1, refused: 1, reasons: { cooldown: 1 } }]);
+    expect(detail.summary).toMatchObject({ source: 'simulated', participants: 2, comments: 3, commands: 1, gifts: 3, diamonds: 3, follows: 1, joins: 1, topCommand: 'a', topPlayer: 'alice' });
+    expect(detail.commandUsage).toEqual([{ keyword: 'a', fired: 1, refused: 1, reasons: { cooldown: 1 } }]);
     expect(detail.gifts.byGift).toEqual([{ gift: 'Rose', count: 3, diamonds: 3 }]);
     expect(detail.markers.map((m: { label: string }) => m.label)).toEqual(['bob sent 3× Rose', 'bob followed']);
     expect(detail.peaks[0]).toMatchObject({ events: 6 }); // 3 comments, the gift, the follow and the fired command
