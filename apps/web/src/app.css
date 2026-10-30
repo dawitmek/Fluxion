@@ -95,10 +95,11 @@
 .command-card { position: relative; padding: 16px; border-radius: 16px; background: var(--panel2); border: 1px solid var(--line); }
 .command-card::before { content: ''; position: absolute; left: 14px; right: 14px; top: 0; height: 2px; border-radius: 0 0 2px 2px; background: var(--edge-gradient); }
 .command-card .kbd { transition: transform 0.12s, background 0.12s, color 0.12s; }
-/* The key a command presses, as a bright amber keycap: nothing else on the card is amber, so it reads at a glance. */
-.command-card .kbd { background: var(--amber-fill); border-color: #b8770f; color: #2a1a02; }
+/* The key a command presses, inverted against its card (a light key on a dark card, a dark key on a light one), so it
+   stands apart without adding a color. */
+.command-card .kbd { background: var(--ink); border-color: var(--muted); color: var(--panel); }
 .command-card.fired { border-color: rgba(129, 140, 248, 0.6); box-shadow: 0 0 0 3px rgba(99, 102, 241, 0.18); }
-.command-card.fired .kbd { transform: translateY(2px); border-bottom-width: 1px; background: #ffd27a; color: #2a1a02; }
+.command-card.fired .kbd { transform: translateY(2px); border-bottom-width: 1px; background: var(--indigo-fill); color: #fff; }
 .command-top { display: flex; justify-content: space-between; align-items: center; gap: 8px; }
 .command-keyword { font-weight: 600; font-size: 17px; letter-spacing: -0.01em; overflow: hidden; text-overflow: ellipsis; }
 .command-used { display: flex; justify-content: space-between; font-size: 13px; font-weight: 600; margin: 12px 0 5px; }
@@ -348,7 +349,8 @@ fieldset:disabled * { cursor: not-allowed; }
 .action-editor-title { display: flex; flex-direction: column; gap: 2px; min-width: 0; }
 .action-editor-title h3 { font-size: 18px; }
 /* Each part of an action in a panel of its own, under an icon heading. */
-.action-section { min-width: 0; padding: 16px; border: 1px solid var(--line); border-radius: 14px; background: var(--panel); }
+/* With the gradient border of a chosen option on the Voice page. */
+.action-section { min-width: 0; padding: 16px; border: 1px solid transparent; border-radius: 14px; background-image: linear-gradient(var(--panel), var(--panel)), var(--plasma); background-origin: border-box; background-clip: padding-box, border-box; box-shadow: 0 0 30px -16px rgba(168, 85, 247, 0.5); }
 .action-section-title { display: flex; align-items: center; gap: 10px; margin: 0; font-size: 15px; font-weight: 700; }
 .action-editor-foot { display: flex; justify-content: flex-end; gap: 8px; padding-top: 4px; }
 /* The alert as it looks on stream, at a smaller size, over a stand-in for the stream. */
