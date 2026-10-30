@@ -514,6 +514,7 @@ export function alertMessage(output: Extract<ActionOutput, { type: 'alert' }>, s
     ...(output.screen && { screen: output.screen }),
     ...(output.pos && { pos: output.pos }),
     ...(output.scale !== 100 && { scale: output.scale }),
+    ...(output.style && { style: output.style }),
   };
 }
 

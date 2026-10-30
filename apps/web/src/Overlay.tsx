@@ -16,6 +16,7 @@ import {
 } from '@fluxion/shared';
 import { DEFAULT_FIREWORK_DIAMONDS, Fireworks, GiftBus, Title, usePreview, Widget, type ChatLine } from './overlay-widgets';
 import { Icon } from './icons';
+import { alertLook } from './alert-style';
 
 // A command, a level-up shout-out, or a viewer's points when they ask.
 type FeedItem = { id: number; viewer: string } & ({ keyword: string; level?: number } | { levelUp: number } | { points: number });
@@ -190,7 +191,11 @@ export function Overlay({ token }: { token: string }) {
         <div className={`overlay-screen alerts-${screen.alertPosition}`} style={{ '--overlay-scale': screen.scale / 100 } as CSSProperties}>
           {/* Alerts show even while offline, so the dashboard's Test button works before going live. */}
           {alert && (
-            <div key={alert.id} className={`overlay-alert ${alert.text ? '' : 'media-only'}`} style={alertPlace(alert)}>
+            <div
+              key={alert.id}
+              className={`overlay-alert ${alertLook(alert.style).className} ${alert.text ? '' : 'media-only'}`}
+              style={{ ...alertLook(alert.style).style, ...alertPlace(alert) }}
+            >
               {alert.media?.kind === 'image' && <img className="overlay-alert-media" src={alert.media.url} alt="" />}
               {alert.media?.kind === 'video' && <AlertVideo src={alert.media.url} audible={screen.audio} />}
               {alert.text && <span>{alert.text}</span>}

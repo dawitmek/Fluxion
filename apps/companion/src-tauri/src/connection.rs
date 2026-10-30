@@ -90,6 +90,9 @@ async fn session(
                 Ok(ServerMessage::Commands { commands }) => {
                     let _ = controller.set_commands(commands);
                 }
+                Ok(ServerMessage::Theme { theme, style }) => {
+                    let _ = controller.update_config(|c| (c.theme, c.theme_style) = (Some(theme), Some(style)));
+                }
                 Ok(ServerMessage::Error { reason }) => controller.set_connection(format!("server error: {reason}")),
                 Ok(ServerMessage::Action { action }) => {
                     let result = controller.perform(&action.key, action.hold_ms);

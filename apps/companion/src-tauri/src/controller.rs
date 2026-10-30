@@ -42,6 +42,8 @@ pub struct Snapshot {
     panic_hotkey: &'static str,
     commands: Vec<CommandView>,
     pending_approvals: usize, // enabled combinations waiting for this PC's OK
+    theme: Option<String>,
+    theme_style: Option<String>,
 }
 
 /// A dashboard command and whether this PC will press it.
@@ -131,6 +133,8 @@ impl Controller {
             panic_hotkey: PANIC_HOTKEY,
             commands,
             pending_approvals,
+            theme: config.theme,
+            theme_style: config.theme_style,
         }
     }
 

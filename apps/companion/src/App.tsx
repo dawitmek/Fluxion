@@ -29,6 +29,8 @@ interface Snapshot {
   panicHotkey: string;
   commands: CommandView[];
   pendingApprovals: number;
+  theme: string | null; // the account's dashboard theme, which this window follows
+  themeStyle: string | null;
 }
 
 interface CommandView {
@@ -71,6 +73,15 @@ export default function App() {
     invoke(command, args)
       .then(() => setError(null))
       .catch((e) => setError(String(e)));
+
+  // The dashboard's theme (see @fluxion/theme's themes.css), as the server last sent it.
+  useEffect(() => {
+    const root = document.documentElement;
+    if (state?.theme && state.theme !== "default") root.dataset.theme = state.theme;
+    else delete root.dataset.theme;
+    if (state?.themeStyle === "full") root.dataset.themeStyle = "full";
+    else delete root.dataset.themeStyle;
+  }, [state?.theme, state?.themeStyle]);
 
   if (!state) return null;
 

@@ -1,4 +1,4 @@
-import { StrictMode } from 'react';
+import { StrictMode, useLayoutEffect } from 'react';
 import { createRoot } from 'react-dom/client';
 import '@fluxion/theme/theme.css';
 import { Auth } from './Auth';
@@ -9,6 +9,7 @@ import { DownloadPage, FaqPage, FeaturesPage, HowItWorksPage, SelfHostingPage } 
 import { PrivacyPage } from './site/PrivacyPage';
 import { Overlay } from './Overlay';
 import { usePath } from './router';
+import { applyTheme, rememberedTheme, themedPath } from './theme';
 import { installNumberDrag } from './ui';
 import './app.css';
 import './overlay.css';
@@ -35,6 +36,7 @@ if (overlayToken) document.documentElement.classList.add('overlay-page');
 
 function App() {
   const path = usePath();
+  useLayoutEffect(() => applyTheme(themedPath(path) ? rememberedTheme() : null), [path]);
   if (path === '/dashboard/activity-window') return <ActivityWindow />;
   if (path.startsWith('/dashboard')) return <Dashboard />;
   if (path === '/login') return <Auth key="login" mode="login" />;

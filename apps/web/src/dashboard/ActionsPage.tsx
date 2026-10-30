@@ -5,6 +5,8 @@ import { playSound } from '../sounds';
 import { Card, ErrorNotice, HueIcon, Scrubber, useError, type Hue } from '../ui';
 import { Icon, type IconName } from '../icons';
 import { alertPlace } from '../Overlay';
+import { alertLook } from '../alert-style';
+import { AlertLookEditor } from './AlertLookEditor';
 import { GiftBus, usePreview } from '../overlay-widgets';
 import { CANVAS, FadedWidgets } from './OverlayPage';
 import { playAlertPreview, previewAudio } from './audio';
@@ -71,6 +73,7 @@ const newDraft = (): Draft => ({
   alertX: null,
   alertY: null,
   alertScale: 100,
+  alertStyle: null,
   keyCommandId: null,
   repeatWithCount: false,
   points: 0,
@@ -232,6 +235,7 @@ function ActionEditor({
   onCancel: () => void;
 }) {
   const [draft, setDraft] = useState<Draft>(initial);
+  const [replays, setReplays] = useState(0); // a new count shows the preview's entrance again
   const { error, guard } = useError();
   const set = (patch: Partial<Draft>) => setDraft((d) => ({ ...d, ...patch }));
   const text = (value: string) => value.trim() || null;
@@ -381,7 +385,8 @@ function ActionEditor({
           <span className="hint">Placeholders: {TRIGGERS[draft.trigger].placeholders}. Empty shows no text.</span>
           <input className="input" maxLength={200} value={draft.text ?? ''} onChange={(e) => set({ text: e.target.value || null })} />
         </label>
-        <AlertPreview draft={draft} media={media} />
+        <AlertPreview key={replays} draft={draft} media={media} />
+        <AlertLookEditor value={draft.alertStyle} onChange={(alertStyle) => set({ alertStyle })} onReplay={() => setReplays((n) => n + 1)} />
         <div className="form-grid">
           <label className="field">
             Sound
@@ -517,10 +522,11 @@ function Section({ title, icon, hue, children }: { title: string; icon: IconName
 function AlertPreview({ draft, media, compact }: { draft: Draft; media: MediaItem[]; compact?: boolean }) {
   const file = media.find((m) => m.id === draft.mediaId);
   const text = draft.text ? sampleText(draft.text) : '';
+  const look = alertLook(draft.alertStyle);
   return (
     <div className={`alert-preview ${compact ? 'compact' : ''}`} aria-label={compact ? `${draft.name} alert preview` : 'Alert preview'}>
       {text || file ? (
-        <div className={`overlay-alert ${text ? '' : 'media-only'}`}>
+        <div className={`overlay-alert ${look.className} ${text ? '' : 'media-only'}`} style={look.style}>
           {file?.kind === 'image' && <img className="overlay-alert-media" src={`/media/${file.id}`} alt="" />}
           {file?.kind === 'video' && <video className="overlay-alert-media" src={`/media/${file.id}`} muted autoPlay loop playsInline />}
           {text}
@@ -704,8 +710,8 @@ function AlertPlaceDialog({ draft, screen, media, onDone, onClose }: { draft: Dr
           <div className={`overlay-screen alerts-${screen.alertPosition}`} style={{ '--overlay-scale': screen.scale / 100 } as CSSProperties}>
             <FadedWidgets widgets={screen.widgets} feed={{ stats, chat, bus }} />
             <div
-              className={`overlay-alert alert-drag ${text ? '' : 'media-only'}`}
-              style={alertPlace({ pos: placed ? { x: place.alertX!, y: place.alertY! } : null, scale: place.alertScale })}
+              className={`overlay-alert alert-drag ${alertLook(draft.alertStyle).className} ${text ? '' : 'media-only'}`}
+              style={{ ...alertLook(draft.alertStyle).style, ...alertPlace({ pos: placed ? { x: place.alertX!, y: place.alertY! } : null, scale: place.alertScale }) }}
               onPointerDown={startDrag}
             >
               {file?.kind === 'image' && <img className="overlay-alert-media" src={`/media/${file.id}`} alt="" draggable={false} />}

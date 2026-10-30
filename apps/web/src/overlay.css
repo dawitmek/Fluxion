@@ -87,34 +87,55 @@ html.overlay-page, html.overlay-page body { background: transparent; }
 .alerts-middle { --alert-top: 50%; --alert-shift: -50%; }
 .alerts-bottom { --alert-top: auto; }
 .alerts-bottom .overlay-alert { bottom: 8%; }
+/* An alert's look comes from its action's style as variables (alertLook in alert-style.ts); the fallbacks are the
+   Plasma preset. Sizes are in em, so padding and the media gap follow the text size. */
 .overlay-alert {
   position: fixed;
   top: var(--alert-top);
   left: 50%;
   z-index: 2;
   max-width: calc(var(--canvas-w, 100vw) * 0.8);
-  padding: 18px 32px;
+  padding: 0.45em 0.8em;
   overflow: hidden;
-  border-radius: 18px;
-  background: linear-gradient(100deg, rgba(232, 23, 93, 0.95), rgba(124, 58, 237, 0.95));
-  box-shadow: inset 0 0 0 1px rgba(255, 255, 255, 0.2), 0 18px 50px -12px rgba(124, 58, 237, 0.75), 0 0 60px -12px rgba(232, 23, 93, 0.6);
-  color: #fff;
-  font-family: var(--font);
-  font-size: 40px;
-  font-weight: 800;
+  border-radius: var(--a-radius, 18px);
+  background: var(--a-bg, linear-gradient(100deg, rgba(232, 23, 93, 0.95), rgba(124, 58, 237, 0.95)));
+  box-shadow: var(--a-border, inset 0 0 0 1px rgba(255, 255, 255, 0.2)), var(--a-glow, 0 18px 50px -12px rgba(124, 58, 237, 0.75));
+  color: var(--a-ink, #fff);
+  font-family: var(--a-font, var(--font));
+  font-size: var(--a-size, 40px);
+  font-weight: var(--a-weight, 800);
   text-align: center;
-  text-shadow: 0 2px 6px rgba(0, 0, 0, 0.35);
+  text-transform: var(--a-case, none);
+  text-shadow: var(--a-text-shadow, 0 2px 6px rgba(0, 0, 0, 0.35));
   transform: translate(-50%, var(--alert-shift)) scale(var(--alert-scale, 1));
   animation: alert-in 0.4s cubic-bezier(0.2, 1.4, 0.4, 1);
 }
-/* A shine passes over each alert as it arrives. */
+/* A shine passes over each alert as it arrives, unless its style turns it off. */
 .overlay-alert::after { content: ''; position: absolute; inset: 0; background: linear-gradient(100deg, transparent 30%, rgba(255, 255, 255, 0.35) 50%, transparent 70%); transform: translateX(-100%); animation: shine-once 1.1s 0.25s ease-out both; pointer-events: none; }
+.overlay-alert.no-shine::after { display: none; }
 @keyframes shine-once { to { transform: translateX(100%); } }
+/* Entrances. Each keeps the alert's place (translate) and size (scale) and only adds its own movement. */
 @keyframes alert-in {
   from { transform: translate(-50%, var(--alert-shift)) scale(calc(var(--alert-scale, 1) * 0.6)); opacity: 0; }
   to { transform: translate(-50%, var(--alert-shift)) scale(var(--alert-scale, 1)); opacity: 1; }
 }
-.overlay-alert-media { display: block; max-width: min(560px, calc(var(--canvas-w, 100vw) * 0.7)); max-height: calc(var(--canvas-h, 100vh) * 0.45); margin: 0 auto 12px; border-radius: 12px; }
+.overlay-alert.anim-slide-up { animation: alert-slide-up 0.5s cubic-bezier(0.2, 0.8, 0.2, 1); }
+@keyframes alert-slide-up { from { transform: translate(-50%, calc(var(--alert-shift) + 60px)) scale(var(--alert-scale, 1)); opacity: 0; } }
+.overlay-alert.anim-slide-down { animation: alert-slide-down 0.5s cubic-bezier(0.2, 0.8, 0.2, 1); }
+@keyframes alert-slide-down { from { transform: translate(-50%, calc(var(--alert-shift) - 60px)) scale(var(--alert-scale, 1)); opacity: 0; } }
+.overlay-alert.anim-fade { animation: alert-fade 0.6s ease-out; }
+@keyframes alert-fade { from { opacity: 0; } }
+.overlay-alert.anim-bounce { animation: alert-bounce 0.8s cubic-bezier(0.3, 0.6, 0.3, 1); }
+@keyframes alert-bounce {
+  0% { transform: translate(-50%, calc(var(--alert-shift) - 120px)) scale(var(--alert-scale, 1)); opacity: 0; }
+  45% { transform: translate(-50%, var(--alert-shift)) scale(var(--alert-scale, 1)); opacity: 1; }
+  65% { transform: translate(-50%, calc(var(--alert-shift) - 26px)) scale(var(--alert-scale, 1)); }
+  82% { transform: translate(-50%, var(--alert-shift)) scale(var(--alert-scale, 1)); }
+  92% { transform: translate(-50%, calc(var(--alert-shift) - 8px)) scale(var(--alert-scale, 1)); }
+}
+.overlay-alert.anim-zoom { animation: alert-zoom 0.45s cubic-bezier(0.2, 0.8, 0.2, 1); }
+@keyframes alert-zoom { from { transform: translate(-50%, var(--alert-shift)) scale(calc(var(--alert-scale, 1) * 1.6)); opacity: 0; filter: blur(6px); } }
+.overlay-alert-media { display: block; max-width: min(560px, calc(var(--canvas-w, 100vw) * 0.7)); max-height: calc(var(--canvas-h, 100vh) * 0.45); margin: 0 auto 0.3em; border-radius: 12px; }
 .overlay-alert.media-only { padding: 0; background: none; box-shadow: none; }
 .overlay-alert.media-only::after { display: none; }
 .overlay-alert.media-only .overlay-alert-media { margin: 0 auto; }

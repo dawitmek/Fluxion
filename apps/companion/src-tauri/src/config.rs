@@ -14,6 +14,9 @@ pub struct Config {
     /// Key combinations this PC has approved, exactly as commands name them ("Control+Shift+KeyE").
     /// None until the first command list arrives, when approvals carry over from the old Ctrl/Alt toggles.
     pub approved_combos: Option<Vec<String>>,
+    /// The account's dashboard theme, as the server last sent it, so the window opens in it before connecting.
+    pub theme: Option<String>,
+    pub theme_style: Option<String>,
 }
 
 impl Config {

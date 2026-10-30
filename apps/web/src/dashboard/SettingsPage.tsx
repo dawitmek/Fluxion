@@ -1,7 +1,9 @@
 import { useState } from 'react';
-import { api } from '../api';
+import { UI_THEMES, type UiTheme, type UiThemeStyle } from '@fluxion/shared';
+import { api, type Host } from '../api';
 import { navigate } from '../router';
-import { Card, ErrorNotice, useError } from '../ui';
+import { Card, Choices, ErrorNotice, Seg, useError } from '../ui';
+import { rememberTheme } from '../theme';
 import type { PageProps } from './Dashboard';
 
 export function SettingsPage({ host, refreshHost }: PageProps) {
@@ -44,6 +46,7 @@ export function SettingsPage({ host, refreshHost }: PageProps) {
           </div>
         </form>
       </Card>
+      <Appearance host={host} refreshHost={refreshHost} />
       <Card title="Account" description={`Signed in as ${host.email}.`}>
         <div className="row">
           <button className="btn" onClick={() => api('POST', '/auth/logout').then(() => navigate('/'))}>
@@ -52,5 +55,65 @@ export function SettingsPage({ host, refreshHost }: PageProps) {
         </div>
       </Card>
     </div>
+  );
+}
+
+// Each theme's light and dark look, for its swatch: page, card, accent, second accent.
+const SWATCHES: Record<UiTheme, { light: string[]; dark: string[]; note: string }> = {
+  default: { light: ['#f6f6f9', '#ffffff', '#5b5fef', '#e5469a'], dark: ['#07080c', '#141720', '#6366f1', '#a855f7'], note: 'Indigo and plasma, with Geist.' },
+  'solar-dusk': { light: ['#fdfbf7', '#f1e9da', '#b45309', '#ca8a04'], dark: ['#1c1917', '#292524', '#f97316', '#0ea5e9'], note: 'Parchment and amber, with Oxanium and sharp corners.' },
+};
+
+// The dashboard's and companion's look. Applies at once, here and on the paired companions.
+function Appearance({ host, refreshHost }: { host: Host; refreshHost: () => Promise<unknown> }) {
+  const { error, guard } = useError();
+  const save = (patch: { uiTheme?: UiTheme; uiThemeStyle?: UiThemeStyle }) => {
+    rememberTheme({ theme: patch.uiTheme ?? host.uiTheme, style: patch.uiThemeStyle ?? host.uiThemeStyle });
+    return guard(() => api('PATCH', '/settings', patch).then(refreshHost))();
+  };
+  return (
+    <Card title="Appearance" description="The look of your dashboard and the companion app. Light or dark follows your system.">
+      <ErrorNotice error={error} />
+      <div className="stack">
+        <Choices<UiTheme>
+          label="Theme"
+          value={host.uiTheme}
+          options={UI_THEMES.map(({ id, label }) => [
+            id,
+            label,
+            <>
+              <span className="theme-swatch" aria-hidden="true">
+                {(['light', 'dark'] as const).map((mode) => {
+                  const [page, card, accent, second] = SWATCHES[id][mode];
+                  return (
+                    <span key={mode} className="theme-swatch-half" style={{ background: page }}>
+                      <span className="theme-swatch-card" style={{ background: card }}>
+                        <span style={{ background: accent }} />
+                        <span style={{ background: second }} />
+                      </span>
+                    </span>
+                  );
+                })}
+              </span>
+              {SWATCHES[id].note}
+            </>,
+          ])}
+          onChange={(uiTheme) => save({ uiTheme })}
+        />
+        <div className="field">
+          What the theme changes
+          <span className="hint">Colors only keeps Fluxion's own font and rounded corners with any theme.</span>
+          <Seg<UiThemeStyle>
+            label="What the theme changes"
+            value={host.uiThemeStyle}
+            options={[
+              ['full', 'Full theme'],
+              ['colors', 'Colors only'],
+            ]}
+            onChange={(uiThemeStyle) => save({ uiThemeStyle })}
+          />
+        </div>
+      </div>
+    </Card>
   );
 }

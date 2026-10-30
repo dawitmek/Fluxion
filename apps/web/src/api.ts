@@ -24,6 +24,7 @@ import type {
   ActionTrigger,
   AlertPosition,
   AlertSound,
+  AlertStyle,
   Audience,
   Goal,
   CloudProvider,
@@ -34,6 +35,8 @@ import type {
   Speech,
   TtsEngine,
   TtsMode,
+  UiTheme,
+  UiThemeStyle,
   VoiceEffect,
 } from '@fluxion/shared';
 
@@ -87,6 +90,8 @@ export interface Host {
   ttsCloudVoice: string | null;
   ttsTiktokVoice: string | null;
   ttsTiktokConnected: boolean;
+  uiTheme: UiTheme;
+  uiThemeStyle: UiThemeStyle;
   // Active profile
   profileId: string;
   profileName: string;
@@ -132,6 +137,7 @@ export interface Action {
   alertX: number | null; // with alertY: where the alert's middle sits, in percent; null: the screen's alert position
   alertY: number | null;
   alertScale: number; // percent
+  alertStyle: AlertStyle | null; // null: DEFAULT_ALERT_STYLE
   keyCommandId: string | null;
   repeatWithCount: boolean;
   points: number;

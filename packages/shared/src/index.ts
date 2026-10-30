@@ -135,7 +135,9 @@ export type ServerToCompanion =
   | { type: 'profile'; name: string; gameProcess: string | null }
   // The active profile's commands, so the companion can show them and ask for its own OK on key combinations.
   // Sent on connect and whenever commands or the active profile change.
-  | { type: 'commands'; commands: { keyword: string; key: string; enabled: boolean }[] };
+  | { type: 'commands'; commands: { keyword: string; key: string; enabled: boolean }[] }
+  // The host's dashboard theme, which the companion follows. Sent on connect and when the host changes it.
+  | { type: 'theme'; theme: UiTheme; style: UiThemeStyle };
 
 // Crowd-control modes. The host picks one and can switch while live.
 export const MODES = ['anarchy', 'democracy', 'queue', 'gift'] as const;
@@ -190,6 +192,92 @@ export const MAX_KEY_REPEATS = 10;
 // Synthesized in the overlay, so there are no audio files to host.
 export const ALERT_SOUNDS = ['chime', 'coin', 'pop', 'fanfare', 'whoosh'] as const;
 export type AlertSound = (typeof ALERT_SOUNDS)[number];
+
+// How an alert pop-up looks: each action has its own, starting from one of ALERT_PRESETS. An action without one
+// uses the Plasma preset. Colors are #rrggbb, or #rrggbbaa where a preset needs transparency.
+export const ALERT_FONTS = ['geist', 'oxanium', 'impact', 'georgia', 'courier', 'comic'] as const;
+export type AlertFont = (typeof ALERT_FONTS)[number];
+export const ALERT_ANIMATIONS = ['pop', 'slide-up', 'slide-down', 'fade', 'bounce', 'zoom'] as const;
+export type AlertAnimation = (typeof ALERT_ANIMATIONS)[number];
+export interface AlertStyle {
+  background: 'solid' | 'gradient' | 'none';
+  color1: string; // the solid color, or where the gradient starts
+  color2: string; // where the gradient ends
+  angle: number; // gradient direction, degrees
+  opacity: number; // of the background, percent
+  textColor: string;
+  font: AlertFont;
+  size: number; // px on a 1080p screen, before the action's and screen's scale
+  weight: number; // 400 to 900
+  uppercase: boolean;
+  textShadow: boolean;
+  radius: number; // px
+  borderWidth: number; // px; 0 for none
+  borderColor: string;
+  glowColor: string;
+  glow: number; // percent; 0 for none
+  shine: boolean; // a light passes over it as it arrives
+  animation: AlertAnimation;
+}
+export const ALERT_STYLE_LIMITS = { angle: [0, 360], opacity: [0, 100], size: [16, 120], weight: [400, 900], radius: [0, 60], borderWidth: [0, 12], glow: [0, 100] } as const;
+
+export const ALERT_PRESETS: { id: string; label: string; style: AlertStyle }[] = [
+  {
+    id: 'plasma',
+    label: 'Plasma',
+    style: {
+      background: 'gradient', color1: '#e8175d', color2: '#7c3aed', angle: 100, opacity: 95, textColor: '#ffffff', font: 'geist', size: 40,
+      weight: 800, uppercase: false, textShadow: true, radius: 18, borderWidth: 1, borderColor: '#ffffff33', glowColor: '#7c3aed', glow: 75,
+      shine: true, animation: 'pop',
+    },
+  },
+  {
+    id: 'solar',
+    label: 'Solar',
+    style: {
+      background: 'gradient', color1: '#f59e0b', color2: '#b45309', angle: 120, opacity: 100, textColor: '#fff8ea', font: 'oxanium', size: 40,
+      weight: 700, uppercase: false, textShadow: true, radius: 6, borderWidth: 1, borderColor: '#fde68a66', glowColor: '#f97316', glow: 60,
+      shine: true, animation: 'slide-up',
+    },
+  },
+  {
+    id: 'clean',
+    label: 'Clean',
+    style: {
+      background: 'solid', color1: '#ffffff', color2: '#e5e7eb', angle: 90, opacity: 96, textColor: '#111827', font: 'geist', size: 38,
+      weight: 700, uppercase: false, textShadow: false, radius: 14, borderWidth: 0, borderColor: '#e5e7eb', glowColor: '#000000', glow: 30,
+      shine: false, animation: 'slide-down',
+    },
+  },
+  {
+    id: 'neon',
+    label: 'Neon',
+    style: {
+      background: 'solid', color1: '#0b0f1a', color2: '#1e1b4b', angle: 90, opacity: 88, textColor: '#67e8f9', font: 'oxanium', size: 40,
+      weight: 800, uppercase: false, textShadow: true, radius: 10, borderWidth: 2, borderColor: '#22d3ee', glowColor: '#22d3ee', glow: 85,
+      shine: false, animation: 'zoom',
+    },
+  },
+  {
+    id: 'bold',
+    label: 'Bold',
+    style: {
+      background: 'solid', color1: '#facc15', color2: '#f59e0b', angle: 90, opacity: 100, textColor: '#111111', font: 'impact', size: 48,
+      weight: 400, uppercase: true, textShadow: false, radius: 4, borderWidth: 4, borderColor: '#111111', glowColor: '#000000', glow: 0,
+      shine: false, animation: 'bounce',
+    },
+  },
+];
+export const DEFAULT_ALERT_STYLE = ALERT_PRESETS[0]!.style;
+
+// The dashboard's and companion's look, chosen per account. A style of 'colors' takes only the theme's colors,
+// 'full' its font, corners and shadows too.
+export const UI_THEMES = [
+  { id: 'default', label: 'Default' },
+  { id: 'solar-dusk', label: 'Solar Dusk' },
+] as const;
+export type UiTheme = (typeof UI_THEMES)[number]['id'];
+export type UiThemeStyle = 'full' | 'colors';
 // Template placeholders: {viewer}, {count}, {gift}, {diamonds}, {total} (likes), {months}, {text} (command), {goal}, {target}.
 
 export const TTS_MODES = ['off', 'prefix', 'all'] as const;
@@ -275,6 +363,7 @@ export type ServerToOverlay =
       pos?: { x: number; y: number }; // its middle, in percent of the screen; without it, the screen's alert position
       scale?: number; // percent, on top of the screen's size
       action?: string; // the action's id, so turning the action off can take back its alerts (dropAlerts)
+      style?: AlertStyle; // without it, DEFAULT_ALERT_STYLE
     }
   | { type: 'screen'; screen: OverlayScreen } // sent first, and again when the host changes the screen
   | { type: 'stats'; stats: StreamStats }

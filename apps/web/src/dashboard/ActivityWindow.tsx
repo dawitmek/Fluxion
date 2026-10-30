@@ -1,5 +1,6 @@
 import { useCallback, useEffect, useState } from 'react';
-import { api, type LiveStatus } from '../api';
+import { api, type Host, type LiveStatus } from '../api';
+import { rememberTheme } from '../theme';
 import { navigate } from '../router';
 import { ActivityFeed } from './ActivityFeed';
 import { ViewerContext, ViewerPanel } from './ViewerPanel';
@@ -14,8 +15,11 @@ export function ActivityWindow() {
 
   useEffect(() => {
     document.title = 'Full activity - Fluxion';
-    api('GET', '/auth/me')
-      .then(() => setSignedIn(true))
+    api<Host>('GET', '/auth/me')
+      .then((host) => {
+        rememberTheme({ theme: host.uiTheme, style: host.uiThemeStyle });
+        setSignedIn(true);
+      })
       .catch(() => navigate(`/login?next=${encodeURIComponent(location.pathname)}`, { replace: true }));
   }, []);
   useEffect(() => {

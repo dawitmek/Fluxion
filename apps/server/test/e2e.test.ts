@@ -2,7 +2,7 @@ import { afterAll, beforeAll, beforeEach, describe, expect, it } from 'vitest';
 import type { AddressInfo } from 'node:net';
 import { WebSocket } from 'ws';
 import { sql } from 'drizzle-orm';
-import { PROTOCOL_VERSION } from '@fluxion/shared';
+import { ALERT_PRESETS, PROTOCOL_VERSION } from '@fluxion/shared';
 import { buildApp } from '../src/app.js';
 import { runMigrations } from '../src/db/migrate.js';
 import type { PlatformAdapter } from '../src/platforms/types.js';
@@ -141,7 +141,7 @@ function connect(path: string, aside: string[] = path.startsWith('/ws/overlay') 
 }
 
 async function connectCompanion(token: string) {
-  const companion = connect('/ws/companion', ['commands']);
+  const companion = connect('/ws/companion', ['commands', 'theme']);
   await companion.opened;
   companion.send({ type: 'hello', token, protocol: PROTOCOL_VERSION });
   return companion;
@@ -273,7 +273,7 @@ describe('live pipeline (simulated source)', () => {
     expect((await api(cookie, 'GET', '/api/companions')).json()).toMatchObject([{ name: 'Gaming PC', hostname: 'DESKTOP-7F3K2', platform: 'windows' }]);
 
     // The companion reports the PC again on every connect, so a rename shows up.
-    const companion = connect('/ws/companion', ['commands']);
+    const companion = connect('/ws/companion', ['commands', 'theme']);
     await companion.opened;
     companion.send({ type: 'hello', token, protocol: PROTOCOL_VERSION, hostname: 'Streaming-Rig', platform: 'windows' });
     await companion.next(); // ready
@@ -284,6 +284,7 @@ describe('live pipeline (simulated source)', () => {
     const { cookie } = await signUp();
     const companion = await connectCompanion((await pairCompanion(cookie)).token);
     expect((await companion.nextAside()).commands.map((c: { keyword: string }) => c.keyword)).toEqual(['w', 'a', 's', 'd', 'jump', 'run']);
+    expect(await companion.nextAside()).toMatchObject({ type: 'theme' });
     await api(cookie, 'POST', '/api/commands', { keyword: 'emote', key: 'Control+Shift+KeyE', holdMs: 100, cooldownMs: 0 });
     expect((await companion.nextAside()).commands.at(-1)).toEqual({ keyword: 'emote', key: 'Control+Shift+KeyE', enabled: true });
     const emote = (await api(cookie, 'GET', '/api/commands')).json().find((c: { keyword: string }) => c.keyword === 'emote');
@@ -611,6 +612,55 @@ describe('actions changed mid-stream', () => {
     await api(cookie, 'DELETE', `/api/actions/${follow.id}`);
     expect(await drops()).toEqual([{ type: 'dropAlerts', actions: [follow.id] }]);
     await api(cookie, 'POST', '/api/live/stop');
+  });
+});
+
+describe('looks', () => {
+  it("styles an action's alert pop-up, sends the style with its alerts, and refuses styles out of range", async () => {
+    const { cookie } = await signUp();
+    const me = (await api(cookie, 'GET', '/api/auth/me')).json();
+    const follow = (await api(cookie, 'GET', '/api/actions')).json().find((a: any) => a.trigger === 'follow');
+    expect(follow.alertStyle).toBeNull();
+    const neon = ALERT_PRESETS.find((p) => p.id === 'neon')!.style;
+    const style = { ...neon, textColor: '#ff00aa', size: 64, animation: 'bounce' };
+    expect((await api(cookie, 'PATCH', `/api/actions/${follow.id}`, { alertStyle: style })).statusCode).toBe(200);
+    // Out of range, a color that isn't one, an unknown font, a missing part: all refused.
+    for (const bad of [{ ...style, size: 500 }, { ...style, textColor: 'red' }, { ...style, font: 'papyrus' }, { ...style, glow: undefined }]) {
+      expect((await api(cookie, 'PATCH', `/api/actions/${follow.id}`, { alertStyle: bad })).statusCode).toBe(400);
+    }
+    // A part Fluxion doesn't know is dropped, not stored.
+    await api(cookie, 'PATCH', `/api/actions/${follow.id}`, { alertStyle: { ...style, extra: 1 } });
+    expect((await api(cookie, 'GET', '/api/actions')).json().find((a: any) => a.id === follow.id).alertStyle).toEqual(style);
+    await api(cookie, 'POST', '/api/live/start', { source: 'simulated' });
+    const overlay = connect(`/ws/overlay?token=${me.overlayToken}`);
+    await overlay.drain(100);
+    await api(cookie, 'POST', '/api/live/simulate', { viewer: 'alice', event: 'follow' });
+    expect((await overlay.drain()).filter((m: any) => m.type === 'alert')).toMatchObject([{ action: follow.id, style }]);
+    // Back to the default look: alerts carry no style at all, as before styles existed.
+    await api(cookie, 'PATCH', `/api/actions/${follow.id}`, { alertStyle: null });
+    await api(cookie, 'POST', '/api/live/simulate', { viewer: 'bob', event: 'follow' });
+    const [plain] = (await overlay.drain()).filter((m: any) => m.type === 'alert');
+    expect(plain).not.toHaveProperty('style');
+    // Test sends the style too.
+    await api(cookie, 'PATCH', `/api/actions/${follow.id}`, { alertStyle: style });
+    expect((await api(cookie, 'POST', `/api/actions/${follow.id}/test`)).json().alert.style).toEqual(style);
+    await api(cookie, 'POST', '/api/live/stop');
+  });
+
+  it("keeps the account's theme, and the companion gets it on connect and when it changes", async () => {
+    const { cookie } = await signUp();
+    expect((await api(cookie, 'GET', '/api/auth/me')).json()).toMatchObject({ uiTheme: 'default', uiThemeStyle: 'full' });
+    const { token } = await pairCompanion(cookie);
+    const companion = await connectCompanion(token);
+    expect(await companion.next()).toMatchObject({ type: 'ready' });
+    expect(await companion.next()).toMatchObject({ type: 'profile' });
+    expect(await companion.nextAside()).toMatchObject({ type: 'commands' });
+    expect(await companion.nextAside()).toEqual({ type: 'theme', theme: 'default', style: 'full' });
+    await api(cookie, 'PATCH', '/api/settings', { uiTheme: 'solar-dusk', uiThemeStyle: 'colors' });
+    expect(await companion.nextAside()).toEqual({ type: 'theme', theme: 'solar-dusk', style: 'colors' });
+    expect((await api(cookie, 'GET', '/api/auth/me')).json()).toMatchObject({ uiTheme: 'solar-dusk', uiThemeStyle: 'colors' });
+    expect((await api(cookie, 'PATCH', '/api/settings', { uiTheme: 'neon-noir' })).statusCode).toBe(400);
+    expect((await api(cookie, 'PATCH', '/api/settings', { uiThemeStyle: 'half' })).statusCode).toBe(400);
   });
 });
 

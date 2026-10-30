@@ -1,4 +1,4 @@
-import { MAX_KEY_REPEATS, type ActionTrigger, type AlertSound, type Audience, type Badge, type MediaKind, type TtsMode, type ViewerEvent } from '@fluxion/shared';
+import { MAX_KEY_REPEATS, type ActionTrigger, type AlertSound, type AlertStyle, type Audience, type Badge, type MediaKind, type TtsMode, type ViewerEvent } from '@fluxion/shared';
 
 // An action as the engine needs it, loaded for the active profile.
 export interface ActionRule {
@@ -22,6 +22,7 @@ export interface ActionRule {
   durationMs: number;
   alertPos: { x: number; y: number } | null; // placed by hand; null: the screen's alert position
   alertScale: number;
+  alertStyle: AlertStyle | null;
   keyword: string | null; // the key press's command, when it's in the active profile and on
   repeatWithCount: boolean;
   points: number;
@@ -53,6 +54,7 @@ export type ActionOutput =
       screen: string | null;
       pos: { x: number; y: number } | null;
       scale: number;
+      style: AlertStyle | null;
     }
   | { type: 'tts'; viewer: string; text: string }
   | { type: 'key'; keyword: string; viewer: string; repeats: number }
@@ -233,6 +235,7 @@ export function createActions(ctx: ActionContext) {
         screen: action.screenId,
         pos: action.alertPos,
         scale: action.alertScale,
+        style: action.alertStyle,
       });
     }
     if (action.keyword) {

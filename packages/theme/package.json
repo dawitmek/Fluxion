@@ -8,6 +8,7 @@
     "./theme.css": "./theme.css"
   },
   "dependencies": {
-    "@fontsource-variable/geist": "^5.3.0"
+    "@fontsource-variable/geist": "^5.3.0",
+    "@fontsource-variable/oxanium": "^5.3.0"
   }
 }

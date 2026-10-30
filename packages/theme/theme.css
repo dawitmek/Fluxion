@@ -2,6 +2,7 @@
    Colours follow the system light/dark preference. Meaning colours: red = live, green = ready,
    amber = a vote or something that needs a look. Indigo is the brand and the action colour. */
 @import '@fontsource-variable/geist';
+@import './themes.css';
 
 :root {
   color-scheme: light dark;
@@ -54,7 +55,24 @@
   --plasma: linear-gradient(90deg, #818cf8 0%, #a855f7 45%, #f472b6 80%, #fb7185 100%);
   --grain: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='180' height='180'%3E%3Cfilter id='n'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='.9' numOctaves='2' stitchTiles='stitch'/%3E%3C/filter%3E%3Crect width='100%25' height='100%25' filter='url(%23n)' opacity='.55'/%3E%3C/svg%3E");
   --usage-gradient: linear-gradient(90deg, #38bdf8, #2b95ea);
+  --avatar-gradient: linear-gradient(135deg, #f784be, #8d5ef5);
   --font: 'Geist Variable', system-ui, -apple-system, 'Segoe UI', sans-serif;
+  /* Shape: themes scale every rounded corner, and can square off the pill-shaped tags and chips. */
+  --radius-scale: 1;
+  --radius-pill: 999px;
+  /* The chosen option in segmented controls, and the purple glow of a picked choice. */
+  --accent-gradient: linear-gradient(180deg, #7174ff, #5357ec);
+  --accent-shadow: rgba(83, 87, 236, 0.9);
+  --glow-rgb: 168, 85, 247;
+  /* The dashboard's sidebar, dark in both light and dark mode. */
+  --sb-bg: #07080c;
+  --sb-ink: #f4f5fa;
+  --sb-muted: #9aa0b4;
+  --sb-line: rgba(255, 255, 255, 0.08);
+  --sb-hover: rgba(255, 255, 255, 0.05);
+  --sb-active: rgba(255, 255, 255, 0.07);
+  --sb-focus: #a5a8ff;
+  --sb-marker: linear-gradient(180deg, #818cf8, #a855f7, #f472b6);
 
   font-family: var(--font);
   font-size: 14px;
@@ -112,18 +130,18 @@ h2 { font-size: 20px; font-weight: 500; letter-spacing: -0.025em; }
 h3 { font-size: 15px; font-weight: 600; }
 .plasma-text { background: var(--plasma); -webkit-background-clip: text; background-clip: text; color: transparent; }
 p { margin: 0; }
-code { font-family: ui-monospace, 'SF Mono', Consolas, monospace; font-size: 0.92em; padding: 1px 5px; border-radius: 6px; background: var(--panel2); }
+code { font-family: ui-monospace, 'SF Mono', Consolas, monospace; font-size: 0.92em; padding: 1px 5px; border-radius: calc(6px * var(--radius-scale)); background: var(--panel2); }
 :focus-visible { outline: 2px solid var(--indigo-fill); outline-offset: 2px; }
 .muted { color: var(--muted); }
 .small { font-size: 13px; }
 .num { font-variant-numeric: tabular-nums; }
 
 /* Surfaces */
-.card { padding: 24px; border-radius: 18px; background: var(--panel); border: 1px solid var(--line); box-shadow: var(--shadow); }
+.card { padding: 24px; border-radius: calc(18px * var(--radius-scale)); background: var(--panel); border: 1px solid var(--line); box-shadow: var(--shadow); }
 .card-head { display: flex; flex-wrap: wrap; align-items: center; gap: 10px 14px; margin-bottom: 16px; }
 .card-head > div:first-child { flex: 1; min-width: 200px; }
 .card-head p { color: var(--muted); }
-.tile { position: relative; overflow: hidden; padding: 16px 18px; border-radius: 16px; background: var(--panel); border: 1px solid var(--line); box-shadow: var(--shadow); }
+.tile { position: relative; overflow: hidden; padding: 16px 18px; border-radius: calc(16px * var(--radius-scale)); background: var(--panel); border: 1px solid var(--line); box-shadow: var(--shadow); }
 .tile > * { position: relative; }
 .tile::before { content: ''; position: absolute; inset: 0; background: radial-gradient(220px 120px at 0% 0%, var(--tile-glow, transparent), transparent 75%); }
 .tile.red { --tile-glow: var(--red-soft); }
@@ -131,10 +149,10 @@ code { font-family: ui-monospace, 'SF Mono', Consolas, monospace; font-size: 0.9
 .tile.amber { --tile-glow: var(--amber-soft); }
 .tile-title { display: flex; align-items: center; gap: 8px; font-weight: 600; }
 .tile-value { font-weight: 500; font-size: 30px; letter-spacing: -0.04em; font-variant-numeric: tabular-nums; line-height: 1.2; margin-top: 6px; }
-.inset { padding: 16px; border-radius: 16px; background: var(--panel2); border: 1px solid var(--line); }
+.inset { padding: 16px; border-radius: calc(16px * var(--radius-scale)); background: var(--panel2); border: 1px solid var(--line); }
 
 /* Buttons */
-.btn { display: inline-flex; align-items: center; justify-content: center; gap: 8px; box-sizing: border-box; min-height: 40px; padding: 0 16px; border-radius: 10px; border: 1px solid var(--line-strong); background: var(--panel); color: var(--ink); font: 600 14px var(--font); text-decoration: none; white-space: nowrap; cursor: pointer; }
+.btn { display: inline-flex; align-items: center; justify-content: center; gap: 8px; box-sizing: border-box; min-height: 40px; padding: 0 16px; border-radius: calc(10px * var(--radius-scale)); border: 1px solid var(--line-strong); background: var(--panel); color: var(--ink); font: 600 14px var(--font); text-decoration: none; white-space: nowrap; cursor: pointer; }
 .btn:hover { border-color: var(--indigo-fill); }
 .btn:disabled { opacity: 0.55; cursor: default; border-color: var(--line-strong); }
 .btn-primary { border: 0; color: var(--solid-ink); background: var(--solid-bg); }
@@ -150,8 +168,8 @@ code { font-family: ui-monospace, 'SF Mono', Consolas, monospace; font-size: 0.9
 .btn-try { color: var(--teal); border-color: color-mix(in srgb, var(--teal) 30%, var(--line-strong)); }
 .btn-try:hover { border-color: var(--teal); }
 .btn-try[aria-expanded='true'] { color: #fff; background: var(--teal-fill); border-color: var(--teal-fill); }
-.btn-sm { min-height: 32px; padding: 0 12px; border-radius: 10px; font-size: 13px; }
-.btn-lg { min-height: 48px; padding: 0 22px; border-radius: 12px; font-size: 15px; }
+.btn-sm { min-height: 32px; padding: 0 12px; border-radius: calc(10px * var(--radius-scale)); font-size: 13px; }
+.btn-lg { min-height: 48px; padding: 0 22px; border-radius: calc(12px * var(--radius-scale)); font-size: 15px; }
 /* A button that's only an icon: square. It needs an aria-label. After the sizes, so its padding wins. */
 .btn-icon { padding: 0; width: 40px; }
 .btn-sm.btn-icon { width: 32px; }
@@ -161,7 +179,7 @@ code { font-family: ui-monospace, 'SF Mono', Consolas, monospace; font-size: 0.9
 .field { display: flex; flex-direction: column; gap: 6px; font-weight: 500; }
 .field > .hint { font-weight: 400; color: var(--muted); font-size: 13px; }
 .input, .field input:not([type='checkbox']):not([type='radio']), .field select, .field textarea {
-  box-sizing: border-box; width: 100%; min-height: 40px; padding: 8px 12px; border-radius: 12px;
+  box-sizing: border-box; width: 100%; min-height: 40px; padding: 8px 12px; border-radius: calc(12px * var(--radius-scale));
   border: 1px solid var(--line-strong); background: var(--panel); color: var(--ink); font: 500 14px var(--font);
 }
 select.input, .field select { padding-right: 32px; }
@@ -184,17 +202,17 @@ select.input, .field select { padding-right: 32px; }
 .switch small { display: block; color: var(--muted); font-size: 13px; }
 
 /* Segmented control for one-of-few choices */
-.seg { display: inline-flex; flex-wrap: wrap; gap: 4px; padding: 4px; border-radius: 14px; background: var(--panel2); border: 1px solid var(--line); max-width: 100%; box-sizing: border-box; }
-.seg button { min-height: 36px; padding: 0 16px; border: 0; border-radius: 10px; background: transparent; color: var(--muted); font: 600 14px var(--font); cursor: pointer; }
+.seg { display: inline-flex; flex-wrap: wrap; gap: 4px; padding: 4px; border-radius: calc(14px * var(--radius-scale)); background: var(--panel2); border: 1px solid var(--line); max-width: 100%; box-sizing: border-box; }
+.seg button { min-height: 36px; padding: 0 16px; border: 0; border-radius: calc(10px * var(--radius-scale)); background: transparent; color: var(--muted); font: 600 14px var(--font); cursor: pointer; }
 .seg button:hover { color: var(--ink); }
-.seg button[aria-checked='true'] { color: #fff; background: linear-gradient(180deg, #7174ff, #5357ec); box-shadow: 0 6px 16px -8px rgba(83, 87, 236, 0.9); }
+.seg button[aria-checked='true'] { color: #fff; background: var(--accent-gradient); box-shadow: 0 6px 16px -8px var(--accent-shadow); }
 /* Seg (ui.tsx): the highlight is one element that slides between options instead of each button's background. */
 .seg.sliding { position: relative; }
 /* In a form field, a segmented control fills the field and stands as tall as the inputs beside it. */
 .field > .seg { display: flex; width: 100%; }
 .field > .seg button { flex: 1; min-height: 30px; padding: 0 10px; }
 /* Scrubber: drag the middle, step with the ends, click to type. */
-.scrubber { display: flex; height: 40px; box-sizing: border-box; border: 1px solid var(--line-strong); border-radius: 10px; background: var(--panel); overflow: hidden; font-weight: 600; }
+.scrubber { display: flex; height: 40px; box-sizing: border-box; border: 1px solid var(--line-strong); border-radius: calc(10px * var(--radius-scale)); background: var(--panel); overflow: hidden; font-weight: 600; }
 .scrubber:focus-within { border-color: var(--indigo-fill); box-shadow: 0 0 0 3px var(--indigo-soft); }
 .scrubber > button { flex: none; width: 40px; border: 0; background: transparent; color: var(--muted); font: 500 18px var(--font); cursor: pointer; }
 .scrubber > button:hover:not(:disabled) { color: var(--ink); background: var(--panel2); }
@@ -207,20 +225,20 @@ select.input, .field select { padding-right: 32px; }
 .scrubber .scrubber-input.scrubber-input:not([type='checkbox']) { flex: 1; min-width: 0; height: 100%; margin: 0; padding: 0; border: 0; border-inline: 1px solid var(--line); border-radius: 0; background: var(--panel); box-shadow: none; text-align: center; font: 600 14px var(--font); color: var(--ink); }
 .seg.sliding button { position: relative; z-index: 1; transition: color 0.2s; }
 .seg.sliding button[aria-checked='true'] { background: none; box-shadow: none; }
-.seg-indicator { position: absolute; border-radius: 10px; background: linear-gradient(180deg, #7174ff, #5357ec); box-shadow: 0 6px 16px -8px rgba(83, 87, 236, 0.9);
+.seg-indicator { position: absolute; border-radius: calc(10px * var(--radius-scale)); background: var(--accent-gradient); box-shadow: 0 6px 16px -8px var(--accent-shadow);
   transition: left 0.35s cubic-bezier(0.2, 0.8, 0.2, 1), top 0.35s cubic-bezier(0.2, 0.8, 0.2, 1), width 0.35s cubic-bezier(0.2, 0.8, 0.2, 1), height 0.35s; }
 
 /* Choice cards: a larger one-of-many with a description each */
 .choices { display: grid; grid-template-columns: repeat(auto-fit, minmax(200px, 1fr)); gap: 10px; }
-.choice { position: relative; display: flex; flex-direction: column; gap: 4px; padding: 14px 16px; border-radius: 16px; border: 1px solid var(--line-strong); background: var(--panel); cursor: pointer;
+.choice { position: relative; display: flex; flex-direction: column; gap: 4px; padding: 14px 16px; border-radius: calc(16px * var(--radius-scale)); border: 1px solid var(--line-strong); background: var(--panel); cursor: pointer;
   transition: transform 0.18s cubic-bezier(0.2, 0.8, 0.2, 1), border-color 0.2s, box-shadow 0.3s; }
 .choice:hover { transform: translateY(-1px); border-color: color-mix(in srgb, var(--indigo-fill) 45%, var(--line-strong)); }
 .choice:active { transform: scale(0.98); }
 /* Plays on the option just clicked (Choices in ui.tsx). */
 .choice.pop { animation: choice-pop 0.45s cubic-bezier(0.2, 0.9, 0.3, 1.25); }
 @keyframes choice-pop {
-  0% { transform: scale(0.96); box-shadow: 0 0 0 0 rgba(168, 85, 247, 0.55); }
-  45% { transform: scale(1.02); box-shadow: 0 0 0 6px rgba(168, 85, 247, 0.18), 0 0 36px -8px rgba(168, 85, 247, 0.8); }
+  0% { transform: scale(0.96); box-shadow: 0 0 0 0 rgba(var(--glow-rgb), 0.55); }
+  45% { transform: scale(1.02); box-shadow: 0 0 0 6px rgba(var(--glow-rgb), 0.18), 0 0 36px -8px rgba(var(--glow-rgb), 0.8); }
   100% { transform: scale(1); }
 }
 @media (prefers-reduced-motion: reduce) {
@@ -230,13 +248,13 @@ select.input, .field select { padding-right: 32px; }
 }
 .choice input { position: absolute; opacity: 0; pointer-events: none; }
 .choice span { color: var(--muted); font-size: 13px; }
-.choice.selected { border-color: transparent; background-image: linear-gradient(var(--panel), var(--panel)), var(--plasma); background-origin: border-box; background-clip: padding-box, border-box; box-shadow: 0 0 30px -12px rgba(168, 85, 247, 0.6); }
+.choice.selected { border-color: transparent; background-image: linear-gradient(var(--panel), var(--panel)), var(--plasma); background-origin: border-box; background-clip: padding-box, border-box; box-shadow: 0 0 30px -12px rgba(var(--glow-rgb), 0.6); }
 .choice:focus-within { outline: 2px solid var(--indigo-fill); outline-offset: 2px; }
 
 /* Small things */
 /* An icon on a tinted tile (HueIcon), one per hue. */
-.hue-icon { display: inline-grid; place-items: center; flex: none; width: 32px; height: 32px; border-radius: 9px; }
-.hue-icon.sm { width: 26px; height: 26px; border-radius: 7px; }
+.hue-icon { display: inline-grid; place-items: center; flex: none; width: 32px; height: 32px; border-radius: calc(9px * var(--radius-scale)); }
+.hue-icon.sm { width: 26px; height: 26px; border-radius: calc(7px * var(--radius-scale)); }
 .hue-icon.red { color: var(--red); background: var(--red-soft); }
 .hue-icon.green { color: var(--green); background: var(--green-soft); }
 .hue-icon.amber { color: var(--amber); background: var(--amber-soft); }
@@ -246,7 +264,7 @@ select.input, .field select { padding-right: 32px; }
 .hue-icon.violet { color: var(--violet); background: var(--violet-soft); }
 .hue-icon.teal { color: var(--teal); background: var(--teal-soft); }
 .hue-icon.orange { color: var(--orange); background: var(--orange-soft); }
-.tag { display: inline-flex; align-items: center; gap: 6px; padding: 3px 10px; border-radius: 999px; font-size: 13px; font-weight: 600; background: var(--panel2); color: var(--muted); white-space: nowrap; }
+.tag { display: inline-flex; align-items: center; gap: 6px; padding: 3px 10px; border-radius: var(--radius-pill); font-size: 13px; font-weight: 600; background: var(--panel2); color: var(--muted); white-space: nowrap; }
 .tag.red { background: var(--red-soft); color: var(--red); }
 .tag.green { background: var(--green-soft); color: var(--green); }
 .tag.amber { background: var(--amber-soft); color: var(--amber); }
@@ -263,15 +281,15 @@ select.input, .field select { padding-right: 32px; }
   70% { box-shadow: 0 0 0 9px rgba(255, 80, 100, 0); }
   100% { box-shadow: 0 0 0 0 rgba(255, 80, 100, 0); }
 }
-.kbd { display: inline-block; min-width: 20px; padding: 4px 10px 3px; border-radius: 8px; border: 1px solid var(--key-edge); border-bottom-width: 3px; background: var(--indigo-soft); color: var(--key-ink); font: 700 13px var(--font); text-align: center; }
-.meter { height: 4px; border-radius: 4px; background: var(--meter); overflow: hidden; }
+.kbd { display: inline-block; min-width: 20px; padding: 4px 10px 3px; border-radius: calc(8px * var(--radius-scale)); border: 1px solid var(--key-edge); border-bottom-width: 3px; background: var(--indigo-soft); color: var(--key-ink); font: 700 13px var(--font); text-align: center; }
+.meter { height: 4px; border-radius: calc(4px * var(--radius-scale)); background: var(--meter); overflow: hidden; }
 .meter > div { height: 100%; border-radius: inherit; background: var(--usage-gradient); transition: width 0.3s ease-out; }
-.notice { padding: 10px 14px; border-radius: 12px; font-weight: 500; }
+.notice { padding: 10px 14px; border-radius: calc(12px * var(--radius-scale)); font-weight: 500; }
 .notice.error { background: var(--red-soft); color: var(--red); }
 .notice.warning { background: var(--amber-soft); color: var(--amber); }
 .notice.info { background: var(--indigo-soft); color: var(--indigo); }
 .notice .btn { margin-top: 8px; }
-.empty { padding: 28px 16px; text-align: center; color: var(--muted); border: 1px dashed var(--line-strong); border-radius: 16px; }
+.empty { padding: 28px 16px; text-align: center; color: var(--muted); border: 1px dashed var(--line-strong); border-radius: calc(16px * var(--radius-scale)); }
 
 /* Tables for editable lists */
 .table-wrap { overflow-x: auto; margin: 0 -6px; }
@@ -279,7 +297,7 @@ select.input, .field select { padding-right: 32px; }
 .table th, .table td { text-align: left; padding: 8px 6px; border-bottom: 1px solid var(--line); vertical-align: middle; }
 .table tr:last-child td { border-bottom: 0; }
 .table th { color: var(--muted); font-weight: 500; font-size: 13px; }
-.table .input { min-height: 36px; padding: 6px 10px; border-radius: 10px; }
+.table .input { min-height: 36px; padding: 6px 10px; border-radius: calc(10px * var(--radius-scale)); }
 .table .input.short { width: 96px; }
 .table td.actions { text-align: right; white-space: nowrap; }
 

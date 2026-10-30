@@ -169,6 +169,13 @@
       "when": 1793339570883,
       "tag": "0023_tts_engine_tiktok",
       "breakpoints": true
+    },
+    {
+      "idx": 24,
+      "version": "7",
+      "when": 1793377532346,
+      "tag": "0024_ui_theme_alert_style",
+      "breakpoints": true
     }
   ]
 }

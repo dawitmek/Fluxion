@@ -31,6 +31,8 @@ pub enum ServerMessage {
     Profile { name: String, game_process: Option<String> },
     // The active profile's commands. Key combinations among them still need this PC's own approval.
     Commands { commands: Vec<CommandInfo> },
+    // The dashboard's theme, which this window follows: "default" or "solar-dusk", in "full" or "colors" style.
+    Theme { theme: String, style: String },
 }
 
 #[derive(Serialize)]
@@ -49,6 +51,12 @@ pub enum CompanionMessage<'a> {
 #[cfg(test)]
 mod tests {
     use super::ServerMessage;
+
+    #[test]
+    fn parses_theme_messages() {
+        let theme: ServerMessage = serde_json::from_str(r#"{"type":"theme","theme":"solar-dusk","style":"colors"}"#).unwrap();
+        assert!(matches!(theme, ServerMessage::Theme { ref theme, ref style } if theme == "solar-dusk" && style == "colors"));
+    }
 
     #[test]
     fn parses_profile_messages() {

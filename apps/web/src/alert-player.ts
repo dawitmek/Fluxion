@@ -1,4 +1,4 @@
-import type { MediaKind, ServerToOverlay, Speech } from '@fluxion/shared';
+import type { AlertStyle, MediaKind, ServerToOverlay, Speech } from '@fluxion/shared';
 import { playSound } from './sounds';
 import { SpeechPlayer, type Report } from './speech-player';
 
@@ -9,6 +9,7 @@ export type ShownAlert = {
   media: { url: string; kind: MediaKind } | null;
   pos: { x: number; y: number } | null; // placed by hand; null: the screen's alert position
   scale: number; // percent
+  style: AlertStyle | null; // null: the default look
 };
 
 const ALERT_MS = 5000;
@@ -114,7 +115,7 @@ export class AlertPlayer {
     if (!alert) return;
     this.showing = alert;
     const media = alert.media ? { url: `/media/${alert.media.id}`, kind: alert.media.kind } : null;
-    this.onShow({ id: this.nextId++, text: alert.text, media, pos: alert.pos ?? null, scale: alert.scale ?? 100 });
+    this.onShow({ id: this.nextId++, text: alert.text, media, pos: alert.pos ?? null, scale: alert.scale ?? 100, style: alert.style ?? null });
     if (this.audible) {
       if (alert.sound) playSound(this.context(), alert.sound);
       if (alert.soundFile) void this.playFile(alert.soundFile);

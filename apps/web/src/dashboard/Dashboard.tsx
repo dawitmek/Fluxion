@@ -3,6 +3,7 @@ import { api, type Host, type LiveStatus, type Profile } from '../api';
 import { Icon, Logo, type IconName } from '../icons';
 import { Link, navigate, usePath } from '../router';
 import { Glow } from '../site/Glow';
+import { rememberTheme } from '../theme';
 import { ErrorNotice, useError } from '../ui';
 import { useLiveFeed, type LiveFeed } from './live-feed';
 import { LivePage } from './LivePage';
@@ -41,7 +42,7 @@ const SECTIONS: Section[][] = [
   [
     { path: '/dashboard/companion', label: 'Companion', blurb: 'The app on your gaming PC that presses the keys.', icon: 'companion', hue: 'orange', page: CompanionPage },
     { path: '/dashboard/overlay', label: 'Stream overlay', blurb: 'The browser source that puts Fluxion on your stream.', icon: 'overlay', hue: 'sky', page: OverlayPage },
-    { path: '/dashboard/settings', label: 'Settings', blurb: 'Your TikTok account, limits and login.', icon: 'settings', hue: 'muted', page: SettingsPage },
+    { path: '/dashboard/settings', label: 'Settings', blurb: 'Your TikTok account, limits, appearance and login.', icon: 'settings', hue: 'muted', page: SettingsPage },
   ],
 ];
 
@@ -55,6 +56,10 @@ export function Dashboard() {
     [],
   );
   useEffect(() => void refresh(), [refresh]);
+  // The account's theme, also remembered for the login page and the next first paint.
+  useEffect(() => {
+    if (host) rememberTheme({ theme: host.uiTheme, style: host.uiThemeStyle });
+  }, [host?.uiTheme, host?.uiThemeStyle]);
   useEffect(() => {
     if (host === null) navigate(`/login?next=${encodeURIComponent(location.pathname)}`, { replace: true });
   }, [host]);

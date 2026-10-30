@@ -1,6 +1,19 @@
 import type { FastifyInstance } from 'fastify';
 import { and, eq, isNull, or } from 'drizzle-orm';
-import { ACTION_TRIGGERS, ALERT_SOUNDS, AUDIENCES, POINTS_CHECK, QUEUE_JOIN, type ActionTrigger, type AlertSound, type Audience } from '@fluxion/shared';
+import {
+  ACTION_TRIGGERS,
+  ALERT_ANIMATIONS,
+  ALERT_FONTS,
+  ALERT_SOUNDS,
+  ALERT_STYLE_LIMITS,
+  AUDIENCES,
+  POINTS_CHECK,
+  QUEUE_JOIN,
+  type ActionTrigger,
+  type AlertSound,
+  type AlertStyle,
+  type Audience,
+} from '@fluxion/shared';
 import { actions, commands, goals, hosts, media, overlayScreens, profiles } from '../db/schema.js';
 import { requireHost } from '../auth/session.js';
 import { activeProfile } from '../profiles/active.js';
@@ -33,6 +46,7 @@ type Body = {
   alertX?: number | null;
   alertY?: number | null;
   alertScale?: number;
+  alertStyle?: AlertStyle | null;
   keyCommandId?: string | null;
   repeatWithCount?: boolean;
   points?: number;
@@ -64,6 +78,7 @@ const fields = {
   alertX: { type: ['number', 'null'], minimum: 0, maximum: 100 },
   alertY: { type: ['number', 'null'], minimum: 0, maximum: 100 },
   alertScale: { type: 'integer', minimum: 50, maximum: 200 },
+  alertStyle: { anyOf: [{ type: 'null' }, alertStyleSchema()] },
   keyCommandId: nullableId,
   repeatWithCount: { type: 'boolean' },
   points: { type: 'integer', minimum: 0, maximum: 1_000_000 },
@@ -164,6 +179,7 @@ export async function actionRoutes(app: FastifyInstance) {
         alertX: null,
         alertY: null,
         alertScale: 100,
+        alertStyle: null,
         keyCommandId: null,
         repeatWithCount: false,
         points: 0,
@@ -253,6 +269,7 @@ export async function actionRoutes(app: FastifyInstance) {
         screen: action.screenId,
         pos: action.alertPos,
         scale: action.alertScale,
+        style: action.alertStyle,
       },
       speech,
     );
@@ -263,4 +280,31 @@ export async function actionRoutes(app: FastifyInstance) {
       .where(and(eq(overlayScreens.hostId, req.hostId), eq(overlayScreens.alerts, true), action.screenId ? eq(overlayScreens.id, action.screenId) : undefined));
     return { alert, overlays: app.hub.overlayCount(req.hostId, screens.map((s) => s.id)) };
   });
+}
+
+// Every part of an alert's look, within the limits the dashboard offers.
+function alertStyleSchema() {
+  const color = { type: 'string', pattern: '^#[0-9a-fA-F]{6}([0-9a-fA-F]{2})?$' };
+  const range = (key: keyof typeof ALERT_STYLE_LIMITS) => ({ type: 'number', minimum: ALERT_STYLE_LIMITS[key][0], maximum: ALERT_STYLE_LIMITS[key][1] });
+  const properties = {
+    background: { enum: ['solid', 'gradient', 'none'] },
+    color1: color,
+    color2: color,
+    angle: range('angle'),
+    opacity: range('opacity'),
+    textColor: color,
+    font: { enum: ALERT_FONTS },
+    size: range('size'),
+    weight: range('weight'),
+    uppercase: { type: 'boolean' },
+    textShadow: { type: 'boolean' },
+    radius: range('radius'),
+    borderWidth: range('borderWidth'),
+    borderColor: color,
+    glowColor: color,
+    glow: range('glow'),
+    shine: { type: 'boolean' },
+    animation: { enum: ALERT_ANIMATIONS },
+  };
+  return { type: 'object', additionalProperties: false, required: Object.keys(properties), properties };
 }

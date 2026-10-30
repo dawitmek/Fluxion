@@ -6,6 +6,7 @@ import { companions, hosts, overlayScreens } from '../db/schema.js';
 import { toScreen } from '../screens/routes.js';
 import { sha256 } from '../crypto.js';
 import { sendProfileToCompanions } from '../profiles/active.js';
+import { sendThemeToCompanions } from '../settings/routes.js';
 
 const HELLO_TIMEOUT_MS = 5000;
 
@@ -47,6 +48,7 @@ export async function gatewayRoutes(app: FastifyInstance) {
       hub.addCompanion(companion.hostId, companion.id, socket);
       reply(socket, { type: 'ready', hostId: companion.hostId });
       await sendProfileToCompanions(app, companion.hostId).catch((err) => app.log.error(err, 'could not send profile'));
+      await sendThemeToCompanions(app, companion.hostId).catch((err) => app.log.error(err, 'could not send theme'));
 
       socket.on('message', (data) => {
         try {

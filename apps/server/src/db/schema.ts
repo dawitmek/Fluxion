@@ -1,5 +1,5 @@
 import { bigserial, boolean, customType, index, integer, jsonb, pgTable, primaryKey, real, serial, text, timestamp, unique, uuid, type AnyPgColumn } from 'drizzle-orm/pg-core';
-import type { ActionTrigger, ActivityKind, AlertPosition, AlertSound, Audience, CloudProvider, GoalMetric, MediaKind, Mode, ScreenWidget, TtsEngine, TtsMode, VoiceEffect } from '@fluxion/shared';
+import type { ActionTrigger, ActivityKind, AlertPosition, AlertSound, AlertStyle, Audience, CloudProvider, GoalMetric, MediaKind, Mode, ScreenWidget, TtsEngine, TtsMode, UiTheme, UiThemeStyle, VoiceEffect } from '@fluxion/shared';
 
 const bytea = customType<{ data: Buffer }>({ dataType: () => 'bytea' });
 
@@ -42,6 +42,8 @@ export const hosts = pgTable('hosts', {
   // The host's TikTok sessionid cookie, sent by the companion after the host signs in; never sent to the browser.
   ttsTiktokSession: text('tts_tiktok_session'),
   ttsTiktokVoice: text('tts_tiktok_voice'), // a TIKTOK_VOICES id; null means the first
+  uiTheme: text('ui_theme').$type<UiTheme>().notNull().default('default'), // the dashboard's and companion's look
+  uiThemeStyle: text('ui_theme_style').$type<UiThemeStyle>().notNull().default('full'),
   createdAt: timestamp('created_at', { withTimezone: true }).notNull().defaultNow(),
 });
 
@@ -118,6 +120,7 @@ export const actions = pgTable(
     alertX: real('alert_x'),
     alertY: real('alert_y'),
     alertScale: integer('alert_scale').notNull().default(100), // percent, on top of the screen's size
+    alertStyle: jsonb('alert_style').$type<AlertStyle>(), // null: DEFAULT_ALERT_STYLE
     keyCommandId: uuid('key_command_id').references(() => commands.id, { onDelete: 'set null' }),
     repeatWithCount: boolean('repeat_with_count').notNull().default(false), // gift streaks press the key once per gift
     points: integer('points').notNull().default(0), // given to the viewer; only with points on
