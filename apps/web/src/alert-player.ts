@@ -1,6 +1,6 @@
 import type { MediaKind, ServerToOverlay, Speech } from '@fluxion/shared';
 import { playSound } from './sounds';
-import { SpeechPlayer } from './speech-player';
+import { SpeechPlayer, type Report } from './speech-player';
 
 type AlertMessage = Extract<ServerToOverlay, { type: 'alert' }>;
 export type ShownAlert = {
@@ -26,6 +26,13 @@ export class AlertPlayer {
   private nextId = 0;
   audible = true;
 
+  set report(report: Report) {
+    this.speech.report = report;
+  }
+  get report() {
+    return this.speech.report;
+  }
+
   constructor(
     private onShow: (alert: ShownAlert | null) => void,
     // Browsers (not OBS) block audio until the page is clicked; the overlay asks for a click then.
@@ -38,6 +45,7 @@ export class AlertPlayer {
   }
 
   enqueue(alert: AlertMessage) {
+    this.report('alert received', { text: alert.text, speaks: !!alert.speech, waiting: this.queue.length });
     if (this.queue.length >= MAX_QUEUED_ALERTS) this.queue.shift();
     this.queue.push(alert);
     this.next();
@@ -45,6 +53,7 @@ export class AlertPlayer {
 
   say(speech: Speech) {
     if (this.audible) this.speech.say(speech);
+    else this.report('speech not played: this screen has sound off', { kind: speech.kind });
   }
 
   // Called from a click on the page.
@@ -54,20 +63,21 @@ export class AlertPlayer {
 
   // The voice changed: drop speech made with the old one.
   clearSpeech() {
-    this.speech.stop();
+    this.speech.stop('the voice changed');
   }
 
   // The stream ended: drop the alerts and speech still waiting, and take down the one showing.
   clear() {
+    if (this.queue.length) this.report('alerts dropped: the stream ended', { dropped: this.queue.length });
     this.queue = [];
-    this.speech.stop();
+    this.speech.stop('the stream ended');
     clearTimeout(this.timer);
     if (this.showing) (this.showing = false), this.onShow(null);
   }
 
   stop() {
     this.queue = [];
-    this.speech.stop();
+    this.speech.stop('the page closed');
     void this.audio?.close();
     this.audio = null;
   }

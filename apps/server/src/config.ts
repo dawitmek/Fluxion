@@ -9,6 +9,7 @@ export interface Config {
   piperVoicesDir: string | undefined;
   tiktokSessionId: string | undefined;
   secretsKey: Buffer;
+  debugLog?: string; // a file for the debug log (see debug-log.ts); never set in production
 }
 
 export function loadConfig(env: NodeJS.ProcessEnv = process.env): Config {
@@ -33,5 +34,7 @@ export function loadConfig(env: NodeJS.ProcessEnv = process.env): Config {
     // Optional: a TikTok account's sessionid cookie, used for TikTok voices by every host who hasn't signed in themselves.
     tiktokSessionId: env.TIKTOK_SESSION_ID || undefined,
     secretsKey,
+    // For development only: production ignores it, so a debug setting left in an .env can't fill a server's disk.
+    debugLog: env.NODE_ENV === 'production' ? undefined : env.DEBUG_LOG || undefined,
   };
 }

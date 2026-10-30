@@ -4,6 +4,9 @@ import { applyEffect, utteranceEffect } from './voice-effects';
 
 const MAX_PENDING = 5; // busy chat: drop new lines rather than fall minutes behind
 
+export type Report = (message: string, data?: Record<string, unknown>) => void; // for the server's debug log
+const about = (speech: Speech) => ({ kind: speech.kind, ...(speech.kind !== 'audio' && { text: speech.text }) });
+
 // Says one thing at a time. Audio and eSpeak play through the page's AudioContext, which OBS captures;
 // browser voices go straight to the system output.
 export class SpeechPlayer {
@@ -11,17 +14,20 @@ export class SpeechPlayer {
   private speaking = false;
   private source: AudioBufferSourceNode | null = null; // the line playing now, if it's audio
   private generation = 0; // bumped by stop(), so a line still being made isn't played after it
+  report: Report = () => {};
 
   constructor(private audio: () => AudioContext) {}
 
   say(speech: Speech) {
-    if (this.queue.length >= MAX_PENDING) return;
+    if (this.queue.length >= MAX_PENDING) return this.report('speech dropped, too many waiting', about(speech));
     this.queue.push(speech);
+    this.report('speech queued', { ...about(speech), waiting: this.queue.length, speaking: this.speaking });
     void this.pump();
   }
 
   // Drops what's waiting and cuts off what's playing.
-  stop() {
+  stop(reason: string) {
+    if (this.queue.length || this.speaking) this.report(`speech stopped: ${reason}`, { dropped: this.queue.length, cutOff: this.speaking });
     this.queue = [];
     this.generation++;
     this.source?.stop();
@@ -46,10 +52,12 @@ export class SpeechPlayer {
     const next = this.speaking ? undefined : this.queue.shift();
     if (!next) return;
     this.speaking = true;
+    this.report('speaking', { ...about(next), waiting: this.queue.length });
     try {
       await this.play(next);
     } catch (err) {
       console.warn('Fluxion: could not speak', err);
+      this.report('could not speak', { error: String(err) });
     } finally {
       this.speaking = false;
       void this.pump();

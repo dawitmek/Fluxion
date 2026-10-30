@@ -31,6 +31,7 @@ import { screenRoutes } from './screens/routes.js';
 import { goalRoutes } from './goals/routes.js';
 import { Piper } from './tts/piper.js';
 import { SpeechService } from './tts/speech.js';
+import { DebugLog } from './debug-log.js';
 import { ServerTiktokAccount } from './tts/tiktok-account.js';
 import { gatewayRoutes } from './gateway/routes.js';
 
@@ -45,6 +46,7 @@ declare module 'fastify' {
     piper: Piper;
     secrets: Secrets;
     tiktokAccount: ServerTiktokAccount;
+    debug: DebugLog;
   }
 }
 
@@ -65,6 +67,9 @@ export async function buildApp(config: Config, options: Options = {}) {
   const createTikTok = options.createTikTok ?? ((username) => new TikTokAdapter(username, config.eulerApiKey));
 
   app.decorate('config', config);
+  const debug = new DebugLog(config.debugLog);
+  app.decorate('debug', debug);
+  if (debug.on) app.log.info(`Debug log on: ${config.debugLog}`);
   app.decorate('db', db);
   app.decorate('hub', hub);
   const secrets = new Secrets(config.secretsKey);
@@ -86,7 +91,7 @@ export async function buildApp(config: Config, options: Options = {}) {
   app.decorate('speech', speech);
   app.decorate(
     'live',
-    new SessionManager(db, hub, stats, speech, secrets, createTikTok, (err) => app.log.warn({ err }, 'Could not record stream events')),
+    new SessionManager(db, hub, stats, speech, secrets, createTikTok, (err) => app.log.warn({ err }, 'Could not record stream events'), debug),
   );
   app.decorate('tiktokAccount', tiktokAccount);
   tiktokAccount.start();
@@ -94,6 +99,8 @@ export async function buildApp(config: Config, options: Options = {}) {
     tiktokAccount.stop();
     await app.live.close();
     await close();
+    debug.write('server', null, 'stopped');
+    debug.close();
   });
 
   await app.register(fastifyCookie);

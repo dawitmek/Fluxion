@@ -11,6 +11,7 @@ import { voiceConfig, type SpeechService, type VoiceConfig } from '../tts/speech
 import { activeProfile } from '../profiles/active.js';
 import { createEngine, keyPresses, type Decision, type Engine, type EngineConfig, type EngineContext } from '../engine/index.js';
 import type { Hub } from '../gateway/hub.js';
+import { DebugLog } from '../debug-log.js';
 import type { Stats } from '../leaderboard/stats.js';
 import { SimulatedAdapter } from '../platforms/simulated.js';
 import type { PlatformAdapter } from '../platforms/types.js';
@@ -47,6 +48,7 @@ interface LiveSession {
   actions: ReturnType<typeof createActions>;
   voice: VoiceConfig;
   outbox: Promise<void>; // alerts and speech go out in order, each after its audio is ready
+  waiting: number; // alerts and speech in the outbox, for the debug log
   ticker: NodeJS.Timeout;
   delayed: Set<NodeJS.Timeout>; // pending repeats of gift-triggered presses
   lastState: string;
@@ -78,14 +80,18 @@ export class SessionManager {
     private secrets: Secrets,
     private createTikTok: (username: string) => PlatformAdapter,
     private onError: (err: unknown) => void = () => {},
+    private debug = new DebugLog(undefined),
   ) {}
 
   // Streams left open by a server that stopped without stopping them end at their last event.
   async closeAbandonedStreams() {
-    await this.db
+    const closed = await this.db
       .update(streams)
       .set({ endedAt: sql`coalesce((select max(${streamEvents.at}) from ${streamEvents} where ${streamEvents.streamId} = ${streams.id}), ${streams.startedAt})` })
-      .where(isNull(streams.endedAt));
+      .where(isNull(streams.endedAt))
+      .returning({ hostId: streams.hostId });
+    // A stream left open means the server stopped without ending it (a crash, or killed), so overlays never heard it end.
+    for (const { hostId } of closed) this.debug.write('live', hostId, 'closed a stream the last server run left open');
   }
 
   // The stream being recorded for a host right now, if any.
@@ -148,6 +154,7 @@ export class SessionManager {
       actions: createActions(actionCtx),
       voice,
       outbox: Promise.resolve(),
+      waiting: 0,
       ticker: setInterval(() => (this.run(hostId, session, session.engine.tick()), this.pushStats(hostId, session)), TICK_MS),
       delayed: new Set(),
       lastState: '',
@@ -162,7 +169,7 @@ export class SessionManager {
       session.stats.room(room);
     });
     adapter.onEnd(() => {
-      if (this.sessions.get(hostId) === session) void this.stop(hostId);
+      if (this.sessions.get(hostId) === session) void this.stop(hostId, 'the TikTok LIVE ended or disconnected');
     });
 
     try {
@@ -176,13 +183,15 @@ export class SessionManager {
       throw new LiveError(`Could not connect to TikTok LIVE: ${(err as Error).message}`, 409);
     }
     this.sessions.set(hostId, session);
+    this.debug.write('live', hostId, 'started', { source, tiktok: host.tiktokUsername, mode, tts: actionConfig.tts.mode, voice: voice.engine });
     this.hub.sendToOverlays(hostId, { type: 'live', state: 'started' });
     this.pushState(hostId, session);
   }
 
-  async stop(hostId: string) {
+  async stop(hostId: string, reason = 'asked to stop') {
     const session = this.sessions.get(hostId);
     if (!session) return;
+    this.debug.write('live', hostId, `stopped: ${reason}`, { unsent: session.waiting });
     this.sessions.delete(hostId);
     clearInterval(session.ticker);
     for (const timer of session.delayed) clearTimeout(timer);
@@ -218,9 +227,16 @@ export class SessionManager {
     const loaded = await this.loadConfig(hostId);
     if (!loaded || this.sessions.get(hostId) !== session) return;
     session.ctx.config = loaded.config;
-    session.actionCtx.config = loaded.actionConfig;
+    const ttsBefore = session.actionCtx.config.tts.mode;
+    if (ttsBefore !== loaded.actionConfig.tts.mode) {
+      this.debug.write('tts', hostId, `read chat aloud: ${ttsBefore} -> ${loaded.actionConfig.tts.mode}`, { unsent: session.waiting });
+    }
     // Lines the overlay already holds were made with the old voice; without this a switch waits for them all.
-    if (JSON.stringify(loaded.voice) !== JSON.stringify(session.voice)) this.hub.sendToOverlays(hostId, { type: 'clearSpeech' });
+    if (JSON.stringify(loaded.voice) !== JSON.stringify(session.voice)) {
+      this.debug.write('tts', hostId, `voice changed, overlays told to drop their speech: ${session.voice.engine} -> ${loaded.voice.engine}`);
+      this.hub.sendToOverlays(hostId, { type: 'clearSpeech' });
+    }
+    session.actionCtx.config = loaded.actionConfig;
     session.voice = loaded.voice;
     session.points = loaded.points;
     session.stats.setGoals(loaded.goalRows);
@@ -259,7 +275,7 @@ export class SessionManager {
   }
 
   async stopAll() {
-    await Promise.all([...this.sessions.keys()].map((hostId) => this.stop(hostId)));
+    await Promise.all([...this.sessions.keys()].map((hostId) => this.stop(hostId, 'server shutting down')));
   }
 
   async close() {
@@ -290,7 +306,16 @@ export class SessionManager {
       if (output.type === 'key') this.run(hostId, session, keyPresses(session.ctx, output.keyword, output.viewer, output.repeats));
       else if (output.type === 'points') this.stats.record(hostId, output.viewer, { points: output.amount });
       // speak() never throws, but a broken chain would silence every later alert, so guard anyway.
-      else session.outbox = session.outbox.then(() => this.deliver(hostId, session, output)).catch(() => {});
+      else {
+        session.waiting++;
+        if (output.type === 'tts') {
+          this.debug.write('tts', hostId, 'chat line to read aloud', { viewer: output.viewer, text: output.text, mode: session.actionCtx.config.tts.mode, waiting: session.waiting });
+        } else if (output.speak) this.debug.write('alert', hostId, 'alert to read aloud', { text: output.text, waiting: session.waiting });
+        session.outbox = session.outbox
+          .then(() => this.deliver(hostId, session, output))
+          .catch(() => {})
+          .finally(() => session.waiting--);
+      }
     }
   }
 
@@ -304,12 +329,19 @@ export class SessionManager {
   }
 
   private async deliver(hostId: string, session: LiveSession, output: Extract<ActionOutput, { type: 'alert' | 'tts' }>) {
-    if (this.sessions.get(hostId) !== session) return; // stopped while earlier speech was being made
+    const area = output.type === 'tts' ? 'tts' : 'alert';
+    if (this.sessions.get(hostId) !== session) {
+      if (output.type === 'tts' || output.speak) this.debug.write(area, hostId, 'dropped, the stream ended first', { text: output.text });
+      return; // stopped while earlier speech was being made
+    }
+    const began = Date.now();
     if (output.type === 'alert') {
       const speech = output.speak ? await this.speech.speak(session.voice, output.text) : null;
+      if (speech) this.debug.write(area, hostId, 'sent to overlays', { text: output.text, speech: speech.kind, madeInMs: Date.now() - began });
       this.hub.sendToOverlays(hostId, alertMessage(output, speech));
     } else {
       const speech = await this.speech.speak(session.voice, `${output.viewer} says ${output.text}`);
+      this.debug.write(area, hostId, 'sent to overlays', { viewer: output.viewer, speech: speech.kind, madeInMs: Date.now() - began });
       this.hub.sendToOverlays(hostId, { type: 'tts', viewer: output.viewer, text: output.text, speech });
     }
   }

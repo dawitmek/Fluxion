@@ -1,7 +1,7 @@
 import type { FastifyInstance } from 'fastify';
 import type { WebSocket } from 'ws';
 import { eq } from 'drizzle-orm';
-import { PROTOCOL_VERSION, type CompanionToServer, type ServerToCompanion } from '@fluxion/shared';
+import { PROTOCOL_VERSION, type CompanionToServer, type OverlayToServer, type ServerToCompanion } from '@fluxion/shared';
 import { companions, overlayScreens } from '../db/schema.js';
 import { toScreen } from '../screens/routes.js';
 import { sha256 } from '../crypto.js';
@@ -67,8 +67,27 @@ export async function gatewayRoutes(app: FastifyInstance) {
     const token = req.query.token;
     const [row] = token ? await db.select().from(overlayScreens).where(eq(overlayScreens.token, token)) : [];
     if (!row) return socket.close(4001, 'Unauthorized');
-    hub.addOverlay(row.hostId, row.id, socket, req.query.dashboard === '1');
+    const dashboard = req.query.dashboard === '1';
+    hub.addOverlay(row.hostId, row.id, socket, dashboard);
     socket.send(JSON.stringify({ type: 'screen', screen: toScreen(row) }));
     for (const message of await app.live.overlaySnapshot(row.hostId)) socket.send(JSON.stringify(message));
+    // With the debug log on, overlays report what they do with alerts and speech; otherwise they send nothing.
+    if (!app.debug.on) return;
+    const who = `${dashboard ? 'dashboard' : 'overlay'} "${row.name}"`;
+    app.debug.write('overlay', row.hostId, `${who} connected`);
+    socket.on('close', (code) => app.debug.write('overlay', row.hostId, `${who} disconnected`, { code }));
+    socket.on('message', (raw) => {
+      if (raw.toString().length > 2000) return;
+      try {
+        const report = JSON.parse(raw.toString()) as OverlayToServer;
+        if (report.type !== 'log' || typeof report.message !== 'string') return;
+        // Reports made while the server was away arrive late; `at` is when it happened.
+        const late = Date.now() - report.at > 2000 ? { happenedAt: new Date(report.at).toISOString() } : {};
+        app.debug.write('overlay', row.hostId, `${who}: ${report.message.slice(0, 200)}`, { ...report.data, ...late });
+      } catch {
+        // Not a report; ignore it.
+      }
+    });
+    socket.send(JSON.stringify({ type: 'debug' }));
   });
 }

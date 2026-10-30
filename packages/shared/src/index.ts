@@ -281,6 +281,10 @@ export type ServerToOverlay =
   | { type: 'gift'; viewer: string; gift: string; count: number; diamonds: number } // diamonds: the whole streak's
   | { type: 'tts'; viewer: string; text: string; speech: Speech }
   | { type: 'clearSpeech' } // the voice changed: drop lines made with the old one
+  | { type: 'debug' } // the server keeps a debug log: report what happens here (see OverlayToServer)
+
+// Overlay -> server: only debug reports, only after the server asks for them, and only in development.
+export type OverlayToServer = { type: 'log'; message: string; data?: Record<string, unknown>; at: number };
 
 // What's recorded during a stream: what viewers did, and what Fluxion did in response.
 //   comment {text}, gift {gift, count, diamonds}, like {count}, follow, share, join, subscribe {months}, emote {emoteId}:

@@ -9,6 +9,7 @@ import {
   type ModeState,
   type OverlayScreen,
   type ScreenWidget,
+  type OverlayToServer,
   type ServerToOverlay,
   type StreamStats,
   type WidgetSpot,
@@ -78,12 +79,26 @@ export function Overlay({ token }: { token: string }) {
     let nextId = 0;
     let closed = false;
     player.start();
+    // Reports for the server's debug log, sent only once the server asks (it keeps one in development). The last 50
+    // wait while the server is away, so what played while it was down still reaches the log.
+    const reports: OverlayToServer[] = [];
+    let reporting = false;
+    const flush = () => {
+      if (reporting && socket.readyState === WebSocket.OPEN) for (const r of reports.splice(0)) socket.send(JSON.stringify(r));
+    };
+    const report = (message: string, data?: Record<string, unknown>) => {
+      reports.push({ type: 'log', message, data, at: Date.now() });
+      if (reports.length > 50) reports.shift();
+      flush();
+    };
+    player.report = report;
 
     const connect = () => {
       const protocol = location.protocol === 'https:' ? 'wss' : 'ws';
       socket = new WebSocket(`${protocol}://${location.host}/ws/overlay?token=${encodeURIComponent(token)}`);
       socket.onmessage = (event) => {
         const message = JSON.parse(event.data) as ServerToOverlay;
+        if (message.type === 'debug') (reporting = true), flush();
         if (message.type === 'screen') {
           screenRef.current = message.screen;
           player.audible = message.screen.audio && !SINGLE;
@@ -91,6 +106,7 @@ export function Overlay({ token }: { token: string }) {
         }
         const shown = screenRef.current;
         if (message.type === 'live') {
+          report(`stream ${message.state}`);
           setLive(message.state === 'started');
           if (message.state === 'started') (setStats(null), setChat([]));
           if (message.state === 'stopped') player.clear();
@@ -113,11 +129,13 @@ export function Overlay({ token }: { token: string }) {
         }
         // An alert for another screen isn't this one's to show.
         if (message.type === 'alert' && shown?.alerts && (!message.screen || message.screen === shown.id)) player.enqueue(message);
-        if (message.type === 'tts') player.say(message.speech);
+        if (message.type === 'tts') (report('chat line received', { viewer: message.viewer, text: message.text }), player.say(message.speech));
         if (message.type === 'clearSpeech') player.clearSpeech();
       };
       // A bad token is permanent (4001); anything else is worth retrying.
       socket.onclose = (event) => {
+        reporting = false;
+        if (!closed) report('lost the server connection', { code: event.code });
         if (!closed && event.code !== 4001) retry = window.setTimeout(connect, 3000);
       };
     };
