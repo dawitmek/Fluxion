@@ -84,6 +84,9 @@
 .live-main { flex: 999 1 480px; min-width: 0; }
 .live-side { flex: 1 1 300px; max-width: 400px; min-width: 0; }
 .command-more { margin-top: 12px; }
+/* The crowd modes share the card's width evenly: four across, or two by two when narrow. */
+.crowd-mode > .seg { display: grid; grid-template-columns: repeat(4, minmax(0, 1fr)); width: 100%; }
+@media (max-width: 520px) { .crowd-mode > .seg { grid-template-columns: repeat(2, minmax(0, 1fr)); } }
 /* Show more as a divider: a thin line across with the words in the middle, no button outline. */
 .line-expand { display: flex; align-items: center; gap: 10px; width: 100%; padding: 6px 0; border: 0; background: none; color: var(--muted); font: 600 13px var(--font); cursor: pointer; transition: color 0.15s; }
 .line-expand::before, .line-expand::after { content: ''; flex: 1; height: 1px; background: var(--line); transition: background 0.15s; }

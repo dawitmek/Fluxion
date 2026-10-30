@@ -295,7 +295,9 @@ function CommandsOverview({ host, refreshHost, feed }: PageProps) {
         </button>
       )}
       <h3 style={{ margin: '24px 0 10px' }}>Crowd mode</h3>
-      <Seg label="Crowd mode" value={host.mode} options={MODES.map((m) => [m, MODE_INFO[m].label] as const)} onChange={setMode} />
+      <div className="crowd-mode">
+        <Seg label="Crowd mode" value={host.mode} options={MODES.map((m) => [m, MODE_INFO[m].label] as const)} onChange={setMode} />
+      </div>
       <p className="muted" style={{ marginTop: 8 }}>
         {MODE_INFO[host.mode].help}
       </p>
