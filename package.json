@@ -14,7 +14,8 @@
     "node": ">=22"
   },
   "scripts": {
-    "dev": "npm run db:up && npm run build -w packages/shared && concurrently -k -n server,web -c blue,magenta \"npm run dev:server\" \"npm run dev:web\"",
+    "dev": "npm run db:up && npm run build -w packages/shared && concurrently -k -n shared,server,web -c green,blue,magenta \"npm run dev:shared\" \"npm run dev:server\" \"npm run dev:web\"",
+    "dev:shared": "npm run dev -w packages/shared",
     "build": "npm run build -w packages/shared -w apps/server -w apps/web",
     "typecheck": "npm run typecheck --workspaces --if-present",
     "dev:server": "npm run dev -w apps/server",
