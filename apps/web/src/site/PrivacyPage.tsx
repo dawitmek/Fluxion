@@ -95,7 +95,7 @@ const SECTIONS: { id: string; title: string; body: ReactNode }[] = [
             </tr>
             <tr>
               <td>Stream history (see Your viewers)</td>
-              <td>For the activity feed and analytics.</td>
+              <td>For the activity feed and stream analytics.</td>
               <td>
                 Kept for your past streams. A test-mode session is replaced by the next one.
               </td>
