@@ -14,6 +14,7 @@ const paths = {
   play: <path d="M7 4v16l13-8z" />,
   pause: <path d="M8 5v14M16 5v14" />,
   check: <path d="m5 12 5 5 9-10" />,
+  chevron: <path d="m6 9 6 6 6-6" />,
   close: <path d="M6 6l12 12M18 6 6 18" />,
   shield: <path d="M12 3 4 6v6c0 5 3.5 8 8 9 4.5-1 8-4 8-9V6l-8-3z" />,
 } as const;

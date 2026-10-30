@@ -44,6 +44,7 @@ interface CommandView {
 interface GameWindow {
   title: string;
   process: string;
+  icon: string | null; // PNG data URL
 }
 
 type Run = (command: string, args?: Record<string, unknown>) => Promise<void>;
@@ -108,6 +109,100 @@ export default function App() {
       )}
       {state.paired ? <Paired state={state} run={run} /> : <PairForm run={run} defaultServer={state.serverUrl} />}
     </main>
+  );
+}
+
+// The game picker: running programs with their icons, refreshed each time it opens. A game picked earlier that
+// isn't running now stays listed, so it can still be seen and kept.
+function GamePicker({
+  value,
+  windows,
+  onOpen,
+  onPick,
+}: {
+  value: string | null;
+  windows: GameWindow[];
+  onOpen: () => void;
+  onPick: (process: string | null) => void;
+}) {
+  const [open, setOpen] = useState(false);
+  const box = useRef<HTMLDivElement>(null);
+  const current = windows.find((w) => w.process === value) ?? (value ? { process: value, title: "Not running", icon: null } : null);
+  const choices = current && !windows.includes(current) ? [current, ...windows] : windows;
+  const options = () => [...(box.current?.querySelectorAll<HTMLButtonElement>('[role="option"]') ?? [])];
+
+  useEffect(() => {
+    if (!open) return;
+    (options().find((o) => o.getAttribute("aria-selected") === "true") ?? options()[0])?.focus();
+    const close = (e: MouseEvent) => box.current?.contains(e.target as Node) || setOpen(false);
+    window.addEventListener("mousedown", close);
+    return () => window.removeEventListener("mousedown", close);
+  }, [open]);
+
+  const pick = (process: string | null) => {
+    setOpen(false);
+    onPick(process);
+  };
+  const onKeyDown = (e: React.KeyboardEvent) => {
+    if (e.key === "Escape" && open) {
+      e.stopPropagation();
+      setOpen(false);
+      box.current?.querySelector<HTMLButtonElement>(".picker-button")?.focus();
+    }
+    if (open && (e.key === "ArrowDown" || e.key === "ArrowUp")) {
+      e.preventDefault();
+      const all = options();
+      const i = all.indexOf(document.activeElement as HTMLButtonElement);
+      all[(i + (e.key === "ArrowDown" ? 1 : -1) + all.length) % all.length]?.focus();
+    }
+  };
+
+  return (
+    <div className="picker" ref={box} onKeyDown={onKeyDown}>
+      <button
+        type="button"
+        className="input picker-button"
+        aria-haspopup="listbox"
+        aria-expanded={open}
+        aria-labelledby="game-label"
+        onClick={() => {
+          if (!open) onOpen();
+          setOpen(!open);
+        }}
+      >
+        {current ? <ProgramRow program={current} /> : <span className="muted">Select a game…</span>}
+        <Icon name="chevron" />
+      </button>
+      {open && (
+        <div className="picker-list" role="listbox" aria-labelledby="game-label">
+          {choices.length === 0 && <p className="muted small picker-empty">No programs with a window are running.</p>}
+          {choices.map((w) => (
+            <button key={w.process} type="button" role="option" aria-selected={w.process === value} className="picker-option" onClick={() => pick(w.process)}>
+              <ProgramRow program={w} />
+              {w.process === value && <Icon name="check" />}
+            </button>
+          ))}
+          {value && (
+            <button type="button" role="option" aria-selected={false} className="picker-option picker-clear" onClick={() => pick(null)}>
+              No game
+            </button>
+          )}
+        </div>
+      )}
+    </div>
+  );
+}
+
+// A program's icon (or its first letter when it has none), its name and its process.
+function ProgramRow({ program }: { program: GameWindow }) {
+  return (
+    <>
+      <span className="app-icon">{program.icon ? <img src={program.icon} alt="" /> : program.process[0]!.toUpperCase()}</span>
+      <span className="app-names">
+        <strong>{program.title}</strong>
+        <span className="muted small">{program.process}</span>
+      </span>
+    </>
   );
 }
 
@@ -222,32 +317,17 @@ function Paired({ state, run }: { state: Snapshot; run: Run }) {
         </div>
 
         <div className="hero-game">
-          <label className="field">
+          <div className="field">
             <span className="hero-label">
-              Game
+              <span id="game-label">Game</span>
               {state.profileName && (
                 <span className="tag teal" title="Switching profiles on the dashboard picks its game here when the profile names one.">
                   {state.profileName} profile
                 </span>
               )}
             </span>
-            <div className="row">
-              <select className="input" value={state.targetProcess ?? ""} onChange={(e) => run("set_target", { process: e.target.value || null })}>
-                <option value="">Select a game…</option>
-                {state.targetProcess && !windows.some((w) => w.process === state.targetProcess) && (
-                  <option value={state.targetProcess}>{state.targetProcess} (not running)</option>
-                )}
-                {windows.map((w) => (
-                  <option key={w.process} value={w.process}>
-                    {w.process}: {w.title.slice(0, 40)}
-                  </option>
-                ))}
-              </select>
-              <button className="btn btn-icon" onClick={refreshWindows} aria-label="Refresh the list of windows" title="Refresh the list of windows">
-                <Icon name="refresh" />
-              </button>
-            </div>
-          </label>
+            <GamePicker value={state.targetProcess} windows={windows} onOpen={refreshWindows} onPick={(process) => run("set_target", { process })} />
+          </div>
           {state.profileGame && state.targetProcess !== state.profileGame && (
             <p className="notice warning">
               The {state.profileName} profile is for {state.profileGame}, but this PC is targeting {state.targetProcess ?? "nothing"}.
@@ -517,53 +597,82 @@ function AllowedKeys({ state, run }: { state: Snapshot; run: Run }) {
 }
 
 // The dashboard's commands for the active profile, and whether this PC will press each one. Single keys follow the
-// allowed-keys grid; each key combination needs its own OK here, which the server can't give.
+// allowed-keys grid; each key combination needs its own OK here, which the server can't give. Only what needs a look
+// or a decision gets a row: commands that will just press their key are chips, and ones off on the dashboard a line.
 function Commands({ state, run }: { state: Snapshot; run: Run }) {
   if (state.commands.length === 0) return null;
+  const rows = state.commands.filter((c) => c.enabled && (c.problem || c.combo));
+  const ready = state.commands.filter((c) => c.enabled && !c.problem && !c.combo);
+  const off = state.commands.filter((c) => !c.enabled);
   return (
     <section className="card stack" aria-labelledby="commands-title">
       <SectionHead id="commands-title" icon="chat" hue="violet" title={`Commands${state.profileName ? ` for ${state.profileName}` : ""}`}>
         What chat can trigger, from your dashboard. Key combinations are only pressed once you allow them here, so a change
         on the dashboard can't add one without your OK.
       </SectionHead>
-      <ul className="command-list">
-        {state.commands.map((c) => (
-          <li key={c.keyword} className={c.enabled ? "" : "off"}>
-            <strong className="command-word">{c.keyword}</strong>
-            <span className="command-keys">
-              {c.label.split("+").map((part, i) => (
-                <span key={i}>
-                  {i > 0 && <span className="plus">+</span>}
-                  <kbd className="kbd">{part}</kbd>
-                </span>
-              ))}
-            </span>
-            <span className="command-status">
-              {!c.enabled ? (
-                <span className="muted small">Off on the dashboard</span>
-              ) : c.problem ? (
-                <span className="tag red" title={c.problem}>
-                  {c.problem}
-                </span>
-              ) : c.combo ? (
-                <label className="approve">
-                  <span className={`small ${c.approved ? "" : "muted"}`}>{c.approved ? "Allowed" : "Needs your OK"}</span>
-                  <span className="switch">
-                    <input
-                      type="checkbox"
-                      checked={c.approved}
-                      aria-label={`Allow ${c.label} for ${c.keyword}`}
-                      onChange={(e) => run("set_combo_approved", { key: c.key, approved: e.target.checked })}
-                    />
+      {rows.length > 0 && (
+        <ul className="command-list">
+          {rows.map((c) => (
+            <li key={c.keyword}>
+              <strong className="command-word">{c.keyword}</strong>
+              <CommandKeys label={c.label} />
+              <span className="command-status">
+                {c.problem ? (
+                  <span className="tag red" title={c.problem}>
+                    {c.problem}
                   </span>
-                </label>
-              ) : (
-                <span className="tag green">Will press</span>
-              )}
-            </span>
-          </li>
-        ))}
-      </ul>
+                ) : (
+                  <label className="approve">
+                    <span className={`small ${c.approved ? "" : "muted"}`}>{c.approved ? "Allowed" : "Needs your OK"}</span>
+                    <span className="switch">
+                      <input
+                        type="checkbox"
+                        checked={c.approved}
+                        aria-label={`Allow ${c.label} for ${c.keyword}`}
+                        onChange={(e) => run("set_combo_approved", { key: c.key, approved: e.target.checked })}
+                      />
+                    </span>
+                  </label>
+                )}
+              </span>
+            </li>
+          ))}
+        </ul>
+      )}
+      {ready.length > 0 && (
+        <div className="command-group">
+          <h3 className="command-group-title">
+            <span className="dot" aria-hidden="true" />
+            Ready to press <span className="muted">({ready.length})</span>
+          </h3>
+          <ul className="command-chips">
+            {ready.map((c) => (
+              <li key={c.keyword} className="command-chip">
+                <span className="command-word">{c.keyword}</span>
+                <CommandKeys label={c.label} />
+              </li>
+            ))}
+          </ul>
+        </div>
+      )}
+      {off.length > 0 && (
+        <p className="command-off muted small">
+          Off on the dashboard: {off.map((c) => c.keyword).join(", ")}
+        </p>
+      )}
     </section>
+  );
+}
+
+function CommandKeys({ label }: { label: string }) {
+  return (
+    <span className="command-keys">
+      {label.split("+").map((part, i) => (
+        <span key={i}>
+          {i > 0 && <span className="plus">+</span>}
+          <kbd className="kbd">{part}</kbd>
+        </span>
+      ))}
+    </span>
   );
 }

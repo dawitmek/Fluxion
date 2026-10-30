@@ -24,7 +24,6 @@ body { background: var(--aurora), var(--ground); background-repeat: no-repeat; m
 .command-list { list-style: none; margin: 0; padding: 0; }
 .command-list li { display: grid; grid-template-columns: minmax(70px, 110px) 1fr auto; align-items: center; gap: 10px; padding: 9px 0; border-bottom: 1px solid var(--line); }
 .command-list li:last-child { border-bottom: 0; }
-.command-list li.off { opacity: 0.55; }
 .command-word { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
 .command-keys { display: flex; flex-wrap: wrap; align-items: center; gap: 2px; }
 .command-keys .kbd { padding: 1px 7px 0; font-size: 12px; }
@@ -34,7 +33,7 @@ body { background: var(--aurora), var(--ground); background-repeat: no-repeat; m
 .approve { display: inline-flex; align-items: center; gap: 8px; cursor: pointer; }
 
 /* Status at the top: one state for the whole PC in its color, the pause button, and the game keys go to. */
-.hero { --state: var(--green); --state-fill: #22c55e; position: relative; overflow: hidden; padding: 20px; border-radius: 20px;
+.hero { --state: var(--green); --state-fill: #22c55e; position: relative; padding: 20px; border-radius: 20px;
   border: 1px solid color-mix(in srgb, var(--state-fill) 35%, var(--line));
   background: radial-gradient(340px 170px at 0% 0%, color-mix(in srgb, var(--state-fill) 18%, transparent), transparent 75%), var(--panel);
   box-shadow: 0 18px 40px -28px var(--state-fill); }
@@ -94,3 +93,37 @@ body { background: var(--aurora), var(--ground); background-repeat: no-repeat; m
 .code-input::placeholder { color: var(--line-strong); letter-spacing: 0.3em; }
 .pair-fields { display: grid; grid-template-columns: 1fr 1fr; gap: 12px; }
 @media (max-width: 440px) { .pair-fields { grid-template-columns: 1fr; } }
+
+/* Commands that will just press their key, as chips; the rows above are only the ones needing a look. */
+.command-group { display: flex; flex-direction: column; gap: 10px; }
+.command-group-title { display: flex; align-items: center; gap: 8px; color: var(--green); font-size: 13px; font-weight: 600; letter-spacing: 0; }
+.command-group-title .dot { width: 7px; height: 7px; }
+.command-chips { display: flex; flex-wrap: wrap; gap: 6px; margin: 0; padding: 0; list-style: none; }
+.command-chip { display: inline-flex; align-items: center; gap: 8px; max-width: 100%; padding: 4px 5px 4px 11px; border-radius: 10px;
+  border: 1px solid var(--line); background: var(--panel2); font-size: 13px; font-weight: 600; }
+.command-chip .command-word { max-width: 140px; }
+.command-off { padding-top: 10px; border-top: 1px solid var(--line); }
+
+/* The game picker: program icons beside their names. */
+.picker { position: relative; }
+.field .picker-button { display: flex; align-items: center; gap: 10px; width: 100%; height: auto; min-height: 52px; padding: 7px 12px; text-align: left; cursor: pointer; }
+.picker-button > svg { flex: none; margin-left: auto; color: var(--muted); transition: transform 0.15s; }
+.picker-button[aria-expanded='true'] > svg { transform: rotate(180deg); }
+.picker-list { position: absolute; z-index: 10; top: calc(100% + 6px); left: 0; right: 0; display: flex; flex-direction: column; gap: 2px;
+  max-height: 290px; overflow-y: auto; padding: 6px; border-radius: 14px; border: 1px solid var(--line-strong); background: var(--panel);
+  box-shadow: 0 22px 50px -18px rgba(0, 0, 0, 0.55); animation: picker-in 0.14s ease-out; }
+@keyframes picker-in { from { opacity: 0; transform: translateY(-4px); } }
+@media (prefers-reduced-motion: reduce) { .picker-list { animation: none; } }
+.picker-option { display: flex; align-items: center; gap: 10px; width: 100%; padding: 7px 10px; border: 0; border-radius: 10px;
+  background: transparent; color: var(--ink); font: inherit; text-align: left; cursor: pointer; }
+.picker-option:hover, .picker-option:focus-visible { outline: none; background: var(--panel2); }
+.picker-option[aria-selected='true'] { background: var(--indigo-soft); }
+.picker-option > svg { flex: none; margin-left: auto; color: var(--indigo); }
+.picker-clear { justify-content: center; margin-top: 4px; border-top: 1px solid var(--line); border-radius: 0 0 10px 10px; color: var(--muted); font-size: 13px; }
+.picker-empty { padding: 10px; text-align: center; }
+.app-icon { display: grid; place-items: center; flex: none; width: 34px; height: 34px; border-radius: 9px; background: var(--panel2);
+  color: var(--muted); font-weight: 700; overflow: hidden; }
+.app-icon img { width: 30px; height: 30px; object-fit: contain; }
+.app-names { display: flex; flex-direction: column; min-width: 0; line-height: 1.25; }
+.app-names > * { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.app-names strong { font-weight: 600; }

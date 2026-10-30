@@ -23,22 +23,31 @@ tokio-tungstenite = { version = "0.30", features = ["native-tls"] }
 futures-util = { version = "0.3", default-features = false, features = ["sink", "std"] }
 reqwest = { version = "0.13", default-features = false, features = ["json", "native-tls"] }
 tauri-plugin-opener = "2"
+# Already in Tauri's dependency tree: program icons for the game picker, as data URLs.
+base64 = "0.21"
 
 [target.'cfg(target_os = "macos")'.dependencies]
 # Same versions Tauri already uses on macOS, so these add nothing new to the build.
 core-graphics = "0.25"
 core-foundation = "0.10"
-objc2-app-kit = { version = "0.3", default-features = false, features = ["std", "libc", "NSRunningApplication", "NSWorkspace"] }
-objc2-foundation = { version = "0.3", default-features = false, features = ["std", "NSArray", "NSEnumerator", "NSString"] }
+objc2 = "0.6"
+objc2-app-kit = { version = "0.3", default-features = false, features = [
+  "std", "libc", "NSRunningApplication", "NSWorkspace",
+  "NSImage", "NSImageRep", "NSBitmapImageRep", "NSGraphicsContext", "objc2-core-graphics",
+] }
+objc2-foundation = { version = "0.3", default-features = false, features = ["std", "NSArray", "NSData", "NSDictionary", "NSEnumerator", "NSGeometry", "NSString"] }
 libc = "0.2"
 
 [target.'cfg(windows)'.dependencies]
 windows = { version = "0.62", features = [
   "Win32_Foundation",
+  "Win32_Graphics_Gdi",
   "Win32_System_Threading",
   "Win32_UI_Input_KeyboardAndMouse",
+  "Win32_UI_Shell",
   "Win32_UI_WindowsAndMessaging",
 ] }
+png = "0.18" # already in Tauri's dependency tree
 
 [profile.release]
 codegen-units = 1

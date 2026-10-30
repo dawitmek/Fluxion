@@ -1042,12 +1042,15 @@ dependencies = [
 name = "fluxion-companion"
 version = "0.1.0"
 dependencies = [
+ "base64 0.21.7",
  "core-foundation",
  "core-graphics",
  "futures-util",
  "libc",
+ "objc2",
  "objc2-app-kit",
  "objc2-foundation",
+ "png",
  "reqwest",
  "serde",
  "serde_json",
@@ -2331,6 +2334,7 @@ dependencies = [
  "libc",
  "objc2",
  "objc2-core-foundation",
+ "objc2-core-graphics",
  "objc2-foundation",
  "objc2-quartz-core",
 ]
