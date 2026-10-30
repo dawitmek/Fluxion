@@ -66,6 +66,8 @@ export async function analyticsRoutes(app: FastifyInstance) {
     { schema: { params: { type: 'object', properties: { id: streamParam } } } },
     async (req, reply) => {
       const id = await resolve(req.hostId, req.params.id);
+      // The stream being recorded writes its events every couple of seconds; write them now, so the totals are exact.
+      if (id && id === app.live.currentStreamId(req.hostId)) await app.live.flushRecording(req.hostId);
       const detail = id && (await streamDetail(db, req.hostId, id));
       return detail || notFound(reply);
     },

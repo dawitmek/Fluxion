@@ -1,5 +1,5 @@
-import { useEffect, useLayoutEffect, useRef, useState, type FormEvent, type RefObject } from 'react';
-import { levelForXp, MODES, type LeaderboardEntry, type ModeState } from '@fluxion/shared';
+import { useEffect, useLayoutEffect, useMemo, useRef, useState, type FormEvent, type RefObject } from 'react';
+import { levelForXp, MODES, type LeaderboardEntry, type ModeState, type StreamDetail } from '@fluxion/shared';
 import { api, type Command, type LiveStatus } from '../api';
 import { Link } from '../router';
 import { Card, ErrorNotice, keyLabel, Seg, useError } from '../ui';
@@ -211,6 +211,38 @@ function useSlide(grid: RefObject<HTMLDivElement | null>) {
   });
 }
 
+// Presses per command this stream: the server's count when the page opened (or the stream started), plus the
+// ones this page has seen live since. So a refresh doesn't start the counts over. Until the server's count
+// arrives, and offline, the ones this page has seen.
+function useStreamPresses(status: LiveStatus, live: Record<string, number>) {
+  const [base, setBase] = useState<{ counts: Record<string, number>; seen: Record<string, number> } | null>(null);
+  const liveRef = useRef(live);
+  liveRef.current = live;
+  useEffect(() => {
+    setBase(null);
+    if (!status.live) return;
+    let cancelled = false;
+    api<StreamDetail>('GET', '/analytics/streams/latest').then(
+      (d) => {
+        if (cancelled) return;
+        // Presses the page saw before the server's count came back are in that count already.
+        setBase({ counts: Object.fromEntries(d.commandUsage.map((u) => [u.keyword, u.fired])), seen: liveRef.current });
+      },
+      () => {},
+    );
+    return () => {
+      cancelled = true;
+    };
+  }, [status.live, status.startedAt]);
+  // The same object until something changes: the busiest-first order reacts to each new one.
+  return useMemo(() => {
+    if (!base) return live;
+    const counts = { ...base.counts };
+    for (const [keyword, n] of Object.entries(live)) counts[keyword] = (counts[keyword] ?? 0) + n - (base.seen[keyword] ?? 0);
+    return counts;
+  }, [base, live]);
+}
+
 // How many cards fit in a row of the grid right now; it changes with the window.
 function useColumns() {
   const grid = useRef<HTMLDivElement>(null);
@@ -227,16 +259,18 @@ function useColumns() {
   return { grid, columns };
 }
 
-function CommandsOverview({ host, refreshHost, feed }: PageProps) {
+function CommandsOverview({ host, refreshHost, feed, status }: PageProps) {
   const [commands, setCommands] = useState<Command[] | null>(null);
   const { error, guard } = useError();
   useEffect(() => void api<Command[]>('GET', '/commands').then(setCommands), []);
   const setMode = (mode: (typeof MODES)[number]) => guard(() => api('PATCH', '/settings', { mode }).then(refreshHost))();
   const enabled = commands?.filter((c) => c.enabled) ?? [];
-  const most = Math.max(1, ...enabled.map((c) => feed.pressed[c.keyword] ?? 0));
+  const pressed = useStreamPresses(status, feed.pressed);
+  const most = Math.max(1, ...enabled.map((c) => pressed[c.keyword] ?? 0));
+  // The stream's count so far arrives as one big jump, so after a refresh the busiest this stream lead.
   const order = useBusiestFirst(
     enabled.map((c) => c.keyword),
-    feed.pressed,
+    pressed,
   );
   const sorted = [...enabled].sort((a, b) => order.indexOf(a.keyword) - order.indexOf(b.keyword));
   const { grid, columns } = useColumns();
@@ -250,7 +284,7 @@ function CommandsOverview({ host, refreshHost, feed }: PageProps) {
       <div className="card-head">
         <div>
           <h2 id="live-commands">Commands</h2>
-          <p>What chat types, and the key it presses. Counts start when this page opens.</p>
+          <p>What chat types, and the key it presses. Counts are for this stream.</p>
         </div>
         <Link href="/dashboard/commands" className="btn btn-primary">
           Edit commands
@@ -263,7 +297,7 @@ function CommandsOverview({ host, refreshHost, feed }: PageProps) {
       )}
       <div className="command-grid" ref={grid}>
         {shown.map((c) => {
-          const pressed = feed.pressed[c.keyword] ?? 0;
+          const count = pressed[c.keyword] ?? 0;
           return (
             <div key={c.id} data-slide={c.keyword} className={`command-card ${feed.lastPress === c.keyword ? 'fired' : ''}`}>
               <div className="command-top">
@@ -277,10 +311,10 @@ function CommandsOverview({ host, refreshHost, feed }: PageProps) {
               </div>
               <div className="command-used">
                 <span className="muted">Pressed</span>
-                <span className="num">{pressed}</span>
+                <span className="num">{count}</span>
               </div>
               <div className="meter">
-                <div style={{ width: `${(pressed / most) * 100}%` }} />
+                <div style={{ width: `${(count / most) * 100}%` }} />
               </div>
             </div>
           );

@@ -99,6 +99,11 @@ export class SessionManager {
     return this.sessions.get(hostId)?.recorder.streamId ?? null;
   }
 
+  // Writes the live stream's recorded events now instead of at the next regular write.
+  async flushRecording(hostId: string) {
+    await this.sessions.get(hostId)?.recorder.flush();
+  }
+
   async start(hostId: string, source: Source) {
     await this.stop(hostId);
     const loaded = await this.loadConfig(hostId);
