@@ -1,0 +1,29 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>Fluxion</title>
+    <link rel="icon" href="/favicon.svg" type="image/svg+xml" />
+    <meta name="theme-color" content="#07080c" />
+    <script>
+      // Light or dark, and the account's theme, before anything shows (src/theme.ts keeps it up to date after).
+      (function () {
+        var root = document.documentElement;
+        var path = location.pathname;
+        var choice = null;
+        try {
+          if (path.indexOf('/dashboard') === 0 || path === '/login' || path === '/signup') choice = JSON.parse(localStorage.getItem('fluxion-theme') || 'null');
+        } catch (e) {}
+        var mode = (choice && choice.mode) || 'system';
+        root.dataset.mode = mode === 'dark' || (mode === 'system' && matchMedia('(prefers-color-scheme: dark)').matches) ? 'dark' : 'light';
+        if (choice && choice.theme && choice.theme !== 'default') root.dataset.theme = choice.theme;
+        if (choice && choice.style === 'full') root.dataset.themeStyle = 'full';
+      })();
+    </script>
+  </head>
+  <body>
+    <div id="root"></div>
+    <script type="module" src="/src/main.tsx"></script>
+  </body>
+</html>

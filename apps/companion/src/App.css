@@ -1,0 +1,129 @@
+/* Layout for the companion window. Colours, type and components come from @fluxion/theme. */
+body { background: var(--aurora), var(--ground); background-repeat: no-repeat; min-height: 100vh; }
+.companion { display: flex; flex-direction: column; gap: 14px; max-width: 560px; margin: 0 auto; padding: 18px 16px 28px; }
+.top { display: flex; align-items: center; gap: 10px; }
+.top h1 { flex: 1; font-size: 19px; letter-spacing: -0.02em; }
+.logo-mark { display: inline-grid; place-items: center; flex: none; width: 32px; height: 32px; border-radius: calc(10px * var(--radius-scale)); background: var(--brand-gradient); box-shadow: 0 6px 16px -6px rgba(99, 102, 241, 0.8); color: #fff; }
+.connection { max-width: 220px; overflow: hidden; text-overflow: ellipsis; }
+.card { padding: 18px; }
+.small { font-size: 13px; }
+.keycap { min-width: 0; padding: 0 2px; border-radius: calc(9px * var(--radius-scale)); white-space: nowrap; overflow: hidden; border: 1px solid var(--line-strong); border-bottom-width: 3px; background: var(--panel2); color: var(--muted); font: 600 12px var(--font); cursor: pointer; transition: background 0.15s, border-color 0.15s, color 0.15s; }
+.keycap.on { border-color: var(--key-edge); background: var(--indigo-soft); color: var(--key-ink); font-weight: 700; }
+.keycap:hover { border-color: var(--indigo-fill); }
+.log li:last-child { border-bottom: 0; }
+.signed-in { font-size: 14px; padding: 6px 12px; }
+.keycap.selected { outline: 2px solid var(--indigo-fill); outline-offset: 2px; color: var(--ink); }
+.selection-bar { display: flex; flex-wrap: wrap; align-items: center; gap: 8px; padding: 10px 12px; border-radius: calc(12px * var(--radius-scale)); border: 1px solid var(--indigo-fill);
+  background: color-mix(in srgb, var(--indigo-fill) 10%, var(--panel)); font-weight: 600; animation: selection-in 0.18s ease-out; }
+.selection-bar .spacer { flex: 1; }
+@keyframes selection-in { from { opacity: 0; transform: translateY(-4px); } }
+@media (prefers-reduced-motion: reduce) { .selection-bar { animation: none; } }
+/* Shift held: clicks select, so show it. */
+.keys.selecting .keycap { cursor: copy; }
+.keys.selecting .keycap:not(.selected):hover { outline: 2px dashed var(--indigo-fill); outline-offset: 2px; }
+.command-list { list-style: none; margin: 0; padding: 0; }
+.command-list li { display: grid; grid-template-columns: minmax(70px, 110px) 1fr auto; align-items: center; gap: 10px; padding: 9px 0; border-bottom: 1px solid var(--line); }
+.command-list li:last-child { border-bottom: 0; }
+.command-word { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.command-keys { display: flex; flex-wrap: wrap; align-items: center; gap: 2px; }
+.command-keys .kbd { padding: 1px 7px 0; font-size: 12px; }
+.command-keys .plus { margin: 0 3px; color: var(--muted); font-size: 12px; }
+.command-status { display: flex; justify-content: flex-end; }
+.command-status .tag { max-width: 190px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.approve { display: inline-flex; align-items: center; gap: 8px; cursor: pointer; }
+
+/* Status at the top: one state for the whole PC in its color, the pause button, and the game keys go to. */
+.hero { --state: var(--green); --state-fill: #22c55e; position: relative; padding: 20px; border-radius: calc(20px * var(--radius-scale));
+  border: 1px solid color-mix(in srgb, var(--state-fill) 35%, var(--line));
+  background: radial-gradient(340px 170px at 0% 0%, color-mix(in srgb, var(--state-fill) 18%, transparent), transparent 75%), var(--panel);
+  box-shadow: 0 18px 40px -28px var(--state-fill); }
+.hero.amber { --state: var(--amber); --state-fill: var(--amber-fill); }
+.hero.red { --state: var(--red); --state-fill: #ef4459; }
+.hero-main { display: flex; align-items: center; gap: 14px; }
+.hero-text { flex: 1; min-width: 0; }
+.hero-state { color: var(--state); font-size: 26px; font-weight: 600; letter-spacing: -0.035em; line-height: 1.1; }
+.hero-text p { margin-top: 3px; }
+.hero-toggle { flex: none; min-height: 44px; padding: 0 18px; border-radius: calc(12px * var(--radius-scale)); }
+.orb { position: relative; display: grid; place-items: center; flex: none; width: 48px; height: 48px; border-radius: 50%;
+  background: color-mix(in srgb, var(--state-fill) 16%, transparent); }
+.orb > span { width: 18px; height: 18px; border-radius: 50%; background: var(--state-fill); box-shadow: 0 0 16px var(--state-fill); }
+/* Ready: a slow ring outward, so a glance tells the PC is live. */
+.orb.live::before { content: ''; position: absolute; inset: 0; border-radius: 50%; border: 2px solid var(--state-fill); animation: orb-ring 2.4s ease-out infinite; }
+@keyframes orb-ring { from { transform: scale(0.45); opacity: 0.9; } to { transform: scale(1.25); opacity: 0; } }
+@media (prefers-reduced-motion: reduce) { .orb.live::before { animation: none; opacity: 0.4; } }
+.hero-game { display: flex; flex-direction: column; gap: 10px; margin-top: 18px; padding-top: 16px; border-top: 1px solid var(--line); }
+.hero-label { display: flex; align-items: center; justify-content: space-between; gap: 8px; }
+.hero-foot { display: flex; flex-wrap: wrap; align-items: center; gap: 6px 12px; margin-top: 14px; color: var(--muted); font-size: 12.5px; }
+.hero-foot .panic { display: flex; flex-wrap: wrap; align-items: center; gap: 6px; flex: 1 1 100%; }
+.hero-foot .kbd { padding: 1px 7px 0; font-size: 12px; }
+.hero-foot .device { flex: 1; min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+
+/* Section headings: a tinted icon beside the title and what the section is for. */
+.section-head { display: flex; align-items: flex-start; gap: 12px; }
+.section-head h2 { font-size: 17px; font-weight: 600; line-height: 32px; }
+.section-head p { margin-top: -2px; }
+
+/* The allowed keys, drawn as a keyboard on half-key columns (KEYBOARD in App.tsx). */
+.keys { display: grid; grid-template-columns: repeat(23, minmax(0, 1fr)); grid-auto-rows: 38px; gap: 5px; }
+.keycap.on { box-shadow: 0 6px 14px -10px var(--indigo-fill); }
+.keys-legend { display: flex; flex-wrap: wrap; align-items: center; gap: 6px; }
+.keys-legend .spacer { flex: 1; }
+.legend-cap { display: inline-block; width: 14px; height: 14px; border-radius: calc(4px * var(--radius-scale)); border: 1px solid var(--line-strong); border-bottom-width: 2px; background: var(--panel2); }
+.legend-cap.on { border-color: var(--key-edge); background: var(--indigo-soft); }
+.legend-cap + * { margin-right: 6px; }
+
+/* Activity: a mark for pressed or refused, the key, and why when refused. */
+.log { list-style: none; margin: 0; padding: 0; max-height: 260px; overflow-y: auto; }
+.log li { display: flex; align-items: center; gap: 10px; padding: 7px 0; border-bottom: 1px solid var(--line); }
+.log .kbd { padding: 1px 8px 0; font-size: 12px; }
+.log-mark { display: grid; place-items: center; flex: none; width: 22px; height: 22px; border-radius: 50%; }
+.log li.ok .log-mark { color: var(--green); background: var(--green-soft); }
+.log li.refused .log-mark { color: var(--red); background: var(--red-soft); }
+.log li.refused .muted { color: var(--red); }
+
+/* Pairing */
+.pair { padding: 24px; }
+.pair-intro h2 { font-size: 22px; font-weight: 600; }
+.pair-intro p { margin-top: 4px; }
+.pair-steps { display: flex; flex-direction: column; gap: 8px; margin: 0; padding: 0; list-style: none; counter-reset: step; }
+.pair-steps li { display: flex; align-items: center; gap: 10px; color: var(--muted); font-size: 14px; counter-increment: step; }
+.pair-steps li::before { content: counter(step); display: grid; place-items: center; flex: none; width: 24px; height: 24px; border-radius: 50%;
+  background: var(--indigo-soft); color: var(--indigo); font-size: 12px; font-weight: 700; }
+.field .code-input.code-input { height: 64px; text-align: center; font-size: 30px; font-weight: 700; letter-spacing: 0.45em; padding-left: 0.45em; }
+.code-input::placeholder { color: var(--line-strong); letter-spacing: 0.3em; }
+.pair-fields { display: grid; grid-template-columns: 1fr 1fr; gap: 12px; }
+@media (max-width: 440px) { .pair-fields { grid-template-columns: 1fr; } }
+
+/* Commands that will just press their key, as chips; the rows above are only the ones needing a look. */
+.command-group { display: flex; flex-direction: column; gap: 10px; }
+.command-group-title { display: flex; align-items: center; gap: 8px; color: var(--green); font-size: 13px; font-weight: 600; letter-spacing: 0; }
+.command-group-title .dot { width: 7px; height: 7px; }
+.command-chips { display: flex; flex-wrap: wrap; gap: 6px; margin: 0; padding: 0; list-style: none; }
+.command-chip { display: inline-flex; align-items: center; gap: 8px; max-width: 100%; padding: 4px 5px 4px 11px; border-radius: calc(10px * var(--radius-scale));
+  border: 1px solid var(--line); background: var(--panel2); font-size: 13px; font-weight: 600; }
+.command-chip .command-word { max-width: 140px; }
+.command-off { padding-top: 10px; border-top: 1px solid var(--line); }
+
+/* The game picker: program icons beside their names. */
+.picker { position: relative; }
+.field .picker-button { display: flex; align-items: center; gap: 10px; width: 100%; height: auto; min-height: 52px; padding: 7px 12px; text-align: left; cursor: pointer; }
+.picker-button > svg { flex: none; margin-left: auto; color: var(--muted); transition: transform 0.15s; }
+.picker-button[aria-expanded='true'] > svg { transform: rotate(180deg); }
+.picker-list { position: absolute; z-index: 10; top: calc(100% + 6px); left: 0; right: 0; display: flex; flex-direction: column; gap: 2px;
+  max-height: 290px; overflow-y: auto; padding: 6px; border-radius: calc(14px * var(--radius-scale)); border: 1px solid var(--line-strong); background: var(--panel);
+  box-shadow: 0 22px 50px -18px rgba(0, 0, 0, 0.55); animation: picker-in 0.14s ease-out; }
+@keyframes picker-in { from { opacity: 0; transform: translateY(-4px); } }
+@media (prefers-reduced-motion: reduce) { .picker-list { animation: none; } }
+.picker-option { display: flex; align-items: center; gap: 10px; width: 100%; padding: 7px 10px; border: 0; border-radius: calc(10px * var(--radius-scale));
+  background: transparent; color: var(--ink); font: inherit; text-align: left; cursor: pointer; }
+.picker-option:hover, .picker-option:focus-visible { outline: none; background: var(--panel2); }
+.picker-option[aria-selected='true'] { background: var(--indigo-soft); }
+.picker-option > svg { flex: none; margin-left: auto; color: var(--indigo); }
+.picker-clear { justify-content: center; margin-top: 4px; border-top: 1px solid var(--line); border-radius: 0 0 10px 10px; color: var(--muted); font-size: 13px; }
+.picker-empty { padding: 10px; text-align: center; }
+.app-icon { display: grid; place-items: center; flex: none; width: 34px; height: 34px; border-radius: calc(9px * var(--radius-scale)); background: var(--panel2);
+  color: var(--muted); font-weight: 700; overflow: hidden; }
+.app-icon img { width: 30px; height: 30px; object-fit: contain; }
+.app-names { display: flex; flex-direction: column; min-width: 0; line-height: 1.25; }
+.app-names > * { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.app-names strong { font-weight: 600; }

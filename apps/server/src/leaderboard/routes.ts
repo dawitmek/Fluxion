@@ -1,0 +1,19 @@
+import type { FastifyInstance } from 'fastify';
+import { requireHost } from '../auth/session.js';
+
+export async function leaderboardRoutes(app: FastifyInstance) {
+  app.addHook('onRequest', requireHost);
+
+  app.get('/', async (req) => app.stats.top(req.hostId, 20));
+
+  app.delete('/', async (req, reply) => {
+    await app.stats.reset(req.hostId);
+    await app.live.pushLeaderboard(req.hostId);
+    return reply.code(204).send();
+  });
+
+  app.delete('/points', async (req, reply) => {
+    await app.stats.resetPoints(req.hostId);
+    return reply.code(204).send();
+  });
+}

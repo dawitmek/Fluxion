@@ -1,0 +1,1 @@
+ALTER TABLE "commands" ADD COLUMN "position" serial NOT NULL;

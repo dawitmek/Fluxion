@@ -1,0 +1,307 @@
+/* Themes beyond the default (theme.css). The page sets one on <html>: data-theme="solar-dusk", plus
+   data-theme-style="full" to also take the theme's font, corners and shadows ("colors only" leaves it off).
+   Each theme redefines the tokens of theme.css for light mode, then again for dark (data-mode="dark"; see
+   theme.css). Selectors start at :root[data-theme=…] so they win over theme.css whichever file loads first. */
+@import '@fontsource-variable/oxanium';
+@import '@fontsource-variable/dm-sans';
+@import '@fontsource-variable/plus-jakarta-sans';
+
+/* Solar Dusk: warm parchment and amber in light mode, stone and orange in dark. */
+:root[data-theme='solar-dusk'] {
+  --ground: #fdfbf7;
+  --panel: #f8f4ee;
+  --panel2: #f1e9da;
+  --line: #e4d9bc;
+  --line-strong: color-mix(in srgb, #e4d9bc 78%, #4a3b33);
+  --ink: #4a3b33;
+  --muted: #78716c;
+  --meter: #e4d9bc;
+  --solid-bg: #b45309;
+  --solid-ink: #ffffff;
+  --aurora: radial-gradient(900px 380px at 78% -8%, rgba(180, 83, 9, 0.14), transparent 70%),
+    radial-gradient(700px 320px at 40% -12%, rgba(202, 138, 4, 0.12), transparent 70%),
+    radial-gradient(600px 300px at 100% 30%, rgba(161, 98, 7, 0.08), transparent 70%);
+  --red: #991b1b;
+  --red-soft: #f7e3df;
+  --indigo: #b45309;
+  --indigo-fill: #b45309;
+  --indigo-soft: #f2daba;
+  --key-ink: #8a4006;
+  --key-edge: #e4c090;
+  --brand-gradient: linear-gradient(135deg, #ca8a04 0%, #b45309 100%);
+  --edge-gradient: linear-gradient(90deg, #b45309, #ca8a04);
+  --plasma: linear-gradient(90deg, #ca8a04 0%, #b45309 55%, #a16207 100%);
+  --usage-gradient: linear-gradient(90deg, #ca8a04, #b45309);
+  --avatar-gradient: linear-gradient(135deg, #ca8a04, #b45309);
+  --accent-gradient: linear-gradient(180deg, #c2600f, #b45309);
+  --accent-shadow: rgba(180, 83, 9, 0.7);
+  --glow-rgb: 180, 83, 9;
+  --sb-bg: #f1e9da;
+  --sb-ink: #4a3b33;
+  --sb-muted: #78716c;
+  --sb-line: #e4d9bc;
+  --sb-hover: rgba(74, 59, 51, 0.06);
+  --sb-active: rgba(161, 98, 7, 0.14);
+  --sb-focus: #b45309;
+  --sb-marker: linear-gradient(180deg, #ca8a04, #b45309);
+}
+/* The sidebar is light here, so its icons take the light-mode shades back. */
+:root[data-theme='solar-dusk'] .sidebar {
+  --red: #991b1b; --indigo: #b45309; --pink: #c0267a; --violet: #7444cc; --sky: #0a6cb4; --teal: #0a7a78; --orange: #b0500c; --green: #16824a;
+}
+:root[data-theme='solar-dusk'] .content-glow .s-blob-1 { --c: 202, 138, 4; }
+:root[data-theme='solar-dusk'] .content-glow .s-blob-2 { --c: 249, 115, 22; }
+:root[data-theme='solar-dusk'] .content-glow .s-blob-3 { --c: 180, 83, 9; }
+:root[data-theme='solar-dusk'] .content-glow .s-blob-4 { --c: 234, 179, 8; }
+:root[data-theme='solar-dusk'] .content-glow .s-blob-5 { --c: 161, 98, 7; }
+:root[data-theme='solar-dusk'] .content-glow .s-blob-pointer { --c: 251, 146, 60; }
+
+:root:where([data-mode='dark'])[data-theme='solar-dusk'] {
+  --ground: #1c1917;
+  --panel: #292524;
+  --panel2: #201d1a;
+  --line: #44403c;
+  --line-strong: #57534e;
+  --ink: #f5f5f4;
+  --muted: #a8a29e;
+  --meter: #44403c;
+  --solid-bg: #f97316;
+  --solid-ink: #ffffff;
+  --aurora: radial-gradient(900px 380px at 78% -8%, rgba(249, 115, 22, 0.16), transparent 70%),
+    radial-gradient(700px 320px at 40% -12%, rgba(14, 165, 233, 0.1), transparent 70%),
+    radial-gradient(600px 300px at 100% 30%, rgba(234, 179, 8, 0.08), transparent 70%);
+  --red: #f87171;
+  --red-soft: rgba(220, 38, 38, 0.16);
+  --indigo: #fb8c3c;
+  --indigo-fill: #f97316;
+  --indigo-soft: rgba(249, 115, 22, 0.16);
+  --key-ink: #fdba74;
+  --key-edge: rgba(249, 115, 22, 0.4);
+  --brand-gradient: linear-gradient(135deg, #eab308 0%, #f97316 100%);
+  --edge-gradient: linear-gradient(90deg, #f97316, #eab308);
+  --plasma: linear-gradient(90deg, #eab308 0%, #f97316 55%, #ea580c 100%);
+  --usage-gradient: linear-gradient(90deg, #0ea5e9, #38bdf8);
+  --avatar-gradient: linear-gradient(135deg, #f97316, #0ea5e9);
+  --accent-gradient: linear-gradient(180deg, #fb8a3c, #ea6a0c);
+  --accent-shadow: rgba(249, 115, 22, 0.7);
+  --glow-rgb: 249, 115, 22;
+  --sb-bg: #292524;
+  --sb-ink: #f5f5f4;
+  --sb-muted: #a8a29e;
+  --sb-line: #44403c;
+  --sb-hover: rgba(255, 255, 255, 0.05);
+  --sb-active: rgba(14, 165, 233, 0.16);
+  --sb-focus: #f97316;
+  --sb-marker: linear-gradient(180deg, #f97316, #0ea5e9);
+}
+/* A dark sidebar again: lighter icon shades, as with the default theme. */
+:root:where([data-mode='dark'])[data-theme='solar-dusk'] .sidebar {
+  --red: #ff8a96; --indigo: #fb8c3c; --pink: #f78bc0; --violet: #c3a8ff; --sky: #7cc4f8; --teal: #62dad4; --orange: #ffae74; --green: #6fe0a2;
+}
+
+/* Full theme: Solar Dusk's own font, sharp 0.3rem corners and soft drop shadows. */
+:root[data-theme='solar-dusk'][data-theme-style='full'] {
+  --font: 'Oxanium Variable', system-ui, sans-serif;
+  --radius-scale: 0.4;
+  --radius-pill: 5px;
+  --shadow: 0 2px 3px 0 hsl(28 18% 25% / 0.18);
+}
+:root:where([data-mode='dark'])[data-theme='solar-dusk'][data-theme-style='full'] { --shadow: 0 2px 3px 0 hsl(0 0% 5% / 0.18); }
+
+/* Graphite Mono: grays, with near-black (light) or near-white (dark) as the action color, and blue for gradients,
+   glows and the sidebar marker. */
+:root[data-theme='graphite-mono'] {
+  --ground: oklch(1 0 0);
+  --panel: oklch(0.995 0 0);
+  --panel2: oklch(0.97 0 0);
+  --line: oklch(0.92 0 0);
+  --line-strong: oklch(0.87 0 0);
+  --ink: oklch(0.145 0 0);
+  --muted: oklch(0.556 0 0);
+  --meter: oklch(0.922 0 0);
+  --solid-bg: oklch(0.205 0 0);
+  --solid-ink: oklch(0.985 0 0);
+  --aurora: radial-gradient(900px 380px at 78% -8%, oklch(0.62 0.19 260 / 0.08), transparent 70%),
+    radial-gradient(700px 320px at 40% -12%, oklch(0.81 0.1 252 / 0.1), transparent 70%);
+  --red: oklch(0.577 0.245 27.325);
+  --red-soft: oklch(0.577 0.245 27.325 / 0.1);
+  --indigo: oklch(0.205 0 0);
+  --indigo-fill: oklch(0.205 0 0);
+  --indigo-soft: oklch(0.95 0 0);
+  --key-ink: oklch(0.205 0 0);
+  --key-edge: oklch(0.87 0 0);
+  --brand-gradient: linear-gradient(135deg, oklch(0.62 0.19 260) 0%, oklch(0.42 0.18 266) 100%);
+  --edge-gradient: linear-gradient(90deg, oklch(0.55 0.22 263), oklch(0.81 0.1 252));
+  --plasma: linear-gradient(90deg, oklch(0.81 0.1 252) 0%, oklch(0.62 0.19 260) 50%, oklch(0.49 0.22 264) 100%);
+  --usage-gradient: linear-gradient(90deg, oklch(0.81 0.1 252), oklch(0.62 0.19 260));
+  --avatar-gradient: linear-gradient(135deg, oklch(0.62 0.19 260), oklch(0.42 0.18 266));
+  --accent-gradient: linear-gradient(180deg, oklch(0.3 0 0), oklch(0.205 0 0));
+  --accent-ink: oklch(0.985 0 0);
+  --accent-shadow: oklch(0 0 0 / 0.35);
+  --glow-rgb: 59, 130, 246;
+  --sb-bg: oklch(0.985 0 0);
+  --sb-ink: oklch(0.145 0 0);
+  --sb-muted: oklch(0.556 0 0);
+  --sb-line: oklch(0.922 0 0);
+  --sb-hover: oklch(0 0 0 / 0.04);
+  --sb-active: oklch(0.94 0 0);
+  --sb-focus: oklch(0.708 0 0);
+  --sb-marker: oklch(0.205 0 0);
+}
+:root[data-theme='graphite-mono'] .sidebar {
+  --red: #d7263d; --indigo: oklch(0.205 0 0); --pink: #c0267a; --violet: #7444cc; --sky: #0a6cb4; --teal: #0a7a78; --orange: #b0500c; --green: #16824a;
+}
+:root[data-theme='graphite-mono'] .content-glow .s-blob-1 { --c: 147, 197, 253; }
+:root[data-theme='graphite-mono'] .content-glow .s-blob-2 { --c: 59, 130, 246; }
+:root[data-theme='graphite-mono'] .content-glow .s-blob-3 { --c: 163, 163, 163; }
+:root[data-theme='graphite-mono'] .content-glow .s-blob-4 { --c: 96, 165, 250; }
+:root[data-theme='graphite-mono'] .content-glow .s-blob-5 { --c: 115, 115, 115; }
+:root[data-theme='graphite-mono'] .content-glow .s-blob-pointer { --c: 191, 219, 254; }
+
+:root:where([data-mode='dark'])[data-theme='graphite-mono'] {
+  --ground: oklch(0.205 0 0);
+  --panel: oklch(0.165 0 0);
+  --panel2: oklch(0.235 0 0);
+  --line: oklch(0.269 0 0);
+  --line-strong: oklch(0.371 0 0);
+  --ink: oklch(0.985 0 0);
+  --muted: oklch(0.708 0 0);
+  --meter: oklch(0.269 0 0);
+  --solid-bg: oklch(0.922 0 0);
+  --solid-ink: oklch(0.205 0 0);
+  --aurora: radial-gradient(900px 380px at 78% -8%, oklch(0.62 0.19 260 / 0.14), transparent 70%),
+    radial-gradient(700px 320px at 40% -12%, oklch(0.81 0.1 252 / 0.08), transparent 70%);
+  --red: oklch(0.704 0.191 22.216);
+  --red-soft: oklch(0.704 0.191 22.216 / 0.14);
+  --indigo: oklch(0.922 0 0);
+  --indigo-fill: oklch(0.922 0 0);
+  --indigo-soft: oklch(0.371 0 0 / 0.6);
+  --key-ink: oklch(0.985 0 0);
+  --key-edge: oklch(0.439 0 0);
+  --accent-gradient: linear-gradient(180deg, oklch(0.97 0 0), oklch(0.87 0 0));
+  --accent-ink: oklch(0.205 0 0);
+  --accent-shadow: oklch(0 0 0 / 0.5);
+  --sb-bg: oklch(0.269 0 0);
+  --sb-ink: oklch(0.985 0 0);
+  --sb-muted: oklch(0.708 0 0);
+  --sb-line: oklch(0.275 0 0);
+  --sb-hover: oklch(1 0 0 / 0.05);
+  --sb-active: oklch(0.32 0 0);
+  --sb-focus: oklch(0.439 0 0);
+  --sb-marker: oklch(0.488 0.243 264.376);
+}
+:root:where([data-mode='dark'])[data-theme='graphite-mono'] .sidebar {
+  --red: #ff8a96; --indigo: oklch(0.985 0 0); --pink: #f78bc0; --violet: #c3a8ff; --sky: #7cc4f8; --teal: #62dad4; --orange: #ffae74; --green: #6fe0a2;
+}
+
+/* Full theme: DM Sans, rounder 1rem corners, no letter tightening, and light drop shadows. */
+:root[data-theme='graphite-mono'][data-theme-style='full'] {
+  --font: 'DM Sans Variable', ui-sans-serif, system-ui, sans-serif;
+  --radius-scale: 1.33;
+  --shadow: 0 1px 3px 0 oklch(0 0 0 / 0.1);
+  letter-spacing: 0;
+}
+
+/* Sage Mist: soft sage as the action color, with black text on it, and olive for text accents and the active
+   sidebar item; near-black and warm in dark mode. */
+:root[data-theme='sage-mist'] {
+  --ground: #fdfdfd;
+  --panel: #fdfdfd;
+  --panel2: #f5f5f5;
+  --line: #e7e7ee;
+  --line-strong: #d6d6de;
+  --ink: #000000;
+  --muted: #6f6f6f;
+  --meter: #ebebeb;
+  --solid-bg: #afbea5;
+  --solid-ink: #000000;
+  --aurora: radial-gradient(900px 380px at 78% -8%, rgba(175, 190, 165, 0.28), transparent 70%),
+    radial-gradient(700px 320px at 40% -12%, rgba(74, 200, 133, 0.08), transparent 70%);
+  --red: #b3191f;
+  --red-soft: #fbe7e7;
+  --indigo: #495940;
+  --indigo-fill: #afbea5;
+  --indigo-soft: #e4eae1;
+  --key-ink: #495940;
+  --key-edge: #afbea5;
+  --brand-gradient: linear-gradient(135deg, #afbea5 0%, #495940 100%);
+  --edge-gradient: linear-gradient(90deg, #495940, #afbea5);
+  --plasma: linear-gradient(90deg, #4ac885 0%, #afbea5 50%, #495940 100%);
+  --usage-gradient: linear-gradient(90deg, #afbea5, #495940);
+  --avatar-gradient: linear-gradient(135deg, #afbea5, #495940);
+  --accent-gradient: linear-gradient(180deg, #bdcab4, #afbea5);
+  --accent-ink: #000000;
+  --accent-shadow: rgba(73, 89, 64, 0.35);
+  --glow-rgb: 140, 160, 128;
+  --sb-bg: #f5f8fb;
+  --sb-ink: #000000;
+  --sb-muted: #6f6f6f;
+  --sb-line: #ebebeb;
+  --sb-hover: rgba(0, 0, 0, 0.04);
+  --sb-active: #e4eae1;
+  --sb-focus: #afbea5;
+  --sb-marker: #000000;
+}
+:root[data-theme='sage-mist'] .sidebar {
+  --red: #b3191f; --indigo: #495940; --pink: #c0267a; --violet: #7444cc; --sky: #0a6cb4; --teal: #0a7a78; --orange: #b0500c; --green: #16824a;
+}
+:root[data-theme='sage-mist'] .content-glow .s-blob-1 { --c: 175, 190, 165; }
+:root[data-theme='sage-mist'] .content-glow .s-blob-2 { --c: 74, 200, 133; }
+:root[data-theme='sage-mist'] .content-glow .s-blob-3 { --c: 73, 89, 64; }
+:root[data-theme='sage-mist'] .content-glow .s-blob-4 { --c: 169, 227, 130; }
+:root[data-theme='sage-mist'] .content-glow .s-blob-5 { --c: 115, 189, 66; }
+:root[data-theme='sage-mist'] .content-glow .s-blob-pointer { --c: 175, 190, 165; }
+
+:root:where([data-mode='dark'])[data-theme='sage-mist'] {
+  --ground: #070503;
+  --panel: #100d08;
+  --panel2: #1e1a14;
+  --line: #2f281b;
+  --line-strong: #40372a;
+  --ink: #f9f8f7;
+  --muted: #928f8a;
+  --meter: #26211a;
+  --solid-bg: #afbea5;
+  --solid-ink: #040302;
+  --aurora: radial-gradient(900px 380px at 78% -8%, rgba(115, 189, 66, 0.12), transparent 70%),
+    radial-gradient(700px 320px at 40% -12%, rgba(175, 190, 165, 0.1), transparent 70%);
+  --red: #ef5f66;
+  --red-soft: rgba(179, 25, 31, 0.2);
+  --indigo: #afbea5;
+  --indigo-fill: #afbea5;
+  --indigo-soft: rgba(73, 89, 64, 0.45);
+  --key-ink: #c9d5c0;
+  --key-edge: #495940;
+  --brand-gradient: linear-gradient(135deg, #a9e382 0%, #408a0f 100%);
+  --edge-gradient: linear-gradient(90deg, #408a0f, #afbea5);
+  --plasma: linear-gradient(90deg, #408a0f 0%, #73bd42 50%, #afbea5 100%);
+  --usage-gradient: linear-gradient(90deg, #59a626, #a9e382);
+  --avatar-gradient: linear-gradient(135deg, #a9e382, #408a0f);
+  --accent-gradient: linear-gradient(180deg, #bdcab4, #afbea5);
+  --accent-ink: #040302;
+  --accent-shadow: rgba(0, 0, 0, 0.5);
+  --glow-rgb: 115, 189, 66;
+  --sb-bg: #040302;
+  --sb-ink: #f0eeeb;
+  --sb-muted: #928f8a;
+  --sb-line: #272117;
+  --sb-hover: rgba(255, 255, 255, 0.04);
+  --sb-active: #495940;
+  --sb-focus: #afbea5;
+  --sb-marker: #afbea5;
+}
+:root:where([data-mode='dark'])[data-theme='sage-mist'] .sidebar {
+  --red: #ff8a96; --indigo: #c9d5c0; --pink: #f78bc0; --violet: #c3a8ff; --sky: #7cc4f8; --teal: #62dad4; --orange: #ffae74; --green: #6fe0a2;
+}
+
+/* Full theme: Plus Jakarta Sans, round 1.4rem corners and soft shadows. This font's spaces are narrow, and the
+   spec's -0.025em letter spacing ran small words together, so letters keep their spacing and words get a little
+   more room. */
+:root[data-theme='sage-mist'][data-theme-style='full'] {
+  --font: 'Plus Jakarta Sans Variable', system-ui, sans-serif;
+  --radius-scale: 1.5;
+  --shadow: 0 2px 3px 0 rgba(0, 0, 0, 0.16);
+  letter-spacing: 0;
+  word-spacing: 0.08em;
+}
+:root:where([data-mode='dark'])[data-theme='sage-mist'][data-theme-style='full'] { --shadow: 0 2px 12px 0 rgba(0, 0, 0, 0.35); }

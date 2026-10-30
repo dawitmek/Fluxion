@@ -1,2 +1,15 @@
+node_modules/
+dist/
 .env
-.vscode
+.env.*
+!.env.example
+.DS_Store
+.vscode/
+
+# Local working notes, kept out of git
+docs/ROADMAP.md
+docs/WINDOWS_VERIFICATION.md
+docs/SECURITY_TODO.md
+
+# The debug log (DEBUG_LOG in .env)
+logs/

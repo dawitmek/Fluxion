@@ -1,0 +1,1 @@
+CREATE INDEX "stream_events_viewer_idx" ON "stream_events" USING btree ("viewer","kind");
