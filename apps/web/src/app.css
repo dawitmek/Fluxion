@@ -357,7 +357,7 @@ label.btn.disabled { opacity: 0.6; pointer-events: none; }
 .pos-head { display: flex; align-items: flex-start; gap: 12px; }
 .pos-head > div { flex: 1; display: flex; flex-direction: column; gap: 2px; }
 .pos-stage { position: relative; width: 100%; overflow: hidden; border-radius: 12px; background: linear-gradient(135deg, #2b3a4a, #47344f); }
-.pos-canvas { position: absolute; top: 0; left: 0; transform-origin: 0 0; }
+.pos-canvas { position: absolute; top: 0; left: 0; transform-origin: 0 0; --canvas-w: 1920px; --canvas-h: 1080px; }
 .pos-canvas .w-fireworks { width: 100%; height: 100%; }
 .pos-target { cursor: grab; touch-action: none; user-select: none; border-radius: 12px; outline: 3px dashed rgba(255, 255, 255, 0.85); outline-offset: 6px; }
 .pos-target:active { cursor: grabbing; }

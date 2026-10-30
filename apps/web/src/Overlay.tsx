@@ -33,6 +33,23 @@ const SINGLE = (WIDGET_TYPES as readonly string[]).includes(params.get('widget')
   ? { type: params.get('widget') as ScreenWidget['type'], goalId: params.get('goal') ?? undefined }
   : null;
 
+// The overlay is laid out on a 1920 by 1080 screen and scaled to fit the browser source, whatever its size: OBS
+// makes new browser sources 800 by 600 and stretches them, which at full size would crowd the corners together.
+const REFERENCE = { width: 1920, height: 1080 };
+function useFit() {
+  const [size, setSize] = useState({ width: innerWidth, height: innerHeight });
+  useEffect(() => {
+    const resize = () => setSize({ width: innerWidth, height: innerHeight });
+    addEventListener('resize', resize);
+    return () => removeEventListener('resize', resize);
+  }, []);
+  const fit = Math.min(size.width / REFERENCE.width, size.height / REFERENCE.height) || 1;
+  const width = size.width / fit;
+  const height = size.height / fit;
+  // The canvas size goes to CSS too, for sizes that would otherwise be in vw and vh of the unscaled page.
+  return { width, height, transform: `scale(${fit})`, '--canvas-w': `${width}px`, '--canvas-h': `${height}px` } as CSSProperties;
+}
+
 // Transparent page meant to sit on top of the stream as a browser source.
 export function Overlay({ token }: { token: string }) {
   const [items, setItems] = useState<FeedItem[]>([]);
@@ -53,6 +70,7 @@ export function Overlay({ token }: { token: string }) {
   const [chat, setChat] = useState<ChatLine[]>([]);
   const [bus] = useState(() => new GiftBus());
   const preview = usePreview(PREVIEW && !live, bus);
+  const fit = useFit();
 
   useEffect(() => {
     let socket: WebSocket;
@@ -137,33 +155,38 @@ export function Overlay({ token }: { token: string }) {
     );
   }
   return (
-    <div className={`overlay-screen alerts-${screen.alertPosition}`} style={{ '--overlay-scale': screen.scale / 100 } as CSSProperties}>
-      {/* Alerts show even while offline, so the dashboard's Test button works before going live. */}
-      {alert && (
-        <div key={alert.id} className={`overlay-alert ${alert.text ? '' : 'media-only'}`}>
-          {alert.media?.kind === 'image' && <img className="overlay-alert-media" src={alert.media.url} alt="" />}
-          {alert.media?.kind === 'video' && <AlertVideo src={alert.media.url} audible={screen.audio} />}
-          {alert.text && <span>{alert.text}</span>}
+    <>
+      <div className="overlay-fit" style={fit}>
+        <div className={`overlay-screen alerts-${screen.alertPosition}`} style={{ '--overlay-scale': screen.scale / 100 } as CSSProperties}>
+          {/* Alerts show even while offline, so the dashboard's Test button works before going live. */}
+          {alert && (
+            <div key={alert.id} className={`overlay-alert ${alert.text ? '' : 'media-only'}`}>
+              {alert.media?.kind === 'image' && <img className="overlay-alert-media" src={alert.media.url} alt="" />}
+              {alert.media?.kind === 'video' && <AlertVideo src={alert.media.url} audible={screen.audio} />}
+              {alert.text && <span>{alert.text}</span>}
+            </div>
+          )}
+          {(live || PREVIEW) && (
+            <LiveWidgets
+              screen={screen}
+              mode={screen.mode ? mode : null}
+              leaderboard={screen.leaderboard ? leaderboard : { entries: [], progression: false }}
+              items={items}
+              stats={live ? stats : preview.stats}
+              chat={live ? chat : preview.chat}
+              bus={bus}
+            />
+          )}
         </div>
-      )}
+      </div>
+      {/* Notes for whoever has the page open, at the page's own size. */}
       {soundBlocked && screen.audio && (
         <button className="overlay-unblock" onClick={() => player.unblock()}>
           Click to enable alert sounds and voice (not needed in OBS or LIVE Studio)
         </button>
       )}
       {PREVIEW && !live && <div className="overlay-preview-note">Preview with sample numbers. Your stream shows real ones.</div>}
-      {(live || PREVIEW) && (
-        <LiveWidgets
-          screen={screen}
-          mode={screen.mode ? mode : null}
-          leaderboard={screen.leaderboard ? leaderboard : { entries: [], progression: false }}
-          items={items}
-          stats={live ? stats : preview.stats}
-          chat={live ? chat : preview.chat}
-          bus={bus}
-        />
-      )}
-    </div>
+    </>
   );
 }
 
