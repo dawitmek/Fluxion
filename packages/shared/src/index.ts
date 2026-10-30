@@ -53,19 +53,6 @@ export interface ScreenWidget {
 }
 export const MAX_WIDGETS = 12;
 
-// TODO(timer and games): not built yet. Decided so far:
-// - Subathon timer: a countdown widget with start, pause, +time and reset on the dashboard, a starting length and an
-//   optional max. Time added from a simple rules table (seconds per diamond, follow, sub, share, and per N likes),
-//   not from actions.
-// - Repeating goals (likeathon): a goal that, once reached, moves its target up by the same step and runs its
-//   "Reaches a goal" actions again.
-// - Timed challenges: started from the dashboard ("500 likes in 2 minutes"); the overlay shows progress and a
-//   countdown, and actions can run on a win or a loss.
-// - Still to design: a wheel of fortune (spun by a gift, a command or points) and points drops (!claim in a window).
-
-// TODO(live streak widget): not built yet. Gift combos as they happen (who, which gift, the count climbing with a
-// flame), gone a few seconds after the combo ends; not the stream's longest streak, which top_streak already shows.
-
 // What a goal counts, over the current stream.
 export const GOAL_METRICS = ['likes', 'follows', 'shares', 'diamonds', 'subscriptions'] as const;
 export type GoalMetric = (typeof GOAL_METRICS)[number];
