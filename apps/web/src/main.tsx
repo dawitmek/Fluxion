@@ -6,6 +6,7 @@ import { ActivityWindow } from './dashboard/ActivityWindow';
 import { Dashboard } from './dashboard/Dashboard';
 import { HomePage } from './site/HomePage';
 import { DownloadPage, FaqPage, FeaturesPage, HowItWorksPage, SelfHostingPage } from './site/pages';
+import { PrivacyPage } from './site/PrivacyPage';
 import { Overlay } from './Overlay';
 import { usePath } from './router';
 import { installNumberDrag } from './ui';
@@ -43,6 +44,7 @@ function App() {
   if (path === '/self-hosting') return <SelfHostingPage />;
   if (path === '/faq') return <FaqPage />;
   if (path === '/download') return <DownloadPage />;
+  if (path === '/privacy') return <PrivacyPage />;
   return <HomePage />;
 }
 

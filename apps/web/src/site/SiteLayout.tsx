@@ -15,6 +15,7 @@ const PAGES = [
   { href: '/faq', label: 'FAQ' },
 ];
 const DOWNLOAD = { href: '/download', label: 'Download' };
+const PRIVACY = { href: '/privacy', label: 'Privacy' };
 
 // What slides in as it scrolls into view: section headings, cards, feature rows, steps and questions.
 // The hero is already on screen, so it doesn't.
@@ -168,7 +169,7 @@ export function SiteLayout({ children }: { children: ReactNode }) {
           <footer className="s-footer">
             <span>© 2026 Fluxion. Not affiliated with TikTok.</span>
             <nav aria-label="Footer">
-              {[...PAGES, DOWNLOAD].map((p) => (
+              {[...PAGES, DOWNLOAD, PRIVACY].map((p) => (
                 <Link key={p.href} href={p.href}>
                   {p.label}
                 </Link>

@@ -367,3 +367,36 @@
 .site .reveal { opacity: 0; transform: translateY(28px);
   transition: opacity 0.7s ease, transform 0.8s cubic-bezier(0.2, 0.7, 0.2, 1); transition-delay: var(--reveal-delay, 0ms); }
 .site .reveal.revealed { opacity: 1; transform: none; }
+
+/* Privacy: four points at a glance, then the details beside a list of their sections. */
+.s-privacy-glance { display: grid; grid-template-columns: repeat(auto-fit, minmax(230px, 1fr)); gap: 14px; margin-top: 40px; }
+.s-privacy-glance .s-box { padding: 24px; }
+.s-privacy-glance .s-box h3 { margin-top: 0; font-size: 18px; }
+.s-privacy-glance .s-box::before { content: ''; display: block; width: 28px; height: 3px; margin-bottom: 16px; border-radius: 2px; background: var(--plasma); }
+.s-privacy { display: grid; grid-template-columns: 220px minmax(0, 1fr); gap: 56px; margin: 64px 0 96px; }
+.s-privacy-toc { position: sticky; top: 96px; align-self: start; display: flex; flex-direction: column; gap: 2px; }
+.s-privacy-toc p { margin: 0 0 10px; color: var(--muted); font-size: 13px; }
+.s-privacy-toc a { padding: 6px 0 6px 12px; border-left: 1px solid var(--line-strong); color: #b9bdcc; font-size: 14px; text-decoration: none; }
+.s-privacy-toc a:hover { color: var(--ink); border-left-color: var(--indigo-fill); }
+.s-privacy-body { max-width: 760px; }
+.s-privacy-body section { padding-bottom: 44px; margin-bottom: 44px; border-bottom: 1px solid var(--line); scroll-margin-top: 96px; }
+.s-privacy-body h2 { font-size: 28px; font-weight: 500; letter-spacing: -0.03em; }
+.s-privacy-body p { margin-top: 14px; color: #c3c6d3; font-size: 16.5px; line-height: 1.7; }
+.s-privacy-body a { color: var(--indigo); }
+/* Items mix text with bold and code, so they flow as text with the bullet placed beside them. */
+.s-privacy-body .s-checks li { display: block; position: relative; padding-left: 16px; font-size: 16px; line-height: 1.65; }
+.s-privacy-body .s-checks li::before { position: absolute; left: 0; top: 0; }
+.s-privacy-body .s-table td:first-child { color: var(--ink); font-weight: 500; }
+.s-privacy-body .s-table td { color: #c3c6d3; line-height: 1.5; }
+.s-privacy-body code { font-size: 14px; color: var(--key-ink); }
+.s-privacy-updated { margin-top: 0 !important; color: var(--muted) !important; font-size: 14px !important; }
+@media (max-width: 860px) {
+  .s-privacy { grid-template-columns: 1fr; gap: 32px; margin-top: 48px; }
+  .s-privacy-toc { position: static; }
+}
+@media (max-width: 560px) {
+  .s-privacy-body .s-table thead { display: none; }
+  .s-privacy-body .s-table tr { display: grid; gap: 4px; padding: 14px 0; border-bottom: 1px solid var(--line); }
+  .s-privacy-body .s-table td { padding: 0; border: 0; }
+  .s-privacy-body .s-table td:last-child { color: var(--muted); font-size: 14px; }
+}

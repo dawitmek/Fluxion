@@ -5,7 +5,7 @@ import { CompanionArt, GiftArt, LevelsArt, ModesArt, ProfilesArt, SafetyArt, Voi
 import { detectPlatform, RELEASES_URL, useCompanionRelease, type Platform } from '../release';
 import { GITHUB_URL, SiteLayout } from './SiteLayout';
 
-function PageHero({ title, children }: { title: ReactNode; children: ReactNode }) {
+export function PageHero({ title, children }: { title: ReactNode; children: ReactNode }) {
   return (
     <section className="s-page-hero">
       <Glow />
