@@ -263,8 +263,36 @@ function WidgetLinksCard({ main, goals }: { main: Screen; goals: Goal[] }) {
   );
 }
 
+// The screen's widgets, faded, where they sit on stream: what something is placed against (see the Actions page).
+export function FadedWidgets({ widgets, feed }: { widgets: ScreenWidget[]; feed: PreviewFeed }) {
+  const own = new Set(widgets.map((w) => w.goalId).filter(Boolean));
+  const spots = Object.fromEntries(WIDGET_SPOTS.map((s) => [s, [] as ReactNode[]])) as Record<WidgetSpot, ReactNode[]>;
+  const placed: ReactNode[] = [];
+  widgets.forEach((w, i) => {
+    if (w.type === 'firework') return;
+    const stats = w.type === 'goals' && !w.goalId && feed.stats ? { ...feed.stats, goals: feed.stats.goals.filter((g) => !own.has(g.id)) } : feed.stats;
+    const el = (
+      <div key={i} className="pos-other">
+        <Widget widget={w} stats={stats} chat={feed.chat} bus={feed.bus} />
+      </div>
+    );
+    if (w.pos) placed.push(<div key={i} className="overlay-placed" style={{ left: `${w.pos.x}%`, top: `${w.pos.y}%` }}>{el}</div>);
+    else spots[w.spot].push(el);
+  });
+  return (
+    <>
+      {WIDGET_SPOTS.map((s) => (
+        <div key={s} className={`overlay-spot spot-${s}`}>
+          {spots[s]}
+        </div>
+      ))}
+      {placed}
+    </>
+  );
+}
+
 // The screen as a 1920 by 1080 canvas, drawn smaller to fit. Widgets keep their real size against it.
-const CANVAS = { width: 1920, height: 1080 };
+export const CANVAS = { width: 1920, height: 1080 };
 
 // Places one widget: drag it anywhere, or snap it to a spot. The screen's other widgets show faded behind it.
 // Fireworks cover the whole screen, so for them it's a preview only.
@@ -404,7 +432,7 @@ function PositionDialog({
 }
 
 type WidgetChoice = Pick<ScreenWidget, 'type' | 'goalId'>;
-type PreviewFeed = { stats: StreamStats | null; chat: ChatLine[]; bus: GiftBus };
+export type PreviewFeed = { stats: StreamStats | null; chat: ChatLine[]; bus: GiftBus };
 
 // The widget as it looks on stream, over a stand-in for the stream, fed sample viewers and gifts.
 function PreviewStage({ widget, feed, compact }: { widget: ScreenWidget; feed: PreviewFeed; compact?: boolean }) {

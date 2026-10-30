@@ -362,6 +362,10 @@ label.btn.disabled { opacity: 0.6; pointer-events: none; }
 .pos-target { cursor: grab; touch-action: none; user-select: none; border-radius: 12px; outline: 3px dashed rgba(255, 255, 255, 0.85); outline-offset: 6px; }
 .pos-target:active { cursor: grabbing; }
 .pos-other { opacity: 0.3; pointer-events: none; }
+.alert-drag { cursor: grab; touch-action: none; user-select: none; outline: 3px dashed rgba(255, 255, 255, 0.85); outline-offset: 6px; }
+.alert-drag:active { cursor: grabbing; }
+.alert-place-btn { justify-content: flex-start; }
+.alert-size { min-width: 220px; }
 .pos-foot { display: flex; flex-wrap: wrap; align-items: center; gap: 10px 14px; }
 .pos-spots { display: grid; grid-template-columns: repeat(3, auto); gap: 4px; }
 .pos-spots .btn.on { color: var(--indigo); background: var(--indigo-soft); border-color: var(--indigo-fill); }

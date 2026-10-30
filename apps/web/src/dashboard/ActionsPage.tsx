@@ -1,8 +1,12 @@
-import { useCallback, useEffect, useRef, useState, type ChangeEvent, type FormEvent, type ReactNode } from 'react';
+import { useCallback, useEffect, useLayoutEffect, useRef, useState, type ChangeEvent, type CSSProperties, type FormEvent, type PointerEvent as ReactPointerEvent, type ReactNode } from 'react';
 import { ACTION_TRIGGERS, ALERT_SOUNDS, AUDIENCES, MAX_KEY_REPEATS, MAX_MEDIA_TOTAL_BYTES, type ServerToOverlay } from '@fluxion/shared';
 import { api, uploadMedia, type Action, type ActionTrigger, type Audience, type Command, type Goal, type Host, type MediaItem, type Screen } from '../api';
 import { playSound } from '../sounds';
-import { Card, ErrorNotice, useError } from '../ui';
+import { Card, ErrorNotice, Scrubber, useError } from '../ui';
+import { Icon } from '../icons';
+import { alertPlace } from '../Overlay';
+import { GiftBus, usePreview } from '../overlay-widgets';
+import { CANVAS, FadedWidgets } from './OverlayPage';
 import { playAlertPreview, previewAudio } from './audio';
 import { Link } from '../router';
 import type { PageProps } from './Dashboard';
@@ -63,6 +67,9 @@ const newDraft = (): Draft => ({
   mediaId: null,
   speak: false,
   durationMs: 5000,
+  alertX: null,
+  alertY: null,
+  alertScale: 100,
   keyCommandId: null,
   repeatWithCount: false,
   points: 0,
@@ -396,6 +403,7 @@ function ActionEditor({
             Show for, in seconds
             <input className="input" type="number" min={1} max={60} value={draft.durationMs / 1000} onChange={(e) => set({ durationMs: Math.round(Number(e.target.value) * 1000) })} />
           </label>
+          <AlertPlaceField draft={draft} screens={screens} media={media} onChange={set} />
           {screens.length > 1 && (
             <label className="field">
               Screen
@@ -555,5 +563,131 @@ function MediaCard({ media, reload }: { media: MediaItem[]; reload: () => Promis
         </ul>
       )}
     </Card>
+  );
+}
+
+// Where an alert shows, and how big: the screen's own alert position unless placed by hand.
+// The placeholders get sample values in the preview.
+const SAMPLE_VALUES: Record<string, string> = {
+  viewer: 'nightowl', gift: 'Rose', count: '5', coins: '5', diamonds: '5', likes: '1,000', total: '1,000', months: '3', text: 'hello', goal: 'Like goal', target: '1,000',
+};
+const sampleText = (text: string) => text.replace(/\{(\w+)\}/g, (all, key: string) => SAMPLE_VALUES[key] ?? all);
+// Where the screen's top, middle and bottom alert positions put an alert's middle, roughly, for the little map.
+const DEFAULT_PLACE = { top: 30, middle: 50, bottom: 82 } as const;
+
+type Place = Pick<Draft, 'alertX' | 'alertY' | 'alertScale'>;
+
+function AlertPlaceField({ draft, screens, media, onChange }: { draft: Draft; screens: Screen[]; media: MediaItem[]; onChange: (patch: Place) => void }) {
+  const [open, setOpen] = useState(false);
+  const screen = screens.find((s) => s.id === draft.screenId) ?? screens.find((s) => s.main);
+  const placed = draft.alertX !== null && draft.alertY !== null;
+  const dot = placed ? { x: draft.alertX!, y: draft.alertY! } : { x: 50, y: DEFAULT_PLACE[screen?.alertPosition ?? 'top'] };
+  return (
+    <div className="field">
+      Place and size
+      <span className="hint">Drag it where you want it on the screen.</span>
+      <button type="button" className="btn alert-place-btn" onClick={() => setOpen(true)} disabled={!screen}>
+        <span className="spot-map placed indigo" aria-hidden="true">
+          <span className="spot-dot" style={{ left: `calc(${dot.x}% - 3px)`, top: `calc(${dot.y}% - 3px)` }} />
+        </span>
+        {placed ? 'Placed by hand' : "Screen's position"}, {draft.alertScale}%
+      </button>
+      {open && screen && <AlertPlaceDialog draft={draft} screen={screen} media={media} onDone={(place) => (onChange(place), setOpen(false))} onClose={() => setOpen(false)} />}
+    </div>
+  );
+}
+
+function AlertPlaceDialog({ draft, screen, media, onDone, onClose }: { draft: Draft; screen: Screen; media: MediaItem[]; onDone: (place: Place) => void; onClose: () => void }) {
+  const [place, setPlace] = useState<Place>({ alertX: draft.alertX, alertY: draft.alertY, alertScale: draft.alertScale });
+  const dialog = useRef<HTMLDialogElement>(null);
+  const stage = useRef<HTMLDivElement>(null);
+  const [fit, setFit] = useState(0.4);
+  const [bus] = useState(() => new GiftBus());
+  const { stats, chat } = usePreview(true, bus);
+  const file = media.find((m) => m.id === draft.mediaId);
+
+  useEffect(() => dialog.current?.showModal(), []);
+  useLayoutEffect(() => {
+    const measure = () => stage.current && setFit(stage.current.clientWidth / CANVAS.width);
+    measure();
+    const resize = new ResizeObserver(measure);
+    resize.observe(stage.current!);
+    return () => resize.disconnect();
+  }, []);
+
+  // Dragging moves the alert's middle, keeping all of it on the screen.
+  const startDrag = (e: ReactPointerEvent<HTMLElement>) => {
+    if (e.button !== 0) return;
+    e.preventDefault();
+    const box = stage.current!.getBoundingClientRect();
+    const alert = e.currentTarget.getBoundingClientRect();
+    const grab = { x: e.clientX - (alert.left + alert.width / 2), y: e.clientY - (alert.top + alert.height / 2) };
+    const half = { x: (alert.width / 2 / box.width) * 100, y: (alert.height / 2 / box.height) * 100 };
+    const clamp = (n: number, h: number) => Math.round(Math.min(Math.max(n, Math.min(h, 50)), Math.max(100 - h, 50)) * 10) / 10;
+    const move = (m: PointerEvent) =>
+      setPlace((p) => ({
+        ...p,
+        alertX: clamp(((m.clientX - grab.x - box.left) / box.width) * 100, half.x),
+        alertY: clamp(((m.clientY - grab.y - box.top) / box.height) * 100, half.y),
+      }));
+    const stop = () => {
+      window.removeEventListener('pointermove', move);
+      window.removeEventListener('pointerup', stop);
+    };
+    window.addEventListener('pointermove', move);
+    window.addEventListener('pointerup', stop);
+  };
+
+  const placed = place.alertX !== null && place.alertY !== null;
+  const text = draft.text ? sampleText(draft.text) : '';
+  return (
+    <dialog ref={dialog} className="pos-dialog" onClose={onClose} aria-labelledby="alert-place-title">
+      <div className="pos-head">
+        <div>
+          <h2 id="alert-place-title">{draft.name.trim() || 'Alert'}: place and size</h2>
+          <p className="muted small">
+            Drag the alert anywhere on {screen.name}. Your widgets show faded, with sample viewers and gifts. Save the action to keep it.
+          </p>
+        </div>
+        <button className="btn btn-ghost btn-sm btn-icon" onClick={() => dialog.current?.close()} aria-label="Close">
+          <Icon name="close" />
+        </button>
+      </div>
+      <div className="pos-stage" ref={stage} style={{ aspectRatio: `${CANVAS.width} / ${CANVAS.height}` }}>
+        <div className="pos-canvas" style={{ ...CANVAS, transform: `scale(${fit})` }}>
+          <div className={`overlay-screen alerts-${screen.alertPosition}`} style={{ '--overlay-scale': screen.scale / 100 } as CSSProperties}>
+            <FadedWidgets widgets={screen.widgets} feed={{ stats, chat, bus }} />
+            <div
+              className={`overlay-alert alert-drag ${text ? '' : 'media-only'}`}
+              style={alertPlace({ pos: placed ? { x: place.alertX!, y: place.alertY! } : null, scale: place.alertScale })}
+              onPointerDown={startDrag}
+            >
+              {file?.kind === 'image' && <img className="overlay-alert-media" src={`/media/${file.id}`} alt="" draggable={false} />}
+              {file?.kind === 'video' && <video className="overlay-alert-media" src={`/media/${file.id}`} muted autoPlay loop playsInline />}
+              {text ? <span>{text}</span> : !file && <span>Your alert</span>}
+            </div>
+          </div>
+        </div>
+      </div>
+      <div className="pos-foot">
+        <div className="field alert-size">
+          Size, in percent
+          <Scrubber value={place.alertScale} min={50} max={200} buttonStep={10} unit="%" label="Alert size" onSave={(alertScale) => setPlace((p) => ({ ...p, alertScale }))} />
+        </div>
+        <span className="muted small">{placed ? `Middle at ${Math.round(place.alertX!)}% across, ${Math.round(place.alertY!)}% down` : `The screen's ${screen.alertPosition} position`}</span>
+        <span className="spacer" />
+        {placed && (
+          <button className="btn btn-ghost" onClick={() => setPlace((p) => ({ ...p, alertX: null, alertY: null }))}>
+            Use the screen's position
+          </button>
+        )}
+        <button className="btn btn-ghost" onClick={() => dialog.current?.close()}>
+          Cancel
+        </button>
+        <button className="btn btn-primary" onClick={() => onDone(place)}>
+          Done
+        </button>
+      </div>
+    </dialog>
   );
 }

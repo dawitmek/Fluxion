@@ -263,7 +263,18 @@ export type ServerToOverlay =
   | { type: 'points'; viewer: string; points: number } // answers a viewer's !points
   // An action's alert. soundFile and media are uploaded files (/media/:id); durationMs defaults to 5 s.
   // screen: only that screen shows it; otherwise every screen that shows alerts.
-  | { type: 'alert'; text: string; sound: AlertSound | null; speech: Speech | null; soundFile?: string; media?: { id: string; kind: MediaKind }; durationMs?: number; screen?: string }
+  | {
+      type: 'alert';
+      text: string;
+      sound: AlertSound | null;
+      speech: Speech | null;
+      soundFile?: string;
+      media?: { id: string; kind: MediaKind };
+      durationMs?: number;
+      screen?: string;
+      pos?: { x: number; y: number }; // its middle, in percent of the screen; without it, the screen's alert position
+      scale?: number; // percent, on top of the screen's size
+    }
   | { type: 'screen'; screen: OverlayScreen } // sent first, and again when the host changes the screen
   | { type: 'stats'; stats: StreamStats }
   | { type: 'chat'; viewer: string; text: string }

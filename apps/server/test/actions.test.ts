@@ -21,6 +21,8 @@ const rule = (r: Partial<ActionRule> & Pick<ActionRule, 'trigger'>): ActionRule 
   media: null,
   speak: false,
   durationMs: 5000,
+  alertPos: null,
+  alertScale: 100,
   keyword: null,
   repeatWithCount: false,
   points: 0,
@@ -71,7 +73,7 @@ describe('actions', () => {
   it('shows alerts for follows and shares, skipping disabled actions', () => {
     const { engine } = setup([rule({ trigger: 'follow', text: '{viewer} followed', speak: true }), rule({ trigger: 'share', text: 'off', enabled: false })]);
     expect(engine.handle(follow())).toEqual([
-      { type: 'alert', text: 'alice followed', sound: 'chime', soundFile: null, media: null, speak: true, durationMs: 5000, screen: null },
+      { type: 'alert', text: 'alice followed', sound: 'chime', soundFile: null, media: null, speak: true, durationMs: 5000, screen: null, pos: null, scale: 100 },
     ]);
     expect(engine.handle({ kind: 'share', viewerId: 'alice', at: 0 })).toEqual([]);
   });

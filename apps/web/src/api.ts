@@ -128,6 +128,9 @@ export interface Action {
   mediaId: string | null;
   speak: boolean;
   durationMs: number;
+  alertX: number | null; // with alertY: where the alert's middle sits, in percent; null: the screen's alert position
+  alertY: number | null;
+  alertScale: number; // percent
   keyCommandId: string | null;
   repeatWithCount: boolean;
   points: number;

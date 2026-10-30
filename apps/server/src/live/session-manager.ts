@@ -449,6 +449,8 @@ export function alertMessage(output: Extract<ActionOutput, { type: 'alert' }>, s
     ...(output.media && { media: output.media }),
     ...(output.durationMs !== DEFAULT_ALERT_MS && { durationMs: output.durationMs }),
     ...(output.screen && { screen: output.screen }),
+    ...(output.pos && { pos: output.pos }),
+    ...(output.scale !== 100 && { scale: output.scale }),
   };
 }
 

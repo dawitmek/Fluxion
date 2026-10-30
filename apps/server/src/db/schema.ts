@@ -1,4 +1,4 @@
-import { bigserial, boolean, customType, index, integer, jsonb, pgTable, primaryKey, serial, text, timestamp, unique, uuid, type AnyPgColumn } from 'drizzle-orm/pg-core';
+import { bigserial, boolean, customType, index, integer, jsonb, pgTable, primaryKey, real, serial, text, timestamp, unique, uuid, type AnyPgColumn } from 'drizzle-orm/pg-core';
 import type { ActionTrigger, ActivityKind, AlertPosition, AlertSound, Audience, CloudProvider, GoalMetric, MediaKind, Mode, ScreenWidget, TtsEngine, TtsMode, VoiceEffect } from '@fluxion/shared';
 
 const bytea = customType<{ data: Buffer }>({ dataType: () => 'bytea' });
@@ -113,6 +113,10 @@ export const actions = pgTable(
     mediaId: uuid('media_id').references(() => media.id, { onDelete: 'set null' }),
     speak: boolean('speak').notNull().default(false), // read the text aloud
     durationMs: integer('duration_ms').notNull().default(5000),
+    // Where the alert shows, placed by hand: its middle, in percent of the screen. Both null: the screen's alert position.
+    alertX: real('alert_x'),
+    alertY: real('alert_y'),
+    alertScale: integer('alert_scale').notNull().default(100), // percent, on top of the screen's size
     keyCommandId: uuid('key_command_id').references(() => commands.id, { onDelete: 'set null' }),
     repeatWithCount: boolean('repeat_with_count').notNull().default(false), // gift streaks press the key once per gift
     points: integer('points').notNull().default(0), // given to the viewer; only with points on

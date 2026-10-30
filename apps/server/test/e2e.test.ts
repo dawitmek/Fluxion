@@ -860,6 +860,16 @@ describe('alerts and text-to-speech', () => {
     expect(tested).toEqual({ alert, overlays: 1 }); // the dashboard's own listener isn't an overlay on stream
     expect(await overlay.next()).toEqual(alert);
 
+    // An alert can be placed and sized by hand; its place needs both across and down.
+    await api(cookie, 'PATCH', `/api/actions/${follow.id}`, { alertX: 25, alertY: 70.5, alertScale: 140 });
+    expect((await api(cookie, 'POST', `/api/actions/${follow.id}/test`)).json().alert).toEqual({ ...alert, pos: { x: 25, y: 70.5 }, scale: 140 });
+    expect(await overlay.next()).toMatchObject({ pos: { x: 25, y: 70.5 }, scale: 140 });
+    expect((await api(cookie, 'PATCH', `/api/actions/${follow.id}`, { alertY: null })).statusCode).toBe(400);
+    expect((await api(cookie, 'PATCH', `/api/actions/${follow.id}`, { alertScale: 300 })).statusCode).toBe(400);
+    await api(cookie, 'PATCH', `/api/actions/${follow.id}`, { alertX: null, alertY: null, alertScale: 100 });
+    expect((await api(cookie, 'POST', `/api/actions/${follow.id}/test`)).json().alert).toEqual(alert);
+    await overlay.next();
+
     // Validation: likes need a step, commands need a command; trigger-specific fields are cleared for other triggers.
     const create = (body: object) => api(cookie, 'POST', '/api/actions', { name: 'x', ...body });
     expect((await create({ trigger: 'likes', text: 'x' })).statusCode).toBe(400);

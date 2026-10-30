@@ -20,6 +20,8 @@ export interface ActionRule {
   media: { id: string; kind: MediaKind } | null;
   speak: boolean;
   durationMs: number;
+  alertPos: { x: number; y: number } | null; // placed by hand; null: the screen's alert position
+  alertScale: number;
   keyword: string | null; // the key press's command, when it's in the active profile and on
   repeatWithCount: boolean;
   points: number;
@@ -48,6 +50,8 @@ export type ActionOutput =
       speak: boolean;
       durationMs: number;
       screen: string | null;
+      pos: { x: number; y: number } | null;
+      scale: number;
     }
   | { type: 'tts'; viewer: string; text: string }
   | { type: 'key'; keyword: string; viewer: string; repeats: number }
@@ -225,6 +229,8 @@ export function createActions(ctx: ActionContext) {
         speak: action.speak && !!action.text,
         durationMs: action.durationMs,
         screen: action.screenId,
+        pos: action.alertPos,
+        scale: action.alertScale,
       });
     }
     if (action.keyword) {

@@ -30,6 +30,9 @@ type Body = {
   mediaId?: string | null;
   speak?: boolean;
   durationMs?: number;
+  alertX?: number | null;
+  alertY?: number | null;
+  alertScale?: number;
   keyCommandId?: string | null;
   repeatWithCount?: boolean;
   points?: number;
@@ -58,6 +61,9 @@ const fields = {
   mediaId: nullableId,
   speak: { type: 'boolean' },
   durationMs: { type: 'integer', minimum: 1000, maximum: 60_000 },
+  alertX: { type: ['number', 'null'], minimum: 0, maximum: 100 },
+  alertY: { type: ['number', 'null'], minimum: 0, maximum: 100 },
+  alertScale: { type: 'integer', minimum: 50, maximum: 200 },
   keyCommandId: nullableId,
   repeatWithCount: { type: 'boolean' },
   points: { type: 'integer', minimum: 0, maximum: 1_000_000 },
@@ -92,6 +98,7 @@ export async function actionRoutes(app: FastifyInstance) {
       if (!goal) return { error: 'Pick one of your goals' };
     }
     if (a.audience === 'viewer' && !fixed.audienceViewer) return { error: 'Name the viewer this action is for' };
+    if ((a.alertX === null) !== (a.alertY === null)) return { error: "An alert's place needs both across and down" };
     for (const [id, kinds, what] of [
       [a.soundMediaId, ['audio'], 'sound'],
       [a.mediaId, ['image', 'video'], 'picture or video'],
@@ -154,6 +161,9 @@ export async function actionRoutes(app: FastifyInstance) {
         mediaId: null,
         speak: false,
         durationMs: 5000,
+        alertX: null,
+        alertY: null,
+        alertScale: 100,
         keyCommandId: null,
         repeatWithCount: false,
         points: 0,
@@ -231,7 +241,18 @@ export async function actionRoutes(app: FastifyInstance) {
       : '';
     const speech = action.speak && text ? await app.speech.speak(voiceConfig(host!, app.secrets), text) : null;
     const alert = alertMessage(
-      { type: 'alert', text, sound: action.sound, soundFile: action.soundMediaId, media: action.media, speak: action.speak, durationMs: action.durationMs, screen: action.screenId },
+      {
+        type: 'alert',
+        text,
+        sound: action.sound,
+        soundFile: action.soundMediaId,
+        media: action.media,
+        speak: action.speak,
+        durationMs: action.durationMs,
+        screen: action.screenId,
+        pos: action.alertPos,
+        scale: action.alertScale,
+      },
       speech,
     );
     app.hub.sendToOverlays(req.hostId, alert);

@@ -3,7 +3,13 @@ import { playSound } from './sounds';
 import { SpeechPlayer } from './speech-player';
 
 type AlertMessage = Extract<ServerToOverlay, { type: 'alert' }>;
-export type ShownAlert = { id: number; text: string; media: { url: string; kind: MediaKind } | null };
+export type ShownAlert = {
+  id: number;
+  text: string;
+  media: { url: string; kind: MediaKind } | null;
+  pos: { x: number; y: number } | null; // placed by hand; null: the screen's alert position
+  scale: number; // percent
+};
 
 const ALERT_MS = 5000;
 const MAX_QUEUED_ALERTS = 20; // a follow storm shouldn't keep alerts running for minutes
@@ -71,7 +77,7 @@ export class AlertPlayer {
     if (!alert) return;
     this.showing = true;
     const media = alert.media ? { url: `/media/${alert.media.id}`, kind: alert.media.kind } : null;
-    this.onShow({ id: this.nextId++, text: alert.text, media });
+    this.onShow({ id: this.nextId++, text: alert.text, media, pos: alert.pos ?? null, scale: alert.scale ?? 100 });
     if (this.audible) {
       if (alert.sound) playSound(this.context(), alert.sound);
       if (alert.soundFile) void this.playFile(alert.soundFile);

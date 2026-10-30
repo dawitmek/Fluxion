@@ -160,7 +160,7 @@ export function Overlay({ token }: { token: string }) {
         <div className={`overlay-screen alerts-${screen.alertPosition}`} style={{ '--overlay-scale': screen.scale / 100 } as CSSProperties}>
           {/* Alerts show even while offline, so the dashboard's Test button works before going live. */}
           {alert && (
-            <div key={alert.id} className={`overlay-alert ${alert.text ? '' : 'media-only'}`}>
+            <div key={alert.id} className={`overlay-alert ${alert.text ? '' : 'media-only'}`} style={alertPlace(alert)}>
               {alert.media?.kind === 'image' && <img className="overlay-alert-media" src={alert.media.url} alt="" />}
               {alert.media?.kind === 'video' && <AlertVideo src={alert.media.url} audible={screen.audio} />}
               {alert.text && <span>{alert.text}</span>}
@@ -188,6 +188,14 @@ export function Overlay({ token }: { token: string }) {
       {PREVIEW && !live && <div className="overlay-preview-note">Preview with sample numbers. Your stream shows real ones.</div>}
     </>
   );
+}
+
+// An alert placed by hand sits with its middle at that point; its size multiplies the screen's.
+export function alertPlace({ pos, scale }: { pos: { x: number; y: number } | null; scale: number }): CSSProperties {
+  return {
+    ...(pos && { top: `${pos.y}%`, left: `${pos.x}%`, bottom: 'auto', '--alert-shift': '-50%' }),
+    '--alert-scale': scale / 100,
+  } as CSSProperties;
 }
 
 // Each spot stacks its widgets. The feed, leaderboard and mode panel keep the corners they've always had.
