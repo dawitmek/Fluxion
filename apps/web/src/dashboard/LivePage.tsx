@@ -1,4 +1,4 @@
-import { useEffect, useLayoutEffect, useRef, useState, type FormEvent } from 'react';
+import { useEffect, useLayoutEffect, useRef, useState, type FormEvent, type RefObject } from 'react';
 import { levelForXp, MODES, type LeaderboardEntry, type ModeState } from '@fluxion/shared';
 import { api, type Command, type LiveStatus } from '../api';
 import { Link } from '../router';
@@ -155,10 +155,11 @@ function StatusTiles({ host, status, setStatus, feed }: PageProps) {
 
 // How the busiest commands rise to the top: each press adds 1 to a command's score, and scores halve every
 // HALF_LIFE_MS. So a command pressed a lot lately leads, one pressed once a while ago sinks, and steady use
-// beats a single stray press. The order is redone every RERANK_MS rather than on every press, so cards don't jump.
+// beats a single stray press. Every score fades at the same rate, so only a press can change the order: it's
+// redone on each one, and nothing runs in between.
 const HALF_LIFE_MS = 30_000;
-const RERANK_MS = 4000;
 const COMMAND_ROWS = 3;
+const SLIDE_MS = 250;
 
 function useBusiestFirst(keywords: string[], pressed: Record<string, number>) {
   const heat = useRef(new Map<string, { score: number; at: number }>());
@@ -175,6 +176,7 @@ function useBusiestFirst(keywords: string[], pressed: Record<string, number>) {
       if (added > 0) heat.current.set(keyword, { score: scoreAt(keyword, now) + added, at: now });
     }
     counted.current = pressed;
+    setOrder(rank());
   }, [pressed]);
   // Never-pressed commands keep their usual order, after the pressed ones (sort is stable).
   const rank = () => {
@@ -183,12 +185,30 @@ function useBusiestFirst(keywords: string[], pressed: Record<string, number>) {
   };
   const [order, setOrder] = useState(rank);
   const key = keywords.join('\n');
-  useEffect(() => {
-    setOrder(rank());
-    const timer = setInterval(() => setOrder(rank()), RERANK_MS);
-    return () => clearInterval(timer);
-  }, [key]);
+  useEffect(() => setOrder(rank()), [key]);
   return order;
+}
+
+// Cards with `data-slide` glide from where they were to where they are now, rather than jumping, whenever they move
+// in the grid (a new order, or the window resized). Offsets ignore both a slide in progress and page scrolling.
+function useSlide(grid: RefObject<HTMLDivElement | null>) {
+  const last = useRef(new Map<string, { x: number; y: number }>());
+  useLayoutEffect(() => {
+    const cards = [...(grid.current?.querySelectorAll<HTMLElement>('[data-slide]') ?? [])];
+    const still = matchMedia('(prefers-reduced-motion: reduce)').matches;
+    const now = new Map(cards.map((card) => [card.dataset.slide!, { x: card.offsetLeft, y: card.offsetTop }]));
+    for (const card of cards) {
+      const from = last.current.get(card.dataset.slide!);
+      const to = now.get(card.dataset.slide!)!;
+      if (still || !from || (from.x === to.x && from.y === to.y)) continue;
+      for (const a of card.getAnimations()) a.cancel(); // moved again mid-slide: start over from its last place
+      card.animate([{ transform: `translate(${from.x - to.x}px, ${from.y - to.y}px)` }, { transform: 'none' }], {
+        duration: SLIDE_MS,
+        easing: 'cubic-bezier(0.2, 0, 0, 1)',
+      });
+    }
+    last.current = now;
+  });
 }
 
 // How many cards fit in a row of the grid right now; it changes with the window.
@@ -220,6 +240,7 @@ function CommandsOverview({ host, refreshHost, feed }: PageProps) {
   );
   const sorted = [...enabled].sort((a, b) => order.indexOf(a.keyword) - order.indexOf(b.keyword));
   const { grid, columns } = useColumns();
+  useSlide(grid);
   const [expanded, setExpanded] = useState(false);
   const fits = columns * COMMAND_ROWS;
   const shown = expanded ? sorted : sorted.slice(0, fits);
@@ -244,7 +265,7 @@ function CommandsOverview({ host, refreshHost, feed }: PageProps) {
         {shown.map((c) => {
           const pressed = feed.pressed[c.keyword] ?? 0;
           return (
-            <div key={c.id} className={`command-card ${feed.lastPress === c.keyword ? 'fired' : ''}`}>
+            <div key={c.id} data-slide={c.keyword} className={`command-card ${feed.lastPress === c.keyword ? 'fired' : ''}`}>
               <div className="command-top">
                 <span className="command-keyword">{c.keyword}</span>
                 <kbd className="kbd">{keyLabel(c.key)}</kbd>
