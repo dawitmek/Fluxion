@@ -1,9 +1,9 @@
 import { useCallback, useEffect, useState, type FormEvent } from 'react';
-import { ALERT_POSITIONS, GOAL_METRICS, MAX_WIDGETS, WIDGET_SPOTS, WIDGET_TYPES, type GoalMetric, type ScreenWidget, type WidgetSpot, type WidgetType } from '@fluxion/shared';
+import { ALERT_POSITIONS, GOAL_METRICS, MAX_WIDGETS, WIDGET_SPOTS, WIDGET_TYPES, type GoalMetric, type ScreenWidget, type StreamStats, type WidgetSpot, type WidgetType } from '@fluxion/shared';
 import { api, type AlertPosition, type Goal, type Screen } from '../api';
 import { Card, ErrorNotice, HueIcon, NumberCell, Scrubber, Seg, TextCell, useError, type Hue } from '../ui';
 import { Icon, type IconName } from '../icons';
-import { DEFAULT_FIREWORK_DIAMONDS, Fireworks, GiftBus, usePreview, Widget } from '../overlay-widgets';
+import { DEFAULT_FIREWORK_DIAMONDS, Fireworks, GiftBus, usePreview, Widget, type ChatLine } from '../overlay-widgets';
 
 const POSITION_LABELS: Record<AlertPosition, string> = { top: 'Top', middle: 'Middle', bottom: 'Bottom' };
 
@@ -89,18 +89,13 @@ function widgetInfo(w: Pick<ScreenWidget, 'type' | 'goalId'>, goals: Goal[]) {
 const widgetKey = (w: Pick<ScreenWidget, 'type' | 'goalId'>) => (w.goalId ? `goal:${w.goalId}` : w.type);
 
 function WidgetsEditor({ widgets, goals, onSave }: { widgets: ScreenWidget[]; goals: Goal[]; onSave: (widgets: ScreenWidget[]) => void }) {
-  const [choice, setChoice] = useState<string>('goals');
   const [previewing, setPreviewing] = useState<string | null>(null);
   const change = (i: number, patch: Partial<ScreenWidget>) => onSave(widgets.map((w, j) => (j === i ? { ...w, ...patch } : w)));
   const used = new Set(widgets.map(widgetKey));
   const types = WIDGET_TYPES.filter((t) => !used.has(t));
   const ownGoals = goals.filter((g) => !used.has(`goal:${g.id}`));
-  const keys = [...types, ...ownGoals.map((g) => `goal:${g.id}`)];
-  const adding = keys.includes(choice) ? choice : keys[0];
-  const add = (key: string) => {
-    const widget: ScreenWidget = key.startsWith('goal:') ? { type: 'goals', goalId: key.slice(5), spot: 'top' } : { type: key as WidgetType, spot: WIDGETS[key as WidgetType].spot };
-    onSave([...widgets, widget]);
-  };
+  const options: WidgetChoice[] = [...types.map((type) => ({ type })), ...ownGoals.map((g) => ({ type: 'goals' as const, goalId: g.id }))];
+  const add = (w: WidgetChoice) => onSave([...widgets, { ...w, spot: w.goalId ? 'top' : WIDGETS[w.type].spot }]);
 
   return (
     <div className="stack">
@@ -163,29 +158,7 @@ function WidgetsEditor({ widgets, goals, onSave }: { widgets: ScreenWidget[]; go
           })}
         </ul>
       )}
-      {adding && widgets.length < MAX_WIDGETS && (
-        <div className="row add-row">
-          <select className="input" value={adding} onChange={(e) => setChoice(e.target.value)} aria-label="Widget to add">
-            {types.map((t) => (
-              <option key={t} value={t}>
-                {t === 'goals' ? 'Goals (all of them)' : WIDGETS[t].label}
-              </option>
-            ))}
-            {ownGoals.length > 0 && (
-              <optgroup label="One goal on its own">
-                {ownGoals.map((g) => (
-                  <option key={g.id} value={`goal:${g.id}`}>
-                    {g.name}
-                  </option>
-                ))}
-              </optgroup>
-            )}
-          </select>
-          <button className="btn" onClick={() => add(adding)}>
-            Add widget
-          </button>
-        </div>
-      )}
+      {options.length > 0 && widgets.length < MAX_WIDGETS && <WidgetPicker options={options} goals={goals} onAdd={add} />}
     </div>
   );
 }
@@ -193,9 +166,10 @@ function WidgetsEditor({ widgets, goals, onSave }: { widgets: ScreenWidget[]; go
 // Every widget, and every goal on its own, as a browser source of its own: for a stream that wants just the chat, say.
 function WidgetLinksCard({ main, goals }: { main: Screen; goals: Goal[] }) {
   const [copied, setCopied] = useState<string | null>(null);
+  const [previewing, setPreviewing] = useState<string | null>(null);
   const link = (w: Pick<ScreenWidget, 'type' | 'goalId'>) =>
     `${location.origin}/overlay/${main.token}?widget=${w.type}${w.goalId ? `&goal=${w.goalId}` : ''}`;
-  const all: Pick<ScreenWidget, 'type' | 'goalId'>[] = [...WIDGET_TYPES.map((type) => ({ type })), ...goals.map((g) => ({ type: 'goals' as const, goalId: g.id }))];
+  const all: WidgetChoice[] = [...WIDGET_TYPES.map((type) => ({ type })), ...goals.map((g) => ({ type: 'goals' as const, goalId: g.id }))];
   return (
     <Card
       title="Widget links"
@@ -213,12 +187,20 @@ function WidgetLinksCard({ main, goals }: { main: Screen; goals: Goal[] }) {
                 <span className="muted small">{info.help}</span>
               </span>
               <span className="spacer" />
-              <a className="btn btn-sm btn-try btn-icon" href={`${link(w)}&preview`} target="_blank" rel="noreferrer" aria-label={`Preview ${info.label}`} title="Preview">
-                <Icon name="eye" />
-              </a>
+              <button
+                className="btn btn-sm btn-try btn-icon"
+                aria-expanded={previewing === key}
+                aria-label={`${previewing === key ? 'Hide preview of' : 'Preview'} ${info.label}`}
+                title={previewing === key ? 'Hide preview' : 'Preview'}
+                onClick={() => setPreviewing(previewing === key ? null : key)}
+              >
+                <Icon name={previewing === key ? 'eyeOff' : 'eye'} />
+              </button>
               <button className="btn btn-sm" onClick={() => navigator.clipboard.writeText(link(w)).then(() => setCopied(key))}>
                 {copied === key ? 'Copied' : 'Copy link'}
               </button>
+              {/* With the Main screen's settings for it, as the link uses them. */}
+              {previewing === key && <WidgetPreview widget={{ ...main.widgets.find((m) => widgetKey(m) === key), ...w, spot: 'top-left' }} />}
             </li>
           );
         })}
@@ -227,23 +209,74 @@ function WidgetLinksCard({ main, goals }: { main: Screen; goals: Goal[] }) {
   );
 }
 
-// The widget as it looks on stream, fed sample viewers and a gift every few seconds.
+type WidgetChoice = Pick<ScreenWidget, 'type' | 'goalId'>;
+type PreviewFeed = { stats: StreamStats | null; chat: ChatLine[]; bus: GiftBus };
+
+// The widget as it looks on stream, over a stand-in for the stream, fed sample viewers and gifts.
+function PreviewStage({ widget, feed, compact }: { widget: ScreenWidget; feed: PreviewFeed; compact?: boolean }) {
+  const goals = widget.goalId ? feed.stats?.goals.filter((g) => g.id === widget.goalId) : feed.stats?.goals;
+  return (
+    <div className={`widget-stage ${compact ? 'compact' : ''}`}>
+      {widget.type === 'firework' ? (
+        <Fireworks min={widget.minDiamonds ?? DEFAULT_FIREWORK_DIAMONDS} bus={feed.bus} />
+      ) : (
+        <Widget widget={widget} stats={feed.stats} chat={feed.chat} bus={feed.bus} />
+      )}
+      {widget.type === 'goals' && goals?.length === 0 && <p className="widget-stage-empty">Add a goal in the Goals card to see it here.</p>}
+      {widget.type === 'firework' && compact && <p className="widget-stage-empty">For gifts worth {DEFAULT_FIREWORK_DIAMONDS}+ diamonds</p>}
+      {!compact && (
+        <span className="widget-stage-note">
+          {widget.type === 'firework'
+            ? `Sample gifts of up to 1,500 diamonds. Only those worth ${(widget.minDiamonds ?? DEFAULT_FIREWORK_DIAMONDS).toLocaleString()} or more set off fireworks.`
+            : 'Sample viewers and gifts'}
+        </span>
+      )}
+    </div>
+  );
+}
+
 function WidgetPreview({ widget }: { widget: ScreenWidget }) {
   const [bus] = useState(() => new GiftBus());
   const { stats, chat } = usePreview(true, bus);
+  return <PreviewStage widget={widget} feed={{ stats, chat, bus }} />;
+}
+
+// Adding a widget: every one you can add, two to a row, each showing itself. One sample feed drives them all.
+function WidgetPicker({ options, goals, onAdd }: { options: WidgetChoice[]; goals: Goal[]; onAdd: (w: WidgetChoice) => void }) {
+  const [open, setOpen] = useState(false);
+  const [bus] = useState(() => new GiftBus());
+  const { stats, chat } = usePreview(open, bus);
   return (
-    <div className="widget-stage">
-      {widget.type === 'firework' ? (
-        <Fireworks min={widget.minDiamonds ?? DEFAULT_FIREWORK_DIAMONDS} bus={bus} />
-      ) : (
-        <Widget widget={widget} stats={stats} chat={chat} bus={bus} />
+    <div className="stack">
+      <button className="btn picker-toggle" aria-expanded={open} aria-controls="widget-picker" onClick={() => setOpen(!open)}>
+        <Icon name="chevron" />
+        Add a widget
+      </button>
+      {open && (
+        <div id="widget-picker" className="stack">
+          <p className="muted small">Previews use sample viewers and gifts.</p>
+          <div className="widget-picker">
+            {options.map((w) => {
+              const info = widgetInfo(w, goals);
+              return (
+                <div key={widgetKey(w)} className="picker-card">
+                  <div className="picker-head">
+                    <HueIcon name={info.icon} hue={info.hue} />
+                    <span className="widget-name">
+                      <strong>{w.type === 'goals' && !w.goalId ? 'Goals (all of them)' : info.label}</strong>
+                      <span className="muted small">{info.help}</span>
+                    </span>
+                    <button className="btn btn-sm btn-primary" onClick={() => onAdd(w)} aria-label={`Add ${info.label}`}>
+                      Add
+                    </button>
+                  </div>
+                  <PreviewStage widget={{ ...w, spot: 'top' }} feed={{ stats, chat, bus }} compact />
+                </div>
+              );
+            })}
+          </div>
+        </div>
       )}
-      {widget.type === 'goals' && stats?.goals.length === 0 && <p className="widget-stage-empty">Add a goal in the Goals card to see it here.</p>}
-      <span className="widget-stage-note">
-        {widget.type === 'firework'
-          ? `Sample gifts of up to 1,500 diamonds. Only those worth ${(widget.minDiamonds ?? DEFAULT_FIREWORK_DIAMONDS).toLocaleString()} or more set off fireworks.`
-          : 'Sample viewers and gifts'}
-      </span>
     </div>
   );
 }

@@ -342,6 +342,17 @@ label.btn.disabled { opacity: 0.6; pointer-events: none; }
 .test-result { margin: 0 0 12px; }
 .widget-name { display: flex; flex-direction: column; min-width: 0; }
 .widget-spot { width: auto; }
+/* Adding a widget: two cards to a row, each with its preview. */
+.picker-toggle { align-self: flex-start; }
+.picker-toggle svg { transition: transform 0.2s; }
+.picker-toggle[aria-expanded='true'] svg { transform: rotate(180deg); }
+.widget-picker { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 12px; }
+@media (max-width: 760px) { .widget-picker { grid-template-columns: 1fr; } }
+.picker-card { display: flex; flex-direction: column; gap: 10px; padding: 12px; border-radius: 12px; border: 1px solid var(--line); background: var(--panel); }
+.picker-head { display: flex; align-items: flex-start; gap: 10px; }
+.picker-head .widget-name { flex: 1; }
+.widget-stage.compact { min-height: 190px; padding: 14px; }
+.widget-stage.compact > :not(canvas):not(.widget-stage-empty) { zoom: 0.75; }
 /* Where a widget sits: the screen as 3 by 2 spots, the widget's lit in its color. */
 .spot-map { display: grid; grid-template-columns: repeat(3, 8px); grid-template-rows: repeat(2, 6px); gap: 2px; padding: 4px; border-radius: 5px; border: 1px solid var(--line-strong); }
 .spot-map > span { border-radius: 1.5px; background: var(--meter); }
