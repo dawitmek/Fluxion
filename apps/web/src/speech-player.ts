@@ -9,7 +9,8 @@ const about = (speech: Speech) => ({ kind: speech.kind, ...(speech.kind !== 'aud
 
 // Says one thing at a time. Audio and eSpeak play through the page's AudioContext, which OBS captures;
 // browser voices go straight to the system output.
-type Line = { speech: Speech; chat: boolean }; // chat: read-aloud chat, rather than an alert's text
+// chat: read-aloud chat; otherwise an alert's text, from `action`.
+export type Line = { speech: Speech; chat: boolean; action?: string };
 
 export class SpeechPlayer {
   private queue: Line[] = [];
@@ -22,19 +23,19 @@ export class SpeechPlayer {
 
   constructor(private audio: () => AudioContext) {}
 
-  say(speech: Speech, chat = false) {
+  say(speech: Speech, chat = false, action?: string) {
     if (this.queue.length >= MAX_PENDING) return this.report('speech dropped, too many waiting', about(speech));
-    this.queue.push({ speech, chat });
+    this.queue.push({ speech, chat, action });
     this.report('speech queued', { ...about(speech), waiting: this.queue.length, speaking: !!this.speaking });
     void this.pump();
   }
 
-  // Drops what's waiting and cuts off what's playing; with chatOnly, just the read-aloud chat.
-  stop(reason: string, chatOnly = false) {
-    const dropped = this.queue.filter((l) => !chatOnly || l.chat).length;
-    const cut = !!this.speaking && (!chatOnly || this.speaking.chat);
+  // Drops what's waiting and cuts off what's playing: every line, or only the ones `which` picks.
+  stop(reason: string, which: (line: Line) => boolean = () => true) {
+    const dropped = this.queue.filter(which).length;
+    const cut = !!this.speaking && which(this.speaking);
     if (dropped || cut) this.report(`speech stopped: ${reason}`, { dropped, cutOff: cut });
-    this.queue = chatOnly ? this.queue.filter((l) => !l.chat) : [];
+    this.queue = this.queue.filter((l) => !which(l));
     if (!cut) return;
     this.generation++;
     this.source?.stop();

@@ -587,6 +587,33 @@ describe('voice changes mid-stream', () => {
   });
 });
 
+describe('actions changed mid-stream', () => {
+  it('takes back the alerts of an action turned off or deleted, and only then', async () => {
+    const { cookie } = await signUp();
+    const me = (await api(cookie, 'GET', '/api/auth/me')).json();
+    const follow = (await api(cookie, 'GET', '/api/actions')).json().find((a: any) => a.trigger === 'follow');
+    await api(cookie, 'POST', '/api/live/start', { source: 'simulated' });
+    const overlay = connect(`/ws/overlay?token=${me.overlayToken}`);
+    await overlay.drain(100); // live + mode + leaderboard
+    await api(cookie, 'POST', '/api/live/simulate', { viewer: 'alice', event: 'follow' });
+    expect((await overlay.drain()).filter((m: any) => m.type === 'alert')).toMatchObject([{ action: follow.id }]);
+    const drops = async () => (await overlay.drain()).filter((m: any) => m.type === 'dropAlerts');
+    // An edit that leaves it on keeps its alerts.
+    await api(cookie, 'PATCH', `/api/actions/${follow.id}`, { text: '{viewer} is here!' });
+    expect(await drops()).toEqual([]);
+    await api(cookie, 'PATCH', `/api/actions/${follow.id}`, { enabled: false });
+    expect(await drops()).toEqual([{ type: 'dropAlerts', actions: [follow.id] }]);
+    await api(cookie, 'POST', '/api/live/simulate', { viewer: 'bob', event: 'follow' });
+    expect((await overlay.drain()).filter((m: any) => m.type === 'alert')).toEqual([]);
+    // Turning it back on takes nothing back; deleting it does.
+    await api(cookie, 'PATCH', `/api/actions/${follow.id}`, { enabled: true });
+    expect(await drops()).toEqual([]);
+    await api(cookie, 'DELETE', `/api/actions/${follow.id}`);
+    expect(await drops()).toEqual([{ type: 'dropAlerts', actions: [follow.id] }]);
+    await api(cookie, 'POST', '/api/live/stop');
+  });
+});
+
 describe('stats per TikTok account', () => {
   it("keeps each account's leaderboard and points apart, and each host's apart on the same account", async () => {
     const play = async (cookie: string, viewer: string) => {
@@ -745,6 +772,7 @@ describe('media and actions', () => {
     expect((await overlay.drain()).filter((m) => m.type === 'alert')).toEqual([
       {
         type: 'alert',
+        action: expect.any(String),
         text: 'alice subscribed for 3 months',
         sound: null,
         speech: null,
@@ -893,7 +921,7 @@ describe('alerts and text-to-speech', () => {
     const dashboard = connect(`/ws/overlay?token=${me.overlayToken}&dashboard=1`);
     await dashboard.opened;
     const tested = (await api(cookie, 'POST', `/api/actions/${follow.id}/test`)).json();
-    const alert = { type: 'alert', text: 'test_viewer followed!', sound: 'chime', speech: null };
+    const alert = { type: 'alert', action: follow.id, text: 'test_viewer followed!', sound: 'chime', speech: null };
     expect(tested).toEqual({ alert, overlays: 1 }); // the dashboard's own listener isn't an overlay on stream
     expect(await overlay.next()).toEqual(alert);
 
@@ -933,7 +961,7 @@ describe('alerts and text-to-speech', () => {
     };
     expect(await nextAlert()).toMatchObject({ type: 'alert', text: 'alice followed!' });
     await sim({ gift: 'Lion' });
-    expect(await nextAlert()).toEqual({ type: 'alert', text: 'ROAR alice', sound: 'fanfare', speech: { kind: 'espeak', text: 'ROAR alice', voice: 'en-gb', effect: 'none' } });
+    expect(await nextAlert()).toEqual({ type: 'alert', action: expect.any(String), text: 'ROAR alice', sound: 'fanfare', speech: { kind: 'espeak', text: 'ROAR alice', voice: 'en-gb', effect: 'none' } });
     await sim({ event: 'like', count: 1000 });
     expect(await nextAlert()).toMatchObject({ type: 'alert', text: '1000 likes! Thanks alice' });
 
@@ -956,7 +984,7 @@ describe('alerts and text-to-speech', () => {
 
     expect((await api(cookie, 'DELETE', `/api/actions/${follow.id}`)).statusCode).toBe(204);
     await sim({ event: 'follow' });
-    expect(withoutLeaderboard(await overlay.drain())).toEqual([]);
+    expect(withoutLeaderboard(await overlay.drain())).toEqual([{ type: 'dropAlerts', actions: [follow.id] }]);
   });
 
   it('speaks through the chosen engine, keeps cloud keys secret, and reports cloud errors on preview', async () => {

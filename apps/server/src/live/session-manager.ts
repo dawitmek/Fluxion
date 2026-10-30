@@ -238,6 +238,14 @@ export class SessionManager {
       this.debug.write('tts', hostId, `voice changed, overlays told to drop their speech: ${session.voice.engine} -> ${loaded.voice.engine}`);
       this.hub.sendToOverlays(hostId, { type: 'clearSpeech' });
     }
+    // Actions turned off or deleted take back their alerts now: ones not sent yet are dropped in deliver(), and
+    // overlays drop the ones they hold, the one showing too.
+    const on = new Set(loaded.actionConfig.actions.filter((a) => a.enabled).map((a) => a.id));
+    const off = session.actionCtx.config.actions.filter((a) => a.enabled && !on.has(a.id));
+    if (off.length > 0) {
+      this.debug.write('alert', hostId, 'actions turned off, overlays told to drop their alerts', { actions: off.map((a) => a.id), unsent: session.waiting });
+      this.hub.sendToOverlays(hostId, { type: 'dropAlerts', actions: off.map((a) => a.id) });
+    }
     session.actionCtx.config = loaded.actionConfig;
     session.voice = loaded.voice;
     session.points = loaded.points;
@@ -338,6 +346,9 @@ export class SessionManager {
     }
     if (output.type === 'tts' && session.actionCtx.config.tts.mode === 'off') {
       return this.debug.write(area, hostId, 'dropped, reading chat was turned off', { viewer: output.viewer, text: output.text });
+    }
+    if (output.type === 'alert' && !session.actionCtx.config.actions.some((a) => a.id === output.action && a.enabled)) {
+      return this.debug.write(area, hostId, 'dropped, its action was turned off', { text: output.text });
     }
     const began = Date.now();
     if (output.type === 'alert') {
@@ -479,6 +490,7 @@ export class SessionManager {
 export function alertMessage(output: Extract<ActionOutput, { type: 'alert' }>, speech: Speech | null): ServerToOverlay {
   return {
     type: 'alert',
+    action: output.action,
     text: output.text,
     sound: output.sound,
     speech,

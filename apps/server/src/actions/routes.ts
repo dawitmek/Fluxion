@@ -243,6 +243,7 @@ export async function actionRoutes(app: FastifyInstance) {
     const alert = alertMessage(
       {
         type: 'alert',
+        action: action.id,
         text,
         sound: action.sound,
         soundFile: action.soundMediaId,

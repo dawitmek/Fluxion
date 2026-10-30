@@ -43,6 +43,7 @@ export interface TtsConfig {
 export type ActionOutput =
   | {
       type: 'alert';
+      action: string; // its id
       text: string;
       sound: AlertSound | null;
       soundFile: string | null;
@@ -222,6 +223,7 @@ export function createActions(ctx: ActionContext) {
     if (alert && showsAlert(action)) {
       out.push({
         type: 'alert',
+        action: action.id,
         text: action.text ? fillTemplate(action.text, values) : '',
         sound: action.sound,
         soundFile: action.soundMediaId,

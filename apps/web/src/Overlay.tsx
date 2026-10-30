@@ -106,6 +106,10 @@ export function Overlay({ token }: { token: string }) {
           report('page size', { width: innerWidth, height: innerHeight, zoom: devicePixelRatio, fit: Math.round(fit * 1000) / 1000 });
         }
         if (message.type === 'screen') {
+          // Turned off on this screen: alerts and sound stop now, not after what's waiting.
+          const before = screenRef.current;
+          if (before?.alerts && !message.screen.alerts) player.dropAlerts("this screen's alerts were turned off");
+          if (before?.audio && !message.screen.audio) player.silence();
           screenRef.current = message.screen;
           player.audible = message.screen.audio && !SINGLE;
           setScreen(message.screen);
@@ -137,6 +141,7 @@ export function Overlay({ token }: { token: string }) {
         if (message.type === 'alert' && shown?.alerts && (!message.screen || message.screen === shown.id)) player.enqueue(message);
         if (message.type === 'tts') (report('chat line received', { viewer: message.viewer, text: message.text }), player.say(message.speech, true));
         if (message.type === 'clearSpeech') player.clearSpeech(message.chatOnly);
+        if (message.type === 'dropAlerts') player.dropAlerts('their action was turned off', message.actions);
         if (message.type === 'speechVolume') player.speechVolume(message.volume / 100);
       };
       // A bad token is permanent (4001); anything else is worth retrying.

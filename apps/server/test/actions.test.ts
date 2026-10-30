@@ -71,9 +71,10 @@ describe('actions', () => {
   });
 
   it('shows alerts for follows and shares, skipping disabled actions', () => {
-    const { engine } = setup([rule({ trigger: 'follow', text: '{viewer} followed', speak: true }), rule({ trigger: 'share', text: 'off', enabled: false })]);
+    const followed = rule({ trigger: 'follow', text: '{viewer} followed', speak: true });
+    const { engine } = setup([followed, rule({ trigger: 'share', text: 'off', enabled: false })]);
     expect(engine.handle(follow())).toEqual([
-      { type: 'alert', text: 'alice followed', sound: 'chime', soundFile: null, media: null, speak: true, durationMs: 5000, screen: null, pos: null, scale: 100 },
+      { type: 'alert', action: followed.id, text: 'alice followed', sound: 'chime', soundFile: null, media: null, speak: true, durationMs: 5000, screen: null, pos: null, scale: 100 },
     ]);
     expect(engine.handle({ kind: 'share', viewerId: 'alice', at: 0 })).toEqual([]);
   });
