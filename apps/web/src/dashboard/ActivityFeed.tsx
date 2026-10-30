@@ -68,8 +68,20 @@ const streamLabel = (s: StreamSummary) =>
 
 // Everything viewers did during a stream: chat, gifts, joins, follows, shares, likes. Shows the current (or last)
 // stream with a picker for earlier ones, or always `stream` when given.
-export function ActivityFeed({ status, stream: fixed, storageKey = 'fluxion-activity-open' }: { status: LiveStatus; stream?: string; storageKey?: string }) {
-  const [open, setOpen] = useState(() => readOpen(storageKey));
+// `window`: it fills a window of its own (see ActivityWindow), always open, with no pop-out button.
+export function ActivityFeed({
+  status,
+  stream: fixed,
+  storageKey = 'fluxion-activity-open',
+  window: own,
+}: {
+  status: LiveStatus;
+  stream?: string;
+  storageKey?: string;
+  window?: boolean;
+}) {
+  const [stored, setOpen] = useState(() => readOpen(storageKey));
+  const open = own || stored;
   const [selected, setSelected] = useState(fixed ?? 'latest');
   const [pastStreams, setPastStreams] = useState<StreamSummary[]>([]);
   const [kinds, setKinds] = useState<Kind[]>(FILTERS.map((f) => f.kind));
@@ -170,14 +182,30 @@ export function ActivityFeed({ status, stream: fixed, storageKey = 'fluxion-acti
   const stream = page?.stream;
 
   return (
-    <section className="card activity-feed" aria-labelledby="full-activity">
-      <button className="collapse-head" aria-expanded={open} aria-controls="full-activity-body" onClick={toggle}>
-        <span>
-          <h2 id="full-activity">Full activity</h2>
-          <span className="muted">Every chat message, gift, join, follow, share, like, subscription and sticker from your stream.</span>
-        </span>
-        <Icon name="chevron" size={18} />
-      </button>
+    <section className={`card activity-feed ${own ? 'in-window' : ''}`} aria-labelledby="full-activity">
+      {own ? (
+        <h2 id="full-activity">Full activity</h2>
+      ) : (
+        <div className="activity-head">
+          <button className="collapse-head" aria-expanded={open} aria-controls="full-activity-body" onClick={toggle}>
+            <span>
+              <h2 id="full-activity">Full activity</h2>
+              <span className="muted">Every chat message, gift, join, follow, share, like, subscription and sticker from your stream.</span>
+            </span>
+            <Icon name="chevron" size={18} />
+          </button>
+          {!fixed && (
+            <button
+              className="btn btn-ghost btn-sm btn-icon"
+              title="Open in a new window"
+              aria-label="Open full activity in a new window"
+              onClick={() => window.open('/dashboard/activity-window', 'fluxion-activity', 'popup,width=560,height=820')}
+            >
+              <Icon name="popOut" />
+            </button>
+          )}
+        </div>
+      )}
       {open && (
         <div id="full-activity-body" className="stack activity-body">
           <div className="activity-filters">

@@ -2,6 +2,7 @@ import { StrictMode } from 'react';
 import { createRoot } from 'react-dom/client';
 import '@fluxion/theme/theme.css';
 import { Auth } from './Auth';
+import { ActivityWindow } from './dashboard/ActivityWindow';
 import { Dashboard } from './dashboard/Dashboard';
 import { HomePage } from './site/HomePage';
 import { DownloadPage, FaqPage, FeaturesPage, HowItWorksPage, SelfHostingPage } from './site/pages';
@@ -33,6 +34,7 @@ if (overlayToken) document.documentElement.classList.add('overlay-page');
 
 function App() {
   const path = usePath();
+  if (path === '/dashboard/activity-window') return <ActivityWindow />;
   if (path.startsWith('/dashboard')) return <Dashboard />;
   if (path === '/login') return <Auth key="login" mode="login" />;
   if (path === '/signup') return <Auth key="signup" mode="signup" />;

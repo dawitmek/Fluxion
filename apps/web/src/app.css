@@ -251,6 +251,21 @@ fieldset:disabled * { cursor: not-allowed; }
 .chip { min-height: 32px; padding: 0 12px; border-radius: 999px; border: 1px solid var(--line-strong); background: transparent; color: var(--muted);
   font: 600 13px var(--font); cursor: pointer; transition: background 0.15s, color 0.15s, border-color 0.15s; }
 .chip.on { border-color: var(--indigo-fill); background: var(--indigo-soft); color: var(--ink); }
+/* The pop-out button sits beside the collapsing header. */
+.activity-head { display: flex; align-items: flex-start; gap: 8px; }
+.activity-head .collapse-head { flex: 1; min-width: 0; }
+/* Full activity in a window of its own: the page is just the card, and the list grows with the window. */
+.activity-window { box-sizing: border-box; min-height: 100vh; padding: 16px; }
+.activity-feed.in-window .activity-list { max-height: none; }
+/* A narrow window still has room for time, tag and text side by side (the phone layout would stack them). */
+.activity-feed.in-window .activity-list li { grid-template-columns: 74px 64px minmax(0, 1fr); }
+.activity-feed.in-window .activity-list time { grid-row: auto; }
+.activity-feed.in-window .activity-body { margin-top: 12px; }
+/* The Live page's Activity card, expanded over the page. */
+.activity-dialog { width: min(640px, calc(100vw - 32px)); max-width: none; max-height: min(760px, calc(100vh - 48px)); padding: 20px; border: 1px solid var(--line-strong); border-radius: 18px; background: var(--panel); color: var(--ink); box-sizing: border-box; }
+.activity-dialog::backdrop { background: rgba(5, 6, 10, 0.65); }
+.activity-dialog[open] { display: flex; flex-direction: column; gap: 14px; }
+.activity-dialog-body { overflow-y: auto; min-height: 0; }
 .activity-status { display: flex; flex-wrap: wrap; align-items: center; justify-content: space-between; gap: 8px; }
 .activity-list { list-style: none; margin: 0; padding: 0; max-height: 520px; overflow-y: auto; border-top: 1px solid var(--line); }
 .activity-list li { display: grid; grid-template-columns: 74px 64px minmax(0, 1fr); align-items: baseline; gap: 10px; padding: 9px 2px; border-bottom: 1px solid var(--line); }

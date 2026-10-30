@@ -1,10 +1,11 @@
-import { useEffect, useState, type FormEvent } from 'react';
+import { useEffect, useRef, useState, type FormEvent } from 'react';
 import { levelForXp, MODES, type LeaderboardEntry, type ModeState } from '@fluxion/shared';
 import { api, type Command, type LiveStatus } from '../api';
 import { Link } from '../router';
 import { Card, ErrorNotice, keyLabel, Seg, useError } from '../ui';
+import { Icon } from '../icons';
 import type { PageProps } from './Dashboard';
-import type { ActivityKind } from './live-feed';
+import type { Activity, ActivityKind } from './live-feed';
 import { MODE_INFO } from './modes';
 import { ActivityFeed } from './ActivityFeed';
 import { VoiceControls } from './VoiceControls';
@@ -297,28 +298,57 @@ function ModeCard({ host, feed }: PageProps) {
 const ACTIVITY_HUES: Record<ActivityKind, string> = { Key: 'indigo', Alert: 'pink', Level: 'violet', Voice: 'sky' };
 
 function ActivityCard({ feed }: PageProps) {
-  const items = feed.activity.slice(0, 8);
+  const [expanded, setExpanded] = useState(false);
   return (
     <section className="card" aria-labelledby="live-activity">
-      <h2 id="live-activity" style={{ marginBottom: 6 }}>
-        Activity
-      </h2>
-      {items.length === 0 ? (
-        <p className="muted">Key presses, alerts and level-ups show up here as they happen.</p>
-      ) : (
-        <ol className="activity">
-          {items.map((a) => (
-            <li key={a.id}>
-              <span className={`tag ${ACTIVITY_HUES[a.kind]}`}>{a.kind}</span>
-              <span className="activity-text">{a.text}</span>
-              <span className="muted small num">
-                {new Date(a.at).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}
-              </span>
-            </li>
-          ))}
-        </ol>
-      )}
+      <div className="mode-card-head" style={{ marginBottom: 6 }}>
+        <h2 id="live-activity">Activity</h2>
+        <button className="btn btn-ghost btn-sm btn-icon" title="Expand" aria-label="Expand activity" onClick={() => setExpanded(true)}>
+          <Icon name="expand" />
+        </button>
+      </div>
+      <ActivityList items={feed.activity.slice(0, 8)} />
+      {expanded && <ActivityDialog feed={feed} onClose={() => setExpanded(false)} />}
     </section>
+  );
+}
+
+function ActivityList({ items, seconds }: { items: Activity[]; seconds?: boolean }) {
+  if (items.length === 0) return <p className="muted">Key presses, alerts and level-ups show up here as they happen.</p>;
+  return (
+    <ol className="activity">
+      {items.map((a) => (
+        <li key={a.id}>
+          <span className={`tag ${ACTIVITY_HUES[a.kind]}`}>{a.kind}</span>
+          <span className="activity-text">{a.text}</span>
+          <span className="muted small num">
+            {new Date(a.at).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit', ...(seconds && { second: '2-digit' }) })}
+          </span>
+        </li>
+      ))}
+    </ol>
+  );
+}
+
+// The Activity card, bigger and over the page: everything since this page opened (the newest 100), updating live.
+function ActivityDialog({ feed, onClose }: { feed: PageProps['feed']; onClose: () => void }) {
+  const dialog = useRef<HTMLDialogElement>(null);
+  useEffect(() => dialog.current?.showModal(), []);
+  return (
+    <dialog ref={dialog} className="activity-dialog" onClose={onClose} aria-labelledby="activity-dialog-title">
+      <div className="pos-head">
+        <div>
+          <h2 id="activity-dialog-title">Activity</h2>
+          <p className="muted small">Key presses, alerts, level-ups and read-aloud chat since this page opened, newest first.</p>
+        </div>
+        <button className="btn btn-ghost btn-sm btn-icon" onClick={() => dialog.current?.close()} aria-label="Close">
+          <Icon name="close" />
+        </button>
+      </div>
+      <div className="activity-dialog-body">
+        <ActivityList items={feed.activity} seconds />
+      </div>
+    </dialog>
   );
 }
 

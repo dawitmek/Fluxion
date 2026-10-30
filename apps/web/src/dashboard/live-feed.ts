@@ -18,7 +18,7 @@ export interface LiveFeed {
   leaderboard: LeaderboardEntry[] | null; // null until the server sends one
 }
 
-const MAX_ACTIVITY = 30;
+const MAX_ACTIVITY = 100; // the Live page's card shows the newest few, its expanded view all of them
 
 // The dashboard listens on the overlay's read-only socket, so it sees exactly what the stream sees.
 export function useLiveFeed(overlayToken: string): LiveFeed {
