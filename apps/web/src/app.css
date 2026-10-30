@@ -84,6 +84,13 @@
 .live-main { flex: 999 1 480px; min-width: 0; }
 .live-side { flex: 1 1 300px; max-width: 400px; min-width: 0; }
 .command-more { margin-top: 12px; }
+/* Show more as a divider: a thin line across with the words in the middle, no button outline. */
+.line-expand { display: flex; align-items: center; gap: 10px; width: 100%; padding: 6px 0; border: 0; background: none; color: var(--muted); font: 600 13px var(--font); cursor: pointer; transition: color 0.15s; }
+.line-expand::before, .line-expand::after { content: ''; flex: 1; height: 1px; background: var(--line); transition: background 0.15s; }
+.line-expand:hover { color: var(--ink); }
+.line-expand:hover::before, .line-expand:hover::after { background: var(--line-strong); }
+.line-expand svg { flex: none; margin-left: -4px; transition: transform 0.2s; }
+.line-expand[aria-expanded='true'] svg { transform: rotate(180deg); }
 .command-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(190px, 1fr)); gap: 12px; }
 .command-card { position: relative; padding: 16px; border-radius: 16px; background: var(--panel2); border: 1px solid var(--line); }
 .command-card::before { content: ''; position: absolute; left: 14px; right: 14px; top: 0; height: 2px; border-radius: 0 0 2px 2px; background: var(--edge-gradient); }

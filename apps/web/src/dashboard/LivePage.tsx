@@ -266,7 +266,7 @@ function CommandsOverview({ host, refreshHost, feed }: PageProps) {
         })}
       </div>
       {sorted.length > fits && (
-        <button className="show-more command-more" aria-expanded={expanded} onClick={() => setExpanded(!expanded)}>
+        <button className="line-expand command-more" aria-expanded={expanded} onClick={() => setExpanded(!expanded)}>
           {expanded ? 'Show fewer' : `Show ${sorted.length - fits} more command${sorted.length - fits === 1 ? '' : 's'}`}
           <Icon name="chevron" />
         </button>
