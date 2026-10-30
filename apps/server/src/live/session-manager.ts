@@ -56,6 +56,7 @@ interface LiveSession {
   room: RoomStats; // latest from the platform; empty until it reports
   stats: StreamStatsTracker;
   lastStats: string; // what overlays last got, so unchanged stats aren't resent
+  presses: Map<string, number>; // keyword -> times fired this stream, for the dashboard (a number per command)
 }
 
 export class LiveError extends Error {
@@ -97,6 +98,12 @@ export class SessionManager {
   // The stream being recorded for a host right now, if any.
   currentStreamId(hostId: string): string | null {
     return this.sessions.get(hostId)?.recorder.streamId ?? null;
+  }
+
+  // Presses per command this stream, or null when not live. From memory: no database work.
+  presses(hostId: string): Record<string, number> | null {
+    const session = this.sessions.get(hostId);
+    return session ? Object.fromEntries(session.presses) : null;
   }
 
   // Writes the live stream's recorded events now instead of at the next regular write.
@@ -167,6 +174,7 @@ export class SessionManager {
       room: { viewers: 0, topGifters: [] },
       stats: new StreamStatsTracker(goalRows),
       lastStats: '',
+      presses: new Map(),
     };
     adapter.onEvent((event) => this.onEvent(hostId, session, event));
     adapter.onRoomStats((room) => {
@@ -384,6 +392,7 @@ export class SessionManager {
 
   private fire(hostId: string, session: LiveSession, decision: Decision) {
     this.hub.sendToCompanions(hostId, { type: 'action', action: decision.action });
+    session.presses.set(decision.keyword, (session.presses.get(decision.keyword) ?? 0) + 1);
     // Actions credit nobody; a democracy vote names its tally ("3 votes") rather than a viewer.
     const via = decision.credit.length === 0 ? 'action' : decision.credit.includes(decision.viewer) ? 'chat' : 'vote';
     session.recorder.add('command', via === 'vote' ? null : decision.viewer, { keyword: decision.keyword, via });

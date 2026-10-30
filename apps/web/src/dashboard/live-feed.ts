@@ -11,7 +11,7 @@ export interface Activity {
 
 export interface LiveFeed {
   activity: Activity[];
-  pressed: Record<string, number>; // presses per keyword since this page opened
+  pressed: Record<string, number>; // presses per keyword this stream (or, offline, the last one this page saw)
   perSecond: number; // presses in the last second
   lastPress: string | null; // keyword pressed in the last moment, for a brief highlight
   mode: { state: ModeState; clockOffset: number } | null;
@@ -67,7 +67,12 @@ export function useLiveFeed(overlayToken: string): LiveFeed {
           case 'leaderboard':
             setFeed((f) => ({ ...f, leaderboard: message.entries }));
             break;
+          case 'presses':
+            setFeed((f) => ({ ...f, pressed: message.counts }));
+            break;
           case 'live':
+            // A stream starting counts from zero; on connect, `presses` follows with where it's at.
+            if (message.state === 'started') setFeed((f) => ({ ...f, pressed: {} }));
             if (message.state === 'stopped') setFeed((f) => ({ ...f, mode: null }));
             break;
         }

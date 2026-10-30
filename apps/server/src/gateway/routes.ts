@@ -73,6 +73,9 @@ export async function gatewayRoutes(app: FastifyInstance) {
     const [host] = await db.select({ volume: hosts.ttsVolume }).from(hosts).where(eq(hosts.id, row.hostId));
     socket.send(JSON.stringify({ type: 'speechVolume', volume: host?.volume ?? 100 }));
     for (const message of await app.live.overlaySnapshot(row.hostId)) socket.send(JSON.stringify(message));
+    // The dashboard's command counts pick up where the stream is, so a refresh doesn't start them over.
+    const presses = dashboard && app.live.presses(row.hostId);
+    if (presses) socket.send(JSON.stringify({ type: 'presses', counts: presses }));
     // With the debug log on, overlays report what they do with alerts and speech; otherwise they send nothing.
     if (!app.debug.on) return;
     const who = `${dashboard ? 'dashboard' : 'overlay'} "${row.name}"`;

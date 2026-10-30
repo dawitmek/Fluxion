@@ -614,6 +614,29 @@ describe('actions changed mid-stream', () => {
   });
 });
 
+describe('command counts on the dashboard', () => {
+  it("gives a dashboard that connects mid-stream the stream's presses so far, from memory, and the report counts them exactly", async () => {
+    const { cookie } = await signUp();
+    const me = (await api(cookie, 'GET', '/api/auth/me')).json();
+    await api(cookie, 'POST', '/api/live/start', { source: 'simulated' });
+    for (const viewer of ['a', 'b', 'c']) await api(cookie, 'POST', '/api/live/simulate', { viewer, text: 'jump' });
+    await api(cookie, 'POST', '/api/live/simulate', { viewer: 'a', text: 'w' });
+    // Asked for straight away, before the recording's regular write: the totals are already exact.
+    const report = (await api(cookie, 'GET', '/api/analytics/streams/latest')).json();
+    expect(Object.fromEntries(report.commandUsage.map((u: any) => [u.keyword, u.fired]))).toEqual({ jump: 3, w: 1 });
+
+    const dashboard = connect(`/ws/overlay?token=${me.overlayToken}&dashboard=1`);
+    const overlay = connect(`/ws/overlay?token=${me.overlayToken}`);
+    expect((await dashboard.drain()).filter((m: any) => m.type === 'presses')).toEqual([{ type: 'presses', counts: { jump: 3, w: 1 } }]);
+    expect((await overlay.drain()).filter((m: any) => m.type === 'presses')).toEqual([]);
+    // A new stream starts over.
+    await api(cookie, 'POST', '/api/live/start', { source: 'simulated' });
+    const again = connect(`/ws/overlay?token=${me.overlayToken}&dashboard=1`);
+    expect((await again.drain()).filter((m: any) => m.type === 'presses')).toEqual([{ type: 'presses', counts: {} }]);
+    await api(cookie, 'POST', '/api/live/stop');
+  });
+});
+
 describe('stats per TikTok account', () => {
   it("keeps each account's leaderboard and points apart, and each host's apart on the same account", async () => {
     const play = async (cookie: string, viewer: string) => {

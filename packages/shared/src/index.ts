@@ -284,6 +284,7 @@ export type ServerToOverlay =
   // Drop lines waiting and cut off the one playing: every line when the voice changed (they were made with the old
   // one), only read-aloud chat when reading chat was turned off.
   | { type: 'clearSpeech'; chatOnly?: true }
+  | { type: 'presses'; counts: Record<string, number> } // to the dashboard on connect: the live stream's presses per command
   | { type: 'dropAlerts'; actions: string[] } // these actions were turned off or deleted: drop their alerts and speech
   | { type: 'speechVolume'; volume: number } // percent, for every voice; sent on connect and when the host changes it
   | { type: 'debug' } // the server keeps a debug log: report what happens here (see OverlayToServer)
