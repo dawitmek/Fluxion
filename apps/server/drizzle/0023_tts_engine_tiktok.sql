@@ -1,0 +1,1 @@
+ALTER TABLE "hosts" ALTER COLUMN "tts_engine" SET DEFAULT 'tiktok';

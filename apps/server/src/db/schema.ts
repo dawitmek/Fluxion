@@ -28,7 +28,7 @@ export const hosts = pgTable('hosts', {
   ttsCooldownMs: integer('tts_cooldown_ms').notNull().default(15000), // per viewer
   ttsMinLevel: integer('tts_min_level').notNull().default(1), // only enforced with progression on
   ttsBlockedWords: text('tts_blocked_words').notNull().default(''), // comma-separated
-  ttsEngine: text('tts_engine').$type<TtsEngine>().notNull().default('piper'),
+  ttsEngine: text('tts_engine').$type<TtsEngine>().notNull().default('tiktok'), // falls back to eSpeak until a TikTok session works
   ttsVoice: text('tts_voice'), // browser engine: a browser voice name; null means the overlay's default
   ttsEspeakVoice: text('tts_espeak_voice').notNull().default('en-us'),
   ttsPiperVoice: text('tts_piper_voice'), // a model name; null means the server's first voice

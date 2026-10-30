@@ -2,8 +2,8 @@ import { useCallback, useEffect, useLayoutEffect, useRef, useState, type ChangeE
 import { ACTION_TRIGGERS, ALERT_SOUNDS, AUDIENCES, MAX_KEY_REPEATS, MAX_MEDIA_TOTAL_BYTES, type ServerToOverlay } from '@fluxion/shared';
 import { api, uploadMedia, type Action, type ActionTrigger, type Audience, type Command, type Goal, type Host, type MediaItem, type Screen } from '../api';
 import { playSound } from '../sounds';
-import { Card, ErrorNotice, Scrubber, useError } from '../ui';
-import { Icon } from '../icons';
+import { Card, ErrorNotice, HueIcon, Scrubber, useError, type Hue } from '../ui';
+import { Icon, type IconName } from '../icons';
 import { alertPlace } from '../Overlay';
 import { GiftBus, usePreview } from '../overlay-widgets';
 import { CANVAS, FadedWidgets } from './OverlayPage';
@@ -23,17 +23,18 @@ export function ActionsPage({ host }: PageProps) {
   );
 }
 
-const TRIGGERS: Record<ActionTrigger, { label: string; placeholders: string }> = {
-  follow: { label: 'Follows you', placeholders: '{viewer}' },
-  share: { label: 'Shares the stream', placeholders: '{viewer}' },
-  gift: { label: 'Sends a gift', placeholders: '{viewer}, {gift}, {count}, {coins}' },
-  likes: { label: 'Likes reach a number', placeholders: '{viewer}, {total}, {count}' },
-  join: { label: 'Joins the stream', placeholders: '{viewer}' },
-  subscribe: { label: 'Subscribes', placeholders: '{viewer}, {months}' },
-  emote: { label: 'Sends a subscriber sticker', placeholders: '{viewer}' },
-  command: { label: 'Types a chat command', placeholders: '{viewer}, {text} (what they typed after the command)' },
-  first_activity: { label: 'Does anything for the first time this stream', placeholders: '{viewer}' },
-  goal: { label: 'Reaches a goal', placeholders: '{viewer} (who reached it), {goal}, {target}' },
+// Each trigger's icon and color match the same thing elsewhere: followers sky, gifts amber, goals violet.
+const TRIGGERS: Record<ActionTrigger, { label: string; placeholders: string; icon: IconName; hue: Hue }> = {
+  follow: { label: 'Follows you', placeholders: '{viewer}', icon: 'follower', hue: 'sky' },
+  share: { label: 'Shares the stream', placeholders: '{viewer}', icon: 'share', hue: 'green' },
+  gift: { label: 'Sends a gift', placeholders: '{viewer}, {gift}, {count}, {coins}', icon: 'gift', hue: 'amber' },
+  likes: { label: 'Likes reach a number', placeholders: '{viewer}, {total}, {count}', icon: 'heart', hue: 'pink' },
+  join: { label: 'Joins the stream', placeholders: '{viewer}', icon: 'crowd', hue: 'teal' },
+  subscribe: { label: 'Subscribes', placeholders: '{viewer}, {months}', icon: 'star', hue: 'violet' },
+  emote: { label: 'Sends a subscriber sticker', placeholders: '{viewer}', icon: 'sparkle', hue: 'orange' },
+  command: { label: 'Types a chat command', placeholders: '{viewer}, {text} (what they typed after the command)', icon: 'chat', hue: 'indigo' },
+  first_activity: { label: 'Does anything for the first time this stream', placeholders: '{viewer}', icon: 'bell', hue: 'teal' },
+  goal: { label: 'Reaches a goal', placeholders: '{viewer} (who reached it), {goal}, {target}', icon: 'target', hue: 'violet' },
 };
 
 const AUDIENCE_LABELS: Record<Audience, string> = {
@@ -125,7 +126,7 @@ function ActionsCard({ host, media }: { host: Host; media: MediaItem[] }) {
       }
     >
       <ErrorNotice error={error} />
-      {editing === 'new' && <ActionEditor initial={newDraft()} {...context} onSave={(d) => save(null, d)} onCancel={() => setEditing(null)} />}
+      {editing === 'new' && <ActionEditor title="New action" initial={newDraft()} {...context} onSave={(d) => save(null, d)} onCancel={() => setEditing(null)} />}
       {actions.length === 0 && editing !== 'new' && <p className="empty">No actions yet. Add one to thank followers, react to gifts, or let chat trigger something.</p>}
       <ul className="action-list">
         {actions.map((a) => (
@@ -134,10 +135,17 @@ function ActionsCard({ host, media }: { host: Host; media: MediaItem[] }) {
               <label className="switch">
                 <input type="checkbox" checked={a.enabled} aria-label={`${a.name} on`} onChange={(e) => update(a.id, { enabled: e.target.checked })} />
               </label>
+              <HueIcon name={TRIGGERS[a.trigger].icon} hue={TRIGGERS[a.trigger].hue} />
               <div className="action-summary">
                 <strong>{a.name}</strong>
                 <span className="muted small">{describeWhen(a, goals)}</span>
-                <span className="action-does">{describeDoes(a, commands, media, host).map((d) => <span key={d} className="tag">{d}</span>)}</span>
+                <span className="action-does">
+                  {describeDoes(a, commands, media, host).map(([d, hue]) => (
+                    <span key={d} className={`tag ${hue}`}>
+                      {d}
+                    </span>
+                  ))}
+                </span>
               </div>
               <span className="action-buttons">
                 <button className="btn btn-sm btn-try" onClick={() => test(a.id)} title="Show this alert on your open overlays">
@@ -163,7 +171,7 @@ function ActionsCard({ host, media }: { host: Host; media: MediaItem[] }) {
                 )}
               </p>
             )}
-            {editing === a.id && <ActionEditor initial={a} {...context} onSave={(d) => save(a.id, d)} onCancel={() => setEditing(null)} />}
+            {editing === a.id && <ActionEditor title="Editing" initial={a} {...context} onSave={(d) => save(a.id, d)} onCancel={() => setEditing(null)} />}
           </li>
         ))}
       </ul>
@@ -186,20 +194,23 @@ function describeWhen(a: Action, goals: Goal[]): string {
   return [what, who, a.random ? 'random pick' : '', a.profileId ? 'this profile' : ''].filter(Boolean).join(', ');
 }
 
-function describeDoes(a: Action, commands: Command[], media: MediaItem[], host: Host): string[] {
-  const does: string[] = [];
-  if (a.text) does.push('Alert');
-  if (a.sound) does.push(`Sound: ${a.sound}`);
-  if (a.soundMediaId) does.push(`Sound: ${media.find((m) => m.id === a.soundMediaId)?.name ?? 'file'}`);
-  if (a.mediaId) does.push(media.find((m) => m.id === a.mediaId)?.kind === 'video' ? 'Video' : 'Picture');
-  if (a.speak && a.text) does.push('Read aloud');
+// What an action does, each with its color: alerts pink, sounds violet, pictures sky, voice teal, key presses amber
+// (like the keycaps on the Live page), points green.
+function describeDoes(a: Action, commands: Command[], media: MediaItem[], host: Host): [string, Hue][] {
+  const does: [string, Hue][] = [];
+  if (a.text) does.push(['Alert', 'pink']);
+  if (a.sound) does.push([`Sound: ${a.sound}`, 'violet']);
+  if (a.soundMediaId) does.push([`Sound: ${media.find((m) => m.id === a.soundMediaId)?.name ?? 'file'}`, 'violet']);
+  if (a.mediaId) does.push([media.find((m) => m.id === a.mediaId)?.kind === 'video' ? 'Video' : 'Picture', 'sky']);
+  if (a.speak && a.text) does.push(['Read aloud', 'teal']);
   const command = commands.find((c) => c.id === a.keyCommandId);
-  if (command) does.push(`Presses ${command.keyword}`);
-  if (a.points > 0 && host.points) does.push(`+${a.points.toLocaleString()} points`);
+  if (command) does.push([`Presses ${command.keyword}`, 'amber']);
+  if (a.points > 0 && host.points) does.push([`+${a.points.toLocaleString()} points`, 'green']);
   return does;
 }
 
 function ActionEditor({
+  title,
   initial,
   host,
   commands,
@@ -209,6 +220,7 @@ function ActionEditor({
   onSave,
   onCancel,
 }: {
+  title: string;
   initial: Draft;
   host: Host;
   commands: Command[];
@@ -235,14 +247,21 @@ function ActionEditor({
     set(value.startsWith('file:') ? { sound: null, soundMediaId: value.slice(5) } : { sound: (value || null) as Draft['sound'], soundMediaId: null });
 
   return (
-    <form className="action-editor stack" onSubmit={submit}>
+    <form className="action-editor stack" onSubmit={submit} aria-label={title}>
+      <div className="action-editor-head">
+        <HueIcon name={TRIGGERS[draft.trigger].icon} hue={TRIGGERS[draft.trigger].hue} />
+        <div className="action-editor-title">
+          <h3>{draft.name.trim() || TRIGGERS[draft.trigger].label}</h3>
+          <span className="muted small">{title}</span>
+        </div>
+      </div>
       <ErrorNotice error={error} />
       <label className="field">
         Name
         <input className="input" value={draft.name} maxLength={60} placeholder={TRIGGERS[draft.trigger].label} onChange={(e) => set({ name: e.target.value })} />
       </label>
 
-      <Section title="When a viewer">
+      <Section title="When a viewer" icon={TRIGGERS[draft.trigger].icon} hue={TRIGGERS[draft.trigger].hue}>
         <div className="form-grid">
           <label className="field">
             Does this
@@ -355,12 +374,13 @@ function ActionEditor({
         </label>
       </Section>
 
-      <Section title="Show on stream">
+      <Section title="Show on stream" icon="bell" hue="pink">
         <label className="field">
           Alert text
           <span className="hint">Placeholders: {TRIGGERS[draft.trigger].placeholders}. Empty shows no text.</span>
           <input className="input" maxLength={200} value={draft.text ?? ''} onChange={(e) => set({ text: e.target.value || null })} />
         </label>
+        <AlertPreview draft={draft} media={media} />
         <div className="form-grid">
           <label className="field">
             Sound
@@ -428,7 +448,7 @@ function ActionEditor({
         </label>
       </Section>
 
-      <Section title="Do">
+      <Section title="Do" icon="commands" hue="indigo">
         <div className="form-grid">
           <label className="field">
             Press a command's key
@@ -468,22 +488,47 @@ function ActionEditor({
         )}
       </Section>
 
-      <div className="row">
-        <button className="btn btn-primary">Save action</button>
+      <div className="action-editor-foot">
         <button type="button" className="btn btn-ghost" onClick={onCancel}>
           Cancel
         </button>
+        <button className="btn btn-primary">Save action</button>
       </div>
     </form>
   );
 }
 
-function Section({ title, children }: { title: string; children: ReactNode }) {
+function Section({ title, icon, hue, children }: { title: string; icon: IconName; hue: Hue; children: ReactNode }) {
+  const id = `action-section-${title.toLowerCase().replace(/\W+/g, '-')}`;
   return (
-    <fieldset className="action-section stack">
-      <legend>{title}</legend>
+    <section className="action-section stack" role="group" aria-labelledby={id}>
+      <h4 id={id} className="action-section-title">
+        <HueIcon name={icon} hue={hue} size="sm" />
+        {title}
+      </h4>
       {children}
-    </fieldset>
+    </section>
+  );
+}
+
+// The alert as it looks on stream, with sample names in its placeholders, over a stand-in for the stream. Its place
+// and size are set with Place and size.
+function AlertPreview({ draft, media }: { draft: Draft; media: MediaItem[] }) {
+  const file = media.find((m) => m.id === draft.mediaId);
+  const text = draft.text ? sampleText(draft.text) : '';
+  return (
+    <div className="alert-preview" aria-label="Alert preview">
+      {text || file ? (
+        <div className={`overlay-alert ${text ? '' : 'media-only'}`}>
+          {file?.kind === 'image' && <img className="overlay-alert-media" src={`/media/${file.id}`} alt="" />}
+          {file?.kind === 'video' && <video className="overlay-alert-media" src={`/media/${file.id}`} muted autoPlay loop playsInline />}
+          {text}
+        </div>
+      ) : (
+        <span className="alert-preview-empty">No text or picture, so nothing shows. A sound or voice still plays.</span>
+      )}
+      <span className="alert-preview-note">Preview, with sample names</span>
+    </div>
   );
 }
 

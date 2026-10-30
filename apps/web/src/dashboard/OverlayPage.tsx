@@ -197,7 +197,7 @@ function WidgetsEditor({ widgets, goals, scale, onSave }: { widgets: ScreenWidge
           index={positioning === 'all' ? null : positioning}
           goals={goals}
           scale={scale}
-          onSave={(next) => (onSave(next), setPositioning(null))}
+          onSave={onSave}
           onClose={() => setPositioning(null)}
         />
       )}
@@ -321,12 +321,17 @@ function PositionDialog({
   onSave: (widgets: ScreenWidget[]) => void;
   onClose: () => void;
 }) {
+  // Saving keeps the window open, and a save can reorder the screen's list (snapping moves a widget to the end of its
+  // spot), so `index` means the list as it was when the window opened.
+  const [opened] = useState(widgets);
   const [draft, setDraft] = useState<ScreenWidget[]>(widgets);
+  const [saved, setSaved] = useState<ScreenWidget[]>(widgets); // what the screen has now
+  const changed = draft !== saved;
   // By key, not place in the list: snapping to a spot moves a widget to the end.
-  const movable = (w: ScreenWidget) => (index === null ? w.type !== 'firework' : widgetKey(w) === widgetKey(widgets[index]!));
-  const [picked, setPicked] = useState(() => widgetKey(widgets[index ?? widgets.findIndex((w) => w.type !== 'firework')] ?? widgets[0]!));
-  const info = index === null ? { label: 'Every widget', icon: 'layout' as const, hue: 'indigo' as const } : widgetInfo(widgets[index]!, goals);
-  const fixedPlace = index !== null && widgets[index]!.type === 'firework';
+  const movable = (w: ScreenWidget) => (index === null ? w.type !== 'firework' : widgetKey(w) === widgetKey(opened[index]!));
+  const [picked, setPicked] = useState(() => widgetKey(opened[index ?? opened.findIndex((w) => w.type !== 'firework')] ?? opened[0]!));
+  const info = index === null ? { label: 'Every widget', icon: 'layout' as const, hue: 'indigo' as const } : widgetInfo(opened[index]!, goals);
+  const fixedPlace = index !== null && opened[index]!.type === 'firework';
   const dialog = useRef<HTMLDialogElement>(null);
   const stage = useRef<HTMLDivElement>(null);
   const [fit, setFit] = useState(0.4); // canvas pixels to stage pixels
@@ -370,7 +375,7 @@ function PositionDialog({
   };
   const snap = (spot: WidgetSpot) => setDraft((d) => moveToSpot(d, d.findIndex((w) => widgetKey(w) === picked), spot));
 
-  const own = new Set(widgets.map((w) => w.goalId).filter(Boolean));
+  const own = new Set(opened.map((w) => w.goalId).filter(Boolean));
   const statsFor = (w: ScreenWidget) => (w.type === 'goals' && !w.goalId && stats ? { ...stats, goals: stats.goals.filter((g) => !own.has(g.id)) } : stats);
   const draw = (w: ScreenWidget) => <Widget widget={w} stats={statsFor(w)} chat={chat} bus={bus} />;
   // The ones to move, outlined, the one picked brightest; anything else faded, where it sits on stream.
@@ -414,7 +419,7 @@ function PositionDialog({
       <div className="pos-stage" ref={stage} style={{ aspectRatio: `${CANVAS.width} / ${CANVAS.height}` }}>
         <div className="pos-canvas" style={{ ...CANVAS, transform: `scale(${fit})` }}>
           <div className="overlay-screen" style={{ '--overlay-scale': scale / 100 } as CSSProperties}>
-            {fixedPlace && <Fireworks min={widgets[index]!.minDiamonds ?? DEFAULT_FIREWORK_DIAMONDS} bus={bus} />}
+            {fixedPlace && <Fireworks min={opened[index]!.minDiamonds ?? DEFAULT_FIREWORK_DIAMONDS} bus={bus} />}
             {WIDGET_SPOTS.map((s) => (
               <div key={s} className={`overlay-spot spot-${s}`}>
                 {spots[s]}
@@ -439,10 +444,10 @@ function PositionDialog({
           </span>
           <span className="spacer" />
           <button className="btn btn-ghost" onClick={() => dialog.current?.close()}>
-            Cancel
+            {changed ? 'Cancel' : 'Close'}
           </button>
-          <button className="btn btn-primary" onClick={() => onSave(draft)}>
-            {index === null ? 'Save positions' : 'Save position'}
+          <button className="btn btn-primary" disabled={!changed} onClick={() => (onSave(draft), setSaved(draft))}>
+            {!changed && saved !== opened ? 'Saved' : index === null ? 'Save positions' : 'Save position'}
           </button>
         </div>
       )}

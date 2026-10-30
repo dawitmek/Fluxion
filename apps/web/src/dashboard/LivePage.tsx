@@ -391,17 +391,21 @@ const ACTIVITY_HUES: Record<ActivityKind, string> = { Key: 'indigo', Alert: 'pin
 
 function ActivityCard({ feed }: PageProps) {
   const [expanded, setExpanded] = useState(false);
+  // A click anywhere on the card expands it; the button is there for the keyboard. The dialog sits outside the card,
+  // so clicks inside it (closing it, say) don't reach the card and open it again.
   return (
-    <section className="card" aria-labelledby="live-activity">
-      <div className="mode-card-head" style={{ marginBottom: 6 }}>
-        <h2 id="live-activity">Activity</h2>
-        <button className="btn btn-ghost btn-sm btn-icon" title="Expand" aria-label="Expand activity" onClick={() => setExpanded(true)}>
-          <Icon name="expand" />
-        </button>
-      </div>
-      <ActivityList items={feed.activity.slice(0, 8)} />
+    <>
+      <section className="card card-clickable" aria-labelledby="live-activity" onClick={() => setExpanded(true)}>
+        <div className="mode-card-head" style={{ marginBottom: 6 }}>
+          <h2 id="live-activity">Activity</h2>
+          <button className="btn btn-ghost btn-sm btn-icon" title="Expand" aria-label="Expand activity">
+            <Icon name="expand" />
+          </button>
+        </div>
+        <ActivityList items={feed.activity.slice(0, 8)} />
+      </section>
       {expanded && <ActivityDialog feed={feed} onClose={() => setExpanded(false)} />}
-    </section>
+    </>
   );
 }
 

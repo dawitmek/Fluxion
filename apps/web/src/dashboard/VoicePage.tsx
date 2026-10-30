@@ -20,9 +20,9 @@ export function useVoices() {
 }
 
 export const ENGINES: [TtsEngine, string, string][] = [
+  ['tiktok', 'TikTok voices', "TikTok's own voices, through your TikTok account. Unofficial: TikTok may change or block it."],
   ['piper', 'Piper (server)', 'Natural offline voices made on the Fluxion server. Plays through OBS.'],
   ['espeak', 'eSpeak (overlay)', 'Robotic voice made inside the overlay, many languages. Plays through OBS.'],
-  ['tiktok', 'TikTok voices', "TikTok's own voices, through your TikTok account. Unofficial: TikTok may change or block it."],
   ['cloud', 'Your cloud key', 'Google, Azure or ElevenLabs with your own API key (you pay them). Plays through OBS.'],
   ['browser', 'Browser voices', "The streaming PC's built-in voices. Plays outside OBS's mixer; capture Desktop Audio."],
 ];
@@ -229,27 +229,6 @@ function VoiceCard({
                   ))}
                 </select>
               </label>
-              {host.ttsTiktokConnected ? (
-                <div className="field">
-                  TikTok account
-                  <span className="row" style={{ flexWrap: 'nowrap' }}>
-                    <span className="tag green">Your account</span>
-                    <button className="btn btn-ghost" onClick={() => save({ ttsTiktokSession: null })}>
-                      Sign out
-                    </button>
-                  </span>
-                </div>
-              ) : (
-                options.tiktokServerAccount && (
-                  <div className="field">
-                    TikTok account
-                    <span className="hint">To use your own instead, sign in to TikTok from the companion app.</span>
-                    <span className="row">
-                      <span className="tag green">This server&apos;s account</span>
-                    </span>
-                  </div>
-                )
-              )}
             </>
           )}
           {(host.ttsEngine === 'espeak' || piperMissing || host.ttsEngine === 'cloud' || host.ttsEngine === 'tiktok') && (

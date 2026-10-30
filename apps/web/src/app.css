@@ -95,8 +95,10 @@
 .command-card { position: relative; padding: 16px; border-radius: 16px; background: var(--panel2); border: 1px solid var(--line); }
 .command-card::before { content: ''; position: absolute; left: 14px; right: 14px; top: 0; height: 2px; border-radius: 0 0 2px 2px; background: var(--edge-gradient); }
 .command-card .kbd { transition: transform 0.12s, background 0.12s, color 0.12s; }
+/* The key a command presses, as a bright amber keycap: nothing else on the card is amber, so it reads at a glance. */
+.command-card .kbd { background: var(--amber-fill); border-color: #b8770f; color: #2a1a02; }
 .command-card.fired { border-color: rgba(129, 140, 248, 0.6); box-shadow: 0 0 0 3px rgba(99, 102, 241, 0.18); }
-.command-card.fired .kbd { transform: translateY(2px); border-bottom-width: 1px; background: var(--indigo-fill); color: #fff; }
+.command-card.fired .kbd { transform: translateY(2px); border-bottom-width: 1px; background: #ffd27a; color: #2a1a02; }
 .command-top { display: flex; justify-content: space-between; align-items: center; gap: 8px; }
 .command-keyword { font-weight: 600; font-size: 17px; letter-spacing: -0.01em; overflow: hidden; text-overflow: ellipsis; }
 .command-used { display: flex; justify-content: space-between; font-size: 13px; font-weight: 600; margin: 12px 0 5px; }
@@ -270,6 +272,8 @@ fieldset:disabled * { cursor: not-allowed; }
 .activity-feed.in-window .activity-list time { grid-row: auto; }
 .activity-feed.in-window .activity-body { margin-top: 12px; }
 /* The Live page's Activity card, expanded over the page. */
+.card-clickable { cursor: pointer; transition: border-color 0.15s; }
+.card-clickable:hover { border-color: var(--line-strong); }
 .activity-dialog { width: min(640px, calc(100vw - 32px)); max-width: none; max-height: min(760px, calc(100vh - 48px)); padding: 20px; border: 1px solid var(--line-strong); border-radius: 18px; background: var(--panel); color: var(--ink); box-sizing: border-box; }
 .activity-dialog::backdrop { background: rgba(5, 6, 10, 0.65); }
 .activity-dialog[open] { display: flex; flex-direction: column; gap: 14px; }
@@ -334,14 +338,25 @@ fieldset:disabled * { cursor: not-allowed; }
 .action-list { list-style: none; margin: 0; padding: 0; }
 .action-list > li { border-bottom: 1px solid var(--line); }
 .action-list > li:last-child { border-bottom: 0; }
-.action-list > li.off .action-summary { opacity: 0.55; }
+.action-list > li.off .action-summary, .action-list > li.off .action-row > .hue-icon { opacity: 0.55; }
 .action-row { display: flex; align-items: center; gap: 14px; padding: 12px 0; }
 .action-summary { flex: 1; min-width: 0; display: flex; flex-direction: column; gap: 4px; }
 .action-does { display: flex; flex-wrap: wrap; gap: 6px; }
 .action-buttons { display: flex; gap: 6px; flex: none; }
-.action-editor { padding: 16px; margin: 4px 0 16px; border: 1px solid var(--line); border-radius: 14px; background: var(--panel2); }
-.action-section { margin: 0; padding: 0; border: 0; min-width: 0; }
-.action-section > legend { padding: 0; margin-bottom: 10px; font-weight: 700; font-size: 15px; }
+.action-editor { padding: 20px; margin: 4px 0 16px; border: 1px solid var(--line-strong); border-radius: 16px; background: var(--panel2); }
+.action-editor-head { display: flex; align-items: center; gap: 12px; }
+.action-editor-title { display: flex; flex-direction: column; gap: 2px; min-width: 0; }
+.action-editor-title h3 { font-size: 18px; }
+/* Each part of an action in a panel of its own, under an icon heading. */
+.action-section { min-width: 0; padding: 16px; border: 1px solid var(--line); border-radius: 14px; background: var(--panel); }
+.action-section-title { display: flex; align-items: center; gap: 10px; margin: 0; font-size: 15px; font-weight: 700; }
+.action-editor-foot { display: flex; justify-content: flex-end; gap: 8px; padding-top: 4px; }
+/* The alert as it looks on stream, at a smaller size, over a stand-in for the stream. */
+.alert-preview { position: relative; display: grid; place-items: center; min-height: 150px; padding: 28px 20px; overflow: hidden; border-radius: 12px; background: linear-gradient(135deg, #2b3a4a, #47344f); }
+.alert-preview .overlay-alert { position: relative; top: auto; left: auto; max-width: 100%; padding: 12px 22px; border-radius: 14px; font-size: 22px; transform: none; animation: none; overflow-wrap: anywhere; }
+.alert-preview .overlay-alert-media { max-width: 220px; max-height: 120px; margin-bottom: 8px; }
+.alert-preview-empty { color: rgba(255, 255, 255, 0.7); font-size: 13px; text-align: center; }
+.alert-preview-note { position: absolute; right: 10px; bottom: 8px; color: rgba(255, 255, 255, 0.55); font-size: 11px; }
 @media (max-width: 640px) {
   .action-row { flex-wrap: wrap; }
   .action-buttons { width: 100%; justify-content: flex-end; }
