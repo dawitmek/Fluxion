@@ -105,7 +105,7 @@
 /* The key a command presses, with a gold edge and gold letters, so it stands apart from the card's indigo and blue. */
 .command-card .kbd { background: var(--gold-key-bg); border-color: var(--gold-key-edge); color: var(--gold-key-ink); }
 .command-card.fired { border-color: color-mix(in srgb, var(--indigo-fill) 60%, transparent); box-shadow: 0 0 0 3px var(--indigo-soft); }
-.command-card.fired .kbd { transform: translateY(2px); border-bottom-width: 1px; background: var(--indigo-fill); color: #fff; }
+.command-card.fired .kbd { transform: translateY(2px); border-bottom-width: 1px; background: var(--indigo-fill); color: var(--accent-ink); }
 .command-top { display: flex; justify-content: space-between; align-items: center; gap: 8px; }
 .command-keyword { font-weight: 600; font-size: 17px; letter-spacing: -0.01em; overflow: hidden; text-overflow: ellipsis; }
 .command-used { display: flex; justify-content: space-between; font-size: 13px; font-weight: 600; margin: 12px 0 5px; }

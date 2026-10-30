@@ -62,6 +62,7 @@
   --radius-pill: 999px;
   /* The chosen option in segmented controls, and the purple glow of a picked choice. */
   --accent-gradient: linear-gradient(180deg, #7174ff, #5357ec);
+  --accent-ink: #fff; /* text on the accent: the chosen segment, a pressed key, a switch's knob when on */
   --accent-shadow: rgba(83, 87, 236, 0.9);
   --glow-rgb: 168, 85, 247;
   /* The dashboard's sidebar, dark in both light and dark mode. */
@@ -196,6 +197,7 @@ select.input, .field select { padding-right: 32px; }
 .switch input { appearance: none; flex: none; position: relative; width: 38px; height: 22px; margin: 0; border-radius: 999px; background: var(--meter); cursor: pointer; transition: background 0.15s; }
 .switch input::after { content: ''; position: absolute; top: 3px; left: 3px; width: 16px; height: 16px; border-radius: 50%; background: #fff; box-shadow: 0 1px 3px rgba(0, 0, 0, 0.25); transition: transform 0.15s; }
 .switch input:checked { background: var(--indigo-fill); }
+.switch input:checked::after { background: var(--accent-ink); }
 .switch input:checked::after { transform: translateX(16px); }
 .switch input:disabled { opacity: 0.5; cursor: default; }
 .switch > span { padding-top: 1px; }
@@ -205,7 +207,7 @@ select.input, .field select { padding-right: 32px; }
 .seg { display: inline-flex; flex-wrap: wrap; gap: 4px; padding: 4px; border-radius: calc(14px * var(--radius-scale)); background: var(--panel2); border: 1px solid var(--line); max-width: 100%; box-sizing: border-box; }
 .seg button { min-height: 36px; padding: 0 16px; border: 0; border-radius: calc(10px * var(--radius-scale)); background: transparent; color: var(--muted); font: 600 14px var(--font); cursor: pointer; }
 .seg button:hover { color: var(--ink); }
-.seg button[aria-checked='true'] { color: #fff; background: var(--accent-gradient); box-shadow: 0 6px 16px -8px var(--accent-shadow); }
+.seg button[aria-checked='true'] { color: var(--accent-ink); background: var(--accent-gradient); box-shadow: 0 6px 16px -8px var(--accent-shadow); }
 /* Seg (ui.tsx): the highlight is one element that slides between options instead of each button's background. */
 .seg.sliding { position: relative; }
 /* In a form field, a segmented control fills the field and stands as tall as the inputs beside it. */

@@ -275,6 +275,7 @@ export const DEFAULT_ALERT_STYLE = ALERT_PRESETS[0]!.style;
 export const UI_THEMES = [
   { id: 'default', label: 'Default' },
   { id: 'solar-dusk', label: 'Solar Dusk' },
+  { id: 'graphite-mono', label: 'Graphite Mono' },
 ] as const;
 export type UiTheme = (typeof UI_THEMES)[number]['id'];
 export type UiThemeStyle = 'full' | 'colors';

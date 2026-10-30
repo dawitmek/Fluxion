@@ -62,6 +62,7 @@ export function SettingsPage({ host, refreshHost }: PageProps) {
 const SWATCHES: Record<UiTheme, { light: string[]; dark: string[]; note: string }> = {
   default: { light: ['#f6f6f9', '#ffffff', '#5b5fef', '#e5469a'], dark: ['#07080c', '#141720', '#6366f1', '#a855f7'], note: 'Indigo and plasma, with Geist.' },
   'solar-dusk': { light: ['#fdfbf7', '#f1e9da', '#b45309', '#ca8a04'], dark: ['#1c1917', '#292524', '#f97316', '#0ea5e9'], note: 'Parchment and amber, with Oxanium and sharp corners.' },
+  'graphite-mono': { light: ['#ffffff', '#f0f0f0', '#171717', '#3b82f6'], dark: ['#171717', '#262626', '#e5e5e5', '#3b82f6'], note: 'Black, white and grays with a blue accent, with DM Sans and soft corners.' },
 };
 
 // The dashboard's and companion's look. Applies at once, here and on the paired companions.
