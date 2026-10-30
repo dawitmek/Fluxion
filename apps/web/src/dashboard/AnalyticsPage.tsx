@@ -100,11 +100,11 @@ function Trends({ streams }: { streams: StreamSummary[] }) {
           />
         </div>
         <div>
-          <h3>Diamonds received</h3>
-          <p className="muted small">Gifts' total diamond value, per stream.</p>
+          <h3>Coins received</h3>
+          <p className="muted small">Gifts' total value in coins, per stream.</p>
           <ColumnChart
-            caption="Diamonds per stream"
-            series={[{ name: 'Diamonds', slot: 1 }]}
+            caption="Coins per stream"
+            series={[{ name: 'Coins', slot: 1 }]}
             columns={recent.map((s, i) => ({ label: longDate(s.startedAt), tick: tick(i, s), values: [s.diamonds], extra: [`${number(s.gifts)} gifts`] }))}
           />
         </div>
@@ -137,7 +137,7 @@ function StreamList({
               <th>New</th>
               <th>Chat</th>
               <th>Key presses</th>
-              <th>Diamonds</th>
+              <th>Coins</th>
               <th>Top command</th>
             </tr>
           </thead>
@@ -181,7 +181,7 @@ function StreamReport({ summary, status }: { summary: StreamSummary; status: Liv
           <Stat label="Took part" value={number(s.participants)} note={`${number(s.newParticipants)} new`} />
           <Stat label="Joined" value={number(s.joins)} note="viewers" />
           <Stat label="Key presses" value={number(s.commands)} note={s.topCommand ? `mostly ${s.topCommand}` : undefined} />
-          <Stat label="Diamonds" value={number(s.diamonds)} note={`${number(s.gifts)} gifts`} />
+          <Stat label="Coins" value={number(s.diamonds)} note={`${number(s.gifts)} gifts`} />
           <Stat label="New followers" value={number(s.follows)} />
           <div className="stat-tile">
             <span className="muted small">Top player</span>
@@ -200,7 +200,7 @@ function StreamReport({ summary, status }: { summary: StreamSummary; status: Liv
         </Card>
       </div>
       <div className="analytics-grid">
-        <Card title="Gifts" description="What viewers sent, by total diamonds.">
+        <Card title="Gifts" description="What viewers sent, by total coins.">
           <Gifts detail={detail} />
         </Card>
         <Card title="Crowd modes" description="Votes in democracy, and the line in queue mode.">
@@ -249,17 +249,17 @@ function Gifts({ detail }: { detail: StreamDetail }) {
   return (
     <div className="stack">
       <BarList
-        caption="Diamonds by gift"
-        series={[{ name: 'Diamonds', slot: 1 }]}
+        caption="Coins by gift"
+        series={[{ name: 'Coins', slot: 1 }]}
         rows={byGift.slice(0, 8).map((g) => ({ label: g.gift, values: [g.diamonds], value: `${number(g.diamonds)} (${number(g.count)} sent)` }))}
       />
       {perHour.length > 1 && (
         <>
-          <h3>Diamonds per hour</h3>
+          <h3>Coins per hour</h3>
           <ColumnChart
-            caption="Diamonds per hour of the stream"
+            caption="Coins per hour of the stream"
             height={110}
-            series={[{ name: 'Diamonds', slot: 1 }]}
+            series={[{ name: 'Coins', slot: 1 }]}
             columns={perHour.map((h) => ({ label: `Hour ${h.hour + 1}`, tick: `Hour ${h.hour + 1}`, values: [h.diamonds] }))}
           />
         </>

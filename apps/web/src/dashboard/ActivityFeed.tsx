@@ -33,8 +33,8 @@ export function describeEvent(e: StreamEvent): string {
       return String(e.data.text);
     case 'gift': {
       const count = Number(e.data.count);
-      const diamonds = count * Number(e.data.diamonds);
-      return `sent ${count > 1 ? `${count}× ` : ''}${String(e.data.gift)} (${diamonds} diamond${diamonds === 1 ? '' : 's'})`;
+      const coins = count * Number(e.data.diamonds);
+      return `sent ${count > 1 ? `${count}× ` : ''}${String(e.data.gift)} (${coins} coin${coins === 1 ? '' : 's'})`;
     }
     case 'like':
       return `liked the stream${Number(e.data.count) > 1 ? ` ×${e.data.count}` : ''}`;

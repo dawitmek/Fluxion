@@ -25,14 +25,14 @@ function useGifts(bus: GiftBus, onGift: (gift: GiftEvent) => void) {
 }
 
 const number = (n: number) => n.toLocaleString();
-const METRIC_UNITS = { likes: 'likes', follows: 'follows', shares: 'shares', diamonds: 'diamonds', subscriptions: 'subs' } as const;
+const METRIC_UNITS = { likes: 'likes', follows: 'follows', shares: 'shares', diamonds: 'coins', subscriptions: 'subs' } as const;
 // Each widget has one accent (a tone- class in overlay.css), the same as its icon on the dashboard.
 type Tone = 'amber' | 'orange' | 'sky' | 'indigo' | 'teal' | 'violet' | 'pink' | 'green';
 const METRIC_LOOK: Record<GoalMetric, { icon: IconName; tone: Tone }> = {
   likes: { icon: 'heart', tone: 'pink' },
   follows: { icon: 'follower', tone: 'sky' },
   shares: { icon: 'share', tone: 'green' },
-  diamonds: { icon: 'diamond', tone: 'amber' },
+  diamonds: { icon: 'coin', tone: 'amber' },
   subscriptions: { icon: 'star', tone: 'violet' },
 };
 
@@ -48,7 +48,7 @@ export function Widget({ widget, stats, chat, bus }: { widget: ScreenWidget; sta
     }
     case 'top_gift':
       return stats?.topGift ? (
-        <Highlight title="Top gift" icon="trophy" tone="amber" viewer={stats.topGift.viewer} detail={`${stats.topGift.gift}, ${number(stats.topGift.diamonds)} diamonds`} />
+        <Highlight title="Top gift" icon="trophy" tone="amber" viewer={stats.topGift.viewer} detail={`${stats.topGift.gift}, ${number(stats.topGift.diamonds)} coins`} />
       ) : null;
     case 'top_streak':
       return stats?.topStreak ? (
@@ -161,7 +161,7 @@ function Stats({ stats }: { stats: StreamStats }) {
     ['Viewers', stats.viewers, 'eye', 'teal'],
     ['Likes', stats.likes, 'heart', 'pink'],
     ['Follows', stats.follows, 'follower', 'sky'],
-    ['Diamonds', stats.diamonds, 'diamond', 'amber'],
+    ['Coins', stats.diamonds, 'coin', 'amber'],
   ];
   return (
     <div className="overlay-panel w-stats tone-teal">
@@ -219,7 +219,7 @@ function CoinJar({ diamonds, target, bus }: { diamonds: number; target: number; 
         ))}
       </div>
       <div className="w-jar-label">
-        <strong>{number(diamonds)}</strong> / {number(target)} diamonds
+        <strong>{number(diamonds)}</strong> / {number(target)} coins
       </div>
     </div>
   );

@@ -54,9 +54,9 @@ const WIDGETS: Record<WidgetType, { label: string; help: string; spot: WidgetSpo
   top_streak: { label: 'Longest streak', help: 'The biggest gift combo so far.', spot: 'top-right', icon: 'flame', hue: 'orange' },
   last_follower: { label: 'Latest follower', help: 'Who followed last.', spot: 'bottom-right', icon: 'follower', hue: 'sky' },
   last_gifter: { label: 'Latest gift', help: 'Who sent the last gift, and what.', spot: 'bottom-right', icon: 'gift', hue: 'amber' },
-  stats: { label: 'Stream stats', help: 'Viewers, likes, follows and diamonds this stream.', spot: 'top', icon: 'analytics', hue: 'teal' },
+  stats: { label: 'Stream stats', help: 'Viewers, likes, follows and coins this stream.', spot: 'top', icon: 'analytics', hue: 'teal' },
   chat: { label: 'Chat', help: 'The last few chat messages.', spot: 'bottom-right', icon: 'chat', hue: 'indigo' },
-  coin_jar: { label: 'Coin jar', help: 'Gifts drop coins into a jar that fills toward a diamond target.', spot: 'bottom-right', icon: 'coin', hue: 'amber' },
+  coin_jar: { label: 'Coin jar', help: 'Gifts drop coins into a jar that fills toward a target.', spot: 'bottom-right', icon: 'coin', hue: 'amber' },
   firework: { label: 'Gift fireworks', help: 'Fireworks across the screen for big gifts.', spot: 'top', icon: 'sparkle', hue: 'pink' },
 };
 const SPOT_LABELS: Record<WidgetSpot, string> = {
@@ -134,10 +134,10 @@ function WidgetsEditor({ widgets, goals, scale, onSave }: { widgets: ScreenWidge
                       value={w.minDiamonds ?? (w.type === 'firework' ? 100 : 1000)}
                       min={1}
                       max={10_000_000}
-                      label={w.type === 'firework' ? 'Fireworks for gifts worth at least, in diamonds' : 'Diamonds that fill the jar'}
+                      label={w.type === 'firework' ? 'Fireworks for gifts worth at least, in coins' : 'Coins that fill the jar'}
                       onSave={(minDiamonds) => change(i, { minDiamonds })}
                     />
-                    <span className="muted small">diamonds</span>
+                    <span className="muted small">coins</span>
                   </label>
                 ) : null}
                 <button
@@ -398,11 +398,11 @@ function PreviewStage({ widget, feed, compact }: { widget: ScreenWidget; feed: P
         <Widget widget={widget} stats={feed.stats} chat={feed.chat} bus={feed.bus} />
       )}
       {widget.type === 'goals' && goals?.length === 0 && <p className="widget-stage-empty">Add a goal in the Goals card to see it here.</p>}
-      {widget.type === 'firework' && compact && <p className="widget-stage-empty">For gifts worth {(widget.minDiamonds ?? DEFAULT_FIREWORK_DIAMONDS).toLocaleString()}+ diamonds</p>}
+      {widget.type === 'firework' && compact && <p className="widget-stage-empty">For gifts worth {(widget.minDiamonds ?? DEFAULT_FIREWORK_DIAMONDS).toLocaleString()}+ coins</p>}
       {!compact && (
         <span className="widget-stage-note">
           {widget.type === 'firework'
-            ? `Sample gifts of up to 1,500 diamonds. Only those worth ${(widget.minDiamonds ?? DEFAULT_FIREWORK_DIAMONDS).toLocaleString()} or more set off fireworks.`
+            ? `Sample gifts of up to 1,500 coins. Only those worth ${(widget.minDiamonds ?? DEFAULT_FIREWORK_DIAMONDS).toLocaleString()} or more set off fireworks.`
             : 'Sample viewers and gifts'}
         </span>
       )}
@@ -456,12 +456,12 @@ function WidgetPicker({ options, goals, onAdd }: { options: WidgetChoice[]; goal
   );
 }
 
-const METRIC_LABELS: Record<GoalMetric, string> = { likes: 'Likes', follows: 'Follows', shares: 'Shares', diamonds: 'Diamonds', subscriptions: 'Subscriptions' };
+const METRIC_LABELS: Record<GoalMetric, string> = { likes: 'Likes', follows: 'Follows', shares: 'Shares', diamonds: 'Coins', subscriptions: 'Subscriptions' };
 const METRIC_ICONS: Record<GoalMetric, { icon: IconName; hue: Hue }> = {
   likes: { icon: 'heart', hue: 'pink' },
   follows: { icon: 'follower', hue: 'sky' },
   shares: { icon: 'share', hue: 'green' },
-  diamonds: { icon: 'diamond', hue: 'amber' },
+  diamonds: { icon: 'coin', hue: 'amber' },
   subscriptions: { icon: 'star', hue: 'violet' },
 };
 

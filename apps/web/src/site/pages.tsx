@@ -56,7 +56,7 @@ const FEATURES: { title: string; text: string; points: string[]; art: ReactNode 
     title: 'Levels and a leaderboard',
     text: 'Give regulars something to work towards.',
     points: [
-      'Viewers earn 1 XP per command that presses a key, plus each gift’s diamond value.',
+      'Viewers earn 1 XP per command that presses a key, plus each gift’s value in coins.',
       'Level-ups get a shout-out on the overlay.',
       'Optional level requirements per command, off unless you turn them on.',
       'Show the top players on stream, and reset the board whenever you like.',

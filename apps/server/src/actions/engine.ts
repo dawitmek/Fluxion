@@ -176,7 +176,9 @@ export function createActions(ctx: ActionContext) {
         return [...found, ...all(on('subscribe'))];
       case 'gift': {
         const gift = event.giftName.trim().toLowerCase();
-        Object.assign(values, { count: event.count, gift: event.giftName, diamonds: event.count * event.diamonds });
+        // {coins} is the placeholder the dashboard shows; {diamonds} still works in text written before the rename.
+        const coins = event.count * event.diamonds;
+        Object.assign(values, { count: event.count, gift: event.giftName, coins, diamonds: coins });
         const candidates = on('gift').filter(
           (a) => (a.giftName === null || a.giftName === gift) && (a.minDiamonds === null || event.count * event.diamonds >= a.minDiamonds),
         );

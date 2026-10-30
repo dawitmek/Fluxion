@@ -45,12 +45,12 @@ TikTok LIVE chat ──▶ Fluxion server ──▶ Companion app on your gaming
   - goal bars
   - top gift and longest streak
   - latest follower and latest gift
-  - stream stats (viewers, likes, follows, diamonds)
+  - stream stats (viewers, likes, follows, coins)
   - chat
-  - a coin jar that fills with diamonds
+  - a coin jar that fills with coins
   - fireworks for big gifts
 
-  Goals count a stream's likes, follows, shares, diamonds or subscriptions, and reaching one can trigger an action.
+  Goals count a stream's likes, follows, shares, coins or subscriptions, and reaching one can trigger an action.
 - **Points:** viewers earn points for chatting, gifts, follows and shares, and spend them on commands that cost
   points. `!points` shows a balance on the overlay when you allow it.
 - **Text-to-speech:** read prefixed comments, alerts or all of chat. The engines are:
@@ -67,7 +67,7 @@ TikTok LIVE chat ──▶ Fluxion server ──▶ Companion app on your gaming
   process automatically.
 - **Activity and analytics:** a full feed of everything viewers did during a stream (chat, gifts, joins, follows,
   shares, likes, subscriptions and stickers), and an Analytics page with trends across streams. It covers new and returning viewers,
-  diamonds, how often each command fired or was refused, peak moments, gifts, and vote and queue stats.
+  coins, how often each command fired or was refused, peak moments, gifts, and vote and queue stats.
 - **Test mode:** type as a pretend viewer and watch the keys press before you go live.
 
 ## Safety

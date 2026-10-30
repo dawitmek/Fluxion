@@ -28,7 +28,7 @@ function LeaderboardCard({ host, live }: { host: Host; live: LeaderboardEntry[] 
   return (
     <Card
       title="Leaderboard"
-      description={`${host.tiktokUsername ? `For @${host.tiktokUsername.replace(/^@/, '')}. Each TikTok account you set has its own leaderboard and points. ` : ''}Commands that pressed a key and gifts sent, per viewer, ranked by XP (1 per command plus gift diamonds). Updates every few seconds.`}
+      description={`${host.tiktokUsername ? `For @${host.tiktokUsername.replace(/^@/, '')}. Each TikTok account you set has its own leaderboard and points. ` : ''}Commands that pressed a key and gifts sent, per viewer, ranked by XP (1 per command plus gift coins). Updates every few seconds.`}
       actions={
         <button
           className="btn btn-ghost"
@@ -83,7 +83,7 @@ function LeaderboardCard({ host, live }: { host: Host; live: LeaderboardEntry[] 
 
 const EARNING = [
   ['pointsPerChat', 'For chatting', 'At most once a minute per viewer.'],
-  ['pointsPerDiamond', 'Per gift diamond', 'A 5-diamond gift at 10 is 50 points.'],
+  ['pointsPerDiamond', 'Per gift coin', 'A 5-coin gift at 10 is 50 points.'],
   ['pointsPerFollow', 'For following', 'Each time TikTok reports a follow.'],
   ['pointsPerShare', 'For sharing', 'Each time they share the stream.'],
 ] as const;
@@ -142,7 +142,7 @@ function ProgressionCard({ host, refreshHost }: { host: Host; refreshHost: () =>
   return (
     <Card
       title="Viewer levels"
-      description={`Viewers earn XP on your streams: 1 per command that presses a key, plus each gift's diamond value. Level 2 takes ${xpForLevel(2)} XP, level 3 ${xpForLevel(3)}, level 5 ${xpForLevel(5)}, level 10 ${xpForLevel(10)}.`}
+      description={`Viewers earn XP on your streams: 1 per command that presses a key, plus each gift's value in coins. Level 2 takes ${xpForLevel(2)} XP, level 3 ${xpForLevel(3)}, level 5 ${xpForLevel(5)}, level 10 ${xpForLevel(10)}.`}
     >
       <ErrorNotice error={error} />
       <Switch checked={host.progression} onChange={(progression) => save({ progression })} hint="Levels show on the overlay, with a shout-out when someone levels up.">

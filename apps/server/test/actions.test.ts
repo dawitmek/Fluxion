@@ -89,10 +89,10 @@ describe('actions', () => {
   });
 
   it('matches gifts by total diamonds, and repeats key presses for a streak', () => {
-    const { engine } = setup([rule({ trigger: 'gift', minDiamonds: 100, text: 'big {diamonds}', keyword: 'jump', repeatWithCount: true })]);
+    const { engine } = setup([rule({ trigger: 'gift', minDiamonds: 100, text: 'big {coins} {diamonds}', keyword: 'jump', repeatWithCount: true })]);
     expect(engine.handle(gift('Rose', 50))).toEqual([]);
     const big = engine.handle(gift('Rose', 99, 2));
-    expect(texts(big)).toEqual(['big 198']);
+    expect(texts(big)).toEqual(['big 198 198']);
     expect(big).toContainEqual({ type: 'key', keyword: 'jump', viewer: 'alice', repeats: MAX_KEY_REPEATS });
   });
 

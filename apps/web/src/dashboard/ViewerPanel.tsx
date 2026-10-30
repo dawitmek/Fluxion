@@ -80,7 +80,7 @@ export function ViewerPanel({ viewer, onClose }: { viewer: string; onClose: () =
               {profile.points > 0 && <Tile label="Points" value={profile.points} note="to spend" />}
               <Tile label="Chat messages" value={profile.comments} />
               <Tile label="Key presses" value={profile.commands} />
-              <Tile label="Gifts" value={profile.gifts} note={`${profile.diamonds.toLocaleString()} diamonds`} />
+              <Tile label="Gifts" value={profile.gifts} note={`${profile.diamonds.toLocaleString()} coins`} />
             </div>
 
             {profile.topCommands.length > 0 && (
@@ -104,7 +104,7 @@ export function ViewerPanel({ viewer, onClose }: { viewer: string; onClose: () =
                       {accounts.size > 1 && <th>Account</th>}
                       <th>Chat</th>
                       <th>Presses</th>
-                      <th>Diamonds</th>
+                      <th>Coins</th>
                     </tr>
                   </thead>
                   <tbody>

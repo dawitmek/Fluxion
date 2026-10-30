@@ -22,7 +22,7 @@ export function ActionsPage({ host }: PageProps) {
 const TRIGGERS: Record<ActionTrigger, { label: string; placeholders: string }> = {
   follow: { label: 'Follows you', placeholders: '{viewer}' },
   share: { label: 'Shares the stream', placeholders: '{viewer}' },
-  gift: { label: 'Sends a gift', placeholders: '{viewer}, {gift}, {count}, {diamonds}' },
+  gift: { label: 'Sends a gift', placeholders: '{viewer}, {gift}, {count}, {coins}' },
   likes: { label: 'Likes reach a number', placeholders: '{viewer}, {total}, {count}' },
   join: { label: 'Joins the stream', placeholders: '{viewer}' },
   subscribe: { label: 'Subscribes', placeholders: '{viewer}, {months}' },
@@ -168,7 +168,7 @@ function describeWhen(a: Action, goals: Goal[]): string {
   const who = a.audience === 'viewer' ? `only ${a.audienceViewer}` : a.audience === 'everyone' ? '' : `${AUDIENCE_LABELS[a.audience].toLowerCase()} only`;
   const what =
     a.trigger === 'gift'
-      ? `Sends ${a.giftName ?? 'any gift'}${a.minDiamonds ? ` worth ${a.minDiamonds}+ diamonds` : ''}`
+      ? `Sends ${a.giftName ?? 'any gift'}${a.minDiamonds ? ` worth ${a.minDiamonds}+ coins` : ''}`
       : a.trigger === 'likes'
         ? `Every ${a.likeStep?.toLocaleString()} likes`
         : a.trigger === 'command'
@@ -256,7 +256,7 @@ function ActionEditor({
               </label>
               <label className="field">
                 Worth at least
-                <span className="hint">Diamonds, counting the whole streak. Empty for any amount.</span>
+                <span className="hint">In coins, counting the whole streak. Empty for any amount.</span>
                 <input
                   className="input"
                   type="number"
