@@ -90,15 +90,17 @@ function widgetInfo(w: Pick<ScreenWidget, 'type' | 'goalId'>, goals: Goal[]) {
 }
 // Each widget once per screen: a type, or one goal's own.
 const widgetKey = (w: Pick<ScreenWidget, 'type' | 'goalId'>) => (w.goalId ? `goal:${w.goalId}` : w.type);
+// Into a spot, below whatever is there already: a spot stacks its widgets in list order, so it moves to the end.
+// The hand-placed position goes. Already in that spot, it stays where it is.
+function moveToSpot(widgets: ScreenWidget[], i: number, spot: WidgetSpot): ScreenWidget[] {
+  const { pos, ...widget } = widgets[i]!;
+  if (!pos && widget.spot === spot) return widgets;
+  return [...widgets.filter((_, j) => j !== i), { ...widget, spot }];
+}
 
 function WidgetsEditor({ widgets, goals, scale, onSave }: { widgets: ScreenWidget[]; goals: Goal[]; scale: number; onSave: (widgets: ScreenWidget[]) => void }) {
   const [positioning, setPositioning] = useState<number | 'all' | null>(null); // one widget, or every one
-  const replace = (i: number, widget: ScreenWidget) => onSave(widgets.map((w, j) => (j === i ? widget : w)));
-  // Back into a spot: the hand-placed position goes.
-  const toSpot = (i: number, spot: WidgetSpot) => {
-    const { pos: _pos, ...widget } = widgets[i]!;
-    replace(i, { ...widget, spot });
-  };
+  const toSpot = (i: number, spot: WidgetSpot) => onSave(moveToSpot(widgets, i, spot));
   const [previewing, setPreviewing] = useState<string | null>(null);
   const change = (i: number, patch: Partial<ScreenWidget>) => onSave(widgets.map((w, j) => (j === i ? { ...w, ...patch } : w)));
   const used = new Set(widgets.map(widgetKey));
@@ -320,8 +322,9 @@ function PositionDialog({
   onClose: () => void;
 }) {
   const [draft, setDraft] = useState<ScreenWidget[]>(widgets);
-  const movable = (i: number) => (index === null ? widgets[i]!.type !== 'firework' : i === index);
-  const [picked, setPicked] = useState(() => index ?? widgets.findIndex((w) => w.type !== 'firework'));
+  // By key, not place in the list: snapping to a spot moves a widget to the end.
+  const movable = (w: ScreenWidget) => (index === null ? w.type !== 'firework' : widgetKey(w) === widgetKey(widgets[index]!));
+  const [picked, setPicked] = useState(() => widgetKey(widgets[index ?? widgets.findIndex((w) => w.type !== 'firework')] ?? widgets[0]!));
   const info = index === null ? { label: 'Every widget', icon: 'layout' as const, hue: 'indigo' as const } : widgetInfo(widgets[index]!, goals);
   const fixedPlace = index !== null && widgets[index]!.type === 'firework';
   const dialog = useRef<HTMLDialogElement>(null);
@@ -341,13 +344,13 @@ function PositionDialog({
     return () => resize.disconnect();
   }, []);
 
-  const place = (i: number, patch: Partial<ScreenWidget>) => setDraft((d) => d.map((w, j) => (j === i ? { ...w, ...patch } : w)));
+  const place = (key: string, patch: Partial<ScreenWidget>) => setDraft((d) => d.map((w) => (widgetKey(w) === key ? { ...w, ...patch } : w)));
   // Dragging moves a widget's top-left corner, kept on the screen, and picks it. Listens on the window: the widget
   // moves out of its spot into a place of its own as the drag starts.
-  const startDrag = (i: number, e: ReactPointerEvent<HTMLElement>) => {
+  const startDrag = (key: string, e: ReactPointerEvent<HTMLElement>) => {
     if (e.button !== 0) return;
     e.preventDefault();
-    setPicked(i);
+    setPicked(key);
     const box = stage.current!.getBoundingClientRect();
     const target = e.currentTarget.getBoundingClientRect();
     const grab = { x: e.clientX - target.left, y: e.clientY - target.top };
@@ -356,7 +359,7 @@ function PositionDialog({
     const move = (m: PointerEvent) => {
       const x = clamp(((m.clientX - box.left - grab.x) / box.width) * 100, 100 - size.x);
       const y = clamp(((m.clientY - box.top - grab.y) / box.height) * 100, 100 - size.y);
-      place(i, { pos: { x, y } });
+      place(key, { pos: { x, y } });
     };
     const stop = () => {
       window.removeEventListener('pointermove', move);
@@ -365,14 +368,7 @@ function PositionDialog({
     window.addEventListener('pointermove', move);
     window.addEventListener('pointerup', stop);
   };
-  const snap = (spot: WidgetSpot) =>
-    setDraft((d) =>
-      d.map((w, j) => {
-        if (j !== picked) return w;
-        const { pos: _pos, ...widget } = w;
-        return { ...widget, spot };
-      }),
-    );
+  const snap = (spot: WidgetSpot) => setDraft((d) => moveToSpot(d, d.findIndex((w) => widgetKey(w) === picked), spot));
 
   const own = new Set(widgets.map((w) => w.goalId).filter(Boolean));
   const statsFor = (w: ScreenWidget) => (w.type === 'goals' && !w.goalId && stats ? { ...stats, goals: stats.goals.filter((g) => !own.has(g.id)) } : stats);
@@ -380,11 +376,11 @@ function PositionDialog({
   // The ones to move, outlined, the one picked brightest; anything else faded, where it sits on stream.
   const spots = Object.fromEntries(WIDGET_SPOTS.map((s) => [s, [] as ReactNode[]])) as Record<WidgetSpot, ReactNode[]>;
   const placed: ReactNode[] = [];
-  draft.forEach((w, i) => {
+  draft.forEach((w) => {
     if (w.type === 'firework') return;
     const key = widgetKey(w);
-    const el = movable(i) ? (
-      <div key={key} className={`pos-target ${index === null && i !== picked ? 'unpicked' : ''}`} onPointerDown={(e) => startDrag(i, e)}>
+    const el = movable(w) ? (
+      <div key={key} className={`pos-target ${index === null && key !== picked ? 'unpicked' : ''}`} onPointerDown={(e) => startDrag(key, e)}>
         {draw(w)}
       </div>
     ) : (
@@ -395,7 +391,7 @@ function PositionDialog({
     if (w.pos) placed.push(<div key={key} className="overlay-placed" style={{ left: `${w.pos.x}%`, top: `${w.pos.y}%` }}>{el}</div>);
     else spots[w.spot].push(el);
   });
-  const current = draft[picked];
+  const current = draft.find((w) => widgetKey(w) === picked);
 
   return (
     <dialog ref={dialog} className="pos-dialog" onClose={onClose} aria-labelledby="pos-title">
