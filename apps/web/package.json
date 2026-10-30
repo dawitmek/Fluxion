@@ -1,6 +1,6 @@
 {
   "name": "@fluxion/web",
-  "version": "0.1.0",
+  "version": "0.2.0",
   "private": true,
   "license": "GPL-3.0-or-later",
   "type": "module",
@@ -11,8 +11,8 @@
     "typecheck": "tsc --noEmit"
   },
   "dependencies": {
-    "@fluxion/shared": "0.1.0",
-    "@fluxion/theme": "0.1.0",
+    "@fluxion/shared": "0.2.0",
+    "@fluxion/theme": "0.2.0",
     "espeak-ng": "^1.0.2",
     "react": "^19.3.1",
     "react-dom": "^19.3.1"

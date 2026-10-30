@@ -1,5 +1,7 @@
 # Fluxion
 
+![Version 0.2.0](https://img.shields.io/badge/version-0.2.0-blue)
+
 Let your TikTok LIVE chat play your game. Viewers type commands or send gifts, and Fluxion presses the matching keys
 on your gaming PC. It works with the games you already play, on Windows and macOS, with no game mods or plugins.
 
@@ -28,6 +30,7 @@ TikTok LIVE chat ──▶ Fluxion server ──▶ Companion app on your gaming
   - Gift-only: only gifts press keys.
 
   You can switch modes mid-stream.
+
 - **Actions:** follows, shares, gifts, like milestones, joins, subscriptions, stickers, chat commands and a
   viewer's first activity can each trigger an action. An action can:
   - show an alert
@@ -39,6 +42,7 @@ TikTok LIVE chat ──▶ Fluxion server ──▶ Companion app on your gaming
 
   Actions can be limited to followers, subscribers, moderators, top gifters or one viewer, with cooldowns and random
   picks. Gifts also add votes or move the gifter up the queue.
+
 - **Overlay screens:** up to eight overlay addresses, each choosing what it shows, where alerts appear, its size, and
   whether it plays sound.
 - **Widgets and goals:** each screen can add widgets in any corner or edge:
@@ -51,6 +55,7 @@ TikTok LIVE chat ──▶ Fluxion server ──▶ Companion app on your gaming
   - fireworks for big gifts
 
   Goals count a stream's likes, follows, shares, coins or subscriptions, and reaching one can trigger an action.
+
 - **Points:** viewers earn points for chatting, gifts, follows and shares, and spend them on commands that cost
   points. `!points` shows a balance on the overlay when you allow it.
 - **Text-to-speech:** read prefixed comments, alerts or all of chat. The engines are:
@@ -61,6 +66,7 @@ TikTok LIVE chat ──▶ Fluxion server ──▶ Companion app on your gaming
   - the PC's own voices
 
   Voice effects are available too.
+
 - **Levels and a leaderboard:** viewers earn XP, and level-ups and top players can show on stream.
 - **Key combinations:** a command can press a key or a combination like Ctrl+Shift+E. Set it by pressing the keys.
 - **Game profiles:** each game keeps its own commands, key-press actions and mode. The companion targets the game's
@@ -69,6 +75,7 @@ TikTok LIVE chat ──▶ Fluxion server ──▶ Companion app on your gaming
   shares, likes, subscriptions and stickers), and an Analytics page with trends across streams. It covers new and returning viewers,
   coins, how often each command fired or was refused, peak moments, gifts, and vote and queue stats.
 - **Test mode:** type as a pretend viewer and watch the keys press before you go live.
+- **Appearance:** color themes for the dashboard, with System, Light or Dark. The companion follows your choice.
 
 ## Safety
 
@@ -94,12 +101,12 @@ Chat is unpredictable, so the companion is built so it can't take over your PC:
 2. **Install the companion** on the PC that runs your game. Get it from the site's Download page or the
    [releases page](https://github.com/dawitmek/Fluxion/releases).
    - The builds aren't code-signed yet, so the first time you open it:
-     - on Windows, choose *More info* and then *Run anyway*
-     - on macOS, go to *System Settings → Privacy & Security* and choose *Open Anyway*
-   - On macOS, also allow it under *Accessibility* so it can press keys.
+     - on Windows, choose _More info_ and then _Run anyway_
+     - on macOS, go to _System Settings → Privacy & Security_ and choose _Open Anyway_
+   - On macOS, also allow it under _Accessibility_ so it can press keys.
 3. **Pair it.** In the dashboard, open Companion and create a pairing code. Enter the code and the server address in
    the app.
-4. **Set up your commands and mode.** New accounts start with left, right, up, down and jump on A, D, W, S and Space.
+4. **Set up your commands and mode.** New accounts start with w, a, s, d, jump and run, on W, A, S, D, Space and Shift+W.
 5. **Add the overlay.** In the dashboard, open Stream overlay and copy its address. Add it as a browser source in
    TikTok LIVE Studio or OBS.
 6. **Go live.** Start your TikTok LIVE, focus your game, and press Go live in the dashboard.
@@ -116,8 +123,10 @@ docker compose -f docker/compose.yml --env-file .env up -d --build
 ```
 
 Fluxion is then on http://127.0.0.1:3000.
-- **HTTPS:** put a reverse proxy such as Caddy in front of it.
-- **More:** settings, voices and backups are covered in [docs/SELF_HOSTING.md](docs/SELF_HOSTING.md).
+
+- **HTTPS:** built in. Add your domain to `.env` and Caddy handles certificates.
+- **Signups:** open to anyone who can reach your server, so only share its address with people you trust.
+- **More:** the step-by-step guide, settings, updates and backups are in [docs/SELF_HOSTING.md](docs/SELF_HOSTING.md).
 
 ## Development
 
@@ -134,6 +143,7 @@ npm run typecheck
 ```
 
 What `npm run dev` starts:
+
 - Postgres on 127.0.0.1:5432.
 - The server on the `PORT` from `.env` (default 3000). It applies migrations on start.
 - The dashboard on http://localhost:5173. It forwards `/api` and `/ws` to the server.
@@ -159,14 +169,15 @@ For production, `npm run build && npm start` serves everything from one address.
 
 ### Project layout
 
-| Path | What |
-| --- | --- |
-| `apps/server` | Fastify and WebSockets: TikTok connection, mode engine, API. Serves the built web app in production. |
-| `apps/web` | React and Vite: the public site (`/`, `/features`, `/how-it-works`, `/self-hosting`, `/faq`, `/download`), the dashboard (`/dashboard`) and the stream overlay (`/overlay/:token`) |
-| `apps/companion` | Tauri 2 desktop app: presses allowed keys in the host's game on Windows and macOS |
-| `packages/shared` | Protocol types shared by the server, web app and companion |
-| `packages/theme` | Design system (colours, type, components) shared by the web app and companion |
-| `docker/`, `Dockerfile` | Self-hosting (server and Postgres) |
+| Path                    | What                                                                                                                                                                               |
+| ----------------------- | ---------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| `apps/server`           | Fastify and WebSockets: TikTok connection, mode engine, API. Serves the built web app in production.                                                                               |
+| `apps/web`              | React and Vite: the public site (`/`, `/features`, `/how-it-works`, `/self-hosting`, `/faq`, `/download`), the dashboard (`/dashboard`) and the stream overlay (`/overlay/:token`) |
+| `apps/companion`        | Tauri 2 desktop app: presses allowed keys in the host's game on Windows and macOS                                                                                                  |
+| `packages/shared`       | Protocol types shared by the server, web app and companion                                                                                                                         |
+| `packages/theme`        | Design system (colours, type, components) shared by the web app and companion                                                                                                      |
+| `docker/`, `Dockerfile` | Self-hosting (server and Postgres)                                                                                                                                                 |
+| `docs/TODO.md`          | Everything still to do                                                                                                                                                                    |
 
 ### Releasing the companion
 
@@ -174,7 +185,7 @@ Pushing a tag that starts with `companion-v` runs
 [`.github/workflows/release-companion.yml`](.github/workflows/release-companion.yml):
 
 ```sh
-git tag companion-v0.1.0 && git push origin companion-v0.1.0
+git tag companion-v0.2.0 && git push origin companion-v0.2.0
 ```
 
 The workflow builds a Windows installer (`.exe`) and a universal macOS disk image (`.dmg`), and attaches them to a
@@ -183,6 +194,10 @@ published release.
 
 To build an installer locally, run `npm run tauri build -w apps/companion`. It's saved in
 `apps/companion/src-tauri/target/release/bundle`.
+
+## Built with Claude
+
+[Claude Code](https://claude.ai), was used in the development of Fluxion.
 
 ## License
 

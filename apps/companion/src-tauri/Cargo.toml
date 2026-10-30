@@ -1,6 +1,6 @@
 [package]
 name = "fluxion-companion"
-version = "0.1.0"
+version = "0.2.0"
 description = "Fluxion companion: presses whitelisted keys in the host's game"
 edition = "2024"
 license = "GPL-3.0-or-later"

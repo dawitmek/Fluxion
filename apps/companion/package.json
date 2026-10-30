@@ -2,7 +2,7 @@
   "name": "@fluxion/companion",
   "private": true,
   "license": "GPL-3.0-or-later",
-  "version": "0.1.0",
+  "version": "0.2.0",
   "type": "module",
   "scripts": {
     "dev": "vite",
@@ -12,7 +12,7 @@
     "typecheck": "tsc --noEmit"
   },
   "dependencies": {
-    "@fluxion/theme": "0.1.0",
+    "@fluxion/theme": "0.2.0",
     "@tauri-apps/api": "^2",
     "@tauri-apps/plugin-opener": "^2.7.2",
     "react": "^19.1.0",
