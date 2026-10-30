@@ -1,4 +1,4 @@
-import { useEffect, useRef, useState, type FormEvent } from 'react';
+import { useEffect, useLayoutEffect, useRef, useState, type FormEvent } from 'react';
 import { levelForXp, MODES, type LeaderboardEntry, type ModeState } from '@fluxion/shared';
 import { api, type Command, type LiveStatus } from '../api';
 import { Link } from '../router';
@@ -153,6 +153,60 @@ function StatusTiles({ host, status, setStatus, feed }: PageProps) {
   );
 }
 
+// How the busiest commands rise to the top: each press adds 1 to a command's score, and scores halve every
+// HALF_LIFE_MS. So a command pressed a lot lately leads, one pressed once a while ago sinks, and steady use
+// beats a single stray press. The order is redone every RERANK_MS rather than on every press, so cards don't jump.
+const HALF_LIFE_MS = 30_000;
+const RERANK_MS = 4000;
+const COMMAND_ROWS = 3;
+
+function useBusiestFirst(keywords: string[], pressed: Record<string, number>) {
+  const heat = useRef(new Map<string, { score: number; at: number }>());
+  const counted = useRef<Record<string, number>>({});
+  const scoreAt = (keyword: string, now: number) => {
+    const h = heat.current.get(keyword);
+    return h ? h.score * 0.5 ** ((now - h.at) / HALF_LIFE_MS) : 0;
+  };
+  // New presses since last time, from the page's running counts.
+  useEffect(() => {
+    const now = Date.now();
+    for (const [keyword, count] of Object.entries(pressed)) {
+      const added = count - (counted.current[keyword] ?? 0);
+      if (added > 0) heat.current.set(keyword, { score: scoreAt(keyword, now) + added, at: now });
+    }
+    counted.current = pressed;
+  }, [pressed]);
+  // Never-pressed commands keep their usual order, after the pressed ones (sort is stable).
+  const rank = () => {
+    const now = Date.now();
+    return [...keywords].sort((a, b) => scoreAt(b, now) - scoreAt(a, now));
+  };
+  const [order, setOrder] = useState(rank);
+  const key = keywords.join('\n');
+  useEffect(() => {
+    setOrder(rank());
+    const timer = setInterval(() => setOrder(rank()), RERANK_MS);
+    return () => clearInterval(timer);
+  }, [key]);
+  return order;
+}
+
+// How many cards fit in a row of the grid right now; it changes with the window.
+function useColumns() {
+  const grid = useRef<HTMLDivElement>(null);
+  const [columns, setColumns] = useState(3);
+  useLayoutEffect(() => {
+    const el = grid.current;
+    if (!el) return;
+    const measure = () => setColumns(Math.max(1, getComputedStyle(el).gridTemplateColumns.split(' ').length));
+    measure();
+    const resize = new ResizeObserver(measure);
+    resize.observe(el);
+    return () => resize.disconnect();
+  }, []);
+  return { grid, columns };
+}
+
 function CommandsOverview({ host, refreshHost, feed }: PageProps) {
   const [commands, setCommands] = useState<Command[] | null>(null);
   const { error, guard } = useError();
@@ -160,6 +214,15 @@ function CommandsOverview({ host, refreshHost, feed }: PageProps) {
   const setMode = (mode: (typeof MODES)[number]) => guard(() => api('PATCH', '/settings', { mode }).then(refreshHost))();
   const enabled = commands?.filter((c) => c.enabled) ?? [];
   const most = Math.max(1, ...enabled.map((c) => feed.pressed[c.keyword] ?? 0));
+  const order = useBusiestFirst(
+    enabled.map((c) => c.keyword),
+    feed.pressed,
+  );
+  const sorted = [...enabled].sort((a, b) => order.indexOf(a.keyword) - order.indexOf(b.keyword));
+  const { grid, columns } = useColumns();
+  const [expanded, setExpanded] = useState(false);
+  const fits = columns * COMMAND_ROWS;
+  const shown = expanded ? sorted : sorted.slice(0, fits);
 
   return (
     <section className="card" aria-labelledby="live-commands">
@@ -177,8 +240,8 @@ function CommandsOverview({ host, refreshHost, feed }: PageProps) {
           No commands are on, so chat can't press anything. <Link href="/dashboard/commands">Add a command</Link>
         </p>
       )}
-      <div className="command-grid">
-        {enabled.map((c) => {
+      <div className="command-grid" ref={grid}>
+        {shown.map((c) => {
           const pressed = feed.pressed[c.keyword] ?? 0;
           return (
             <div key={c.id} className={`command-card ${feed.lastPress === c.keyword ? 'fired' : ''}`}>
@@ -202,6 +265,12 @@ function CommandsOverview({ host, refreshHost, feed }: PageProps) {
           );
         })}
       </div>
+      {sorted.length > fits && (
+        <button className="show-more command-more" aria-expanded={expanded} onClick={() => setExpanded(!expanded)}>
+          {expanded ? 'Show fewer' : `Show ${sorted.length - fits} more command${sorted.length - fits === 1 ? '' : 's'}`}
+          <Icon name="chevron" />
+        </button>
+      )}
       <h3 style={{ margin: '24px 0 10px' }}>Crowd mode</h3>
       <Seg label="Crowd mode" value={host.mode} options={MODES.map((m) => [m, MODE_INFO[m].label] as const)} onChange={setMode} />
       <p className="muted" style={{ marginTop: 8 }}>

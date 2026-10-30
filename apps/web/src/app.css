@@ -83,6 +83,7 @@
 .live-columns { display: flex; flex-wrap: wrap; gap: 20px; align-items: flex-start; }
 .live-main { flex: 999 1 480px; min-width: 0; }
 .live-side { flex: 1 1 300px; max-width: 400px; min-width: 0; }
+.command-more { margin-top: 12px; }
 .command-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(190px, 1fr)); gap: 12px; }
 .command-card { position: relative; padding: 16px; border-radius: 16px; background: var(--panel2); border: 1px solid var(--line); }
 .command-card::before { content: ''; position: absolute; left: 14px; right: 14px; top: 0; height: 2px; border-radius: 0 0 2px 2px; background: var(--edge-gradient); }
