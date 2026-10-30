@@ -164,47 +164,40 @@ function WidgetsEditor({ widgets, goals, onSave }: { widgets: ScreenWidget[]; go
 }
 
 // Every widget, and every goal on its own, as a browser source of its own: for a stream that wants just the chat, say.
+// Laid out like the widget picker, each card showing its widget. One sample feed drives them all.
 function WidgetLinksCard({ main, goals }: { main: Screen; goals: Goal[] }) {
   const [copied, setCopied] = useState<string | null>(null);
-  const [previewing, setPreviewing] = useState<string | null>(null);
-  const link = (w: Pick<ScreenWidget, 'type' | 'goalId'>) =>
-    `${location.origin}/overlay/${main.token}?widget=${w.type}${w.goalId ? `&goal=${w.goalId}` : ''}`;
+  const [bus] = useState(() => new GiftBus());
+  const { stats, chat } = usePreview(true, bus);
+  const link = (w: WidgetChoice) => `${location.origin}/overlay/${main.token}?widget=${w.type}${w.goalId ? `&goal=${w.goalId}` : ''}`;
   const all: WidgetChoice[] = [...WIDGET_TYPES.map((type) => ({ type })), ...goals.map((g) => ({ type: 'goals' as const, goalId: g.id }))];
   return (
     <Card
       title="Widget links"
-      description="Each widget on its own, as a browser source of its own, without a whole screen. Size and the coin jar and fireworks amounts follow your Main screen. Keep the links private."
+      description="Each widget on its own, as a browser source of its own, without a whole screen. Size and the coin jar and fireworks amounts follow your Main screen. Previews use sample viewers and gifts. Keep the links private."
     >
-      <ul className="list">
+      <div className="widget-picker">
         {all.map((w) => {
           const info = widgetInfo(w, goals);
           const key = widgetKey(w);
           return (
-            <li key={key}>
-              <HueIcon name={info.icon} hue={info.hue} />
-              <span className="widget-name">
-                <strong>{w.type === 'goals' && !w.goalId ? 'Goals (all of them)' : info.label}</strong>
-                <span className="muted small">{info.help}</span>
-              </span>
-              <span className="spacer" />
-              <button
-                className="btn btn-sm btn-try btn-icon"
-                aria-expanded={previewing === key}
-                aria-label={`${previewing === key ? 'Hide preview of' : 'Preview'} ${info.label}`}
-                title={previewing === key ? 'Hide preview' : 'Preview'}
-                onClick={() => setPreviewing(previewing === key ? null : key)}
-              >
-                <Icon name={previewing === key ? 'eyeOff' : 'eye'} />
-              </button>
-              <button className="btn btn-sm" onClick={() => navigator.clipboard.writeText(link(w)).then(() => setCopied(key))}>
-                {copied === key ? 'Copied' : 'Copy link'}
-              </button>
+            <div key={key} className="picker-card">
+              <div className="picker-head">
+                <HueIcon name={info.icon} hue={info.hue} />
+                <span className="widget-name">
+                  <strong>{w.type === 'goals' && !w.goalId ? 'Goals (all of them)' : info.label}</strong>
+                  <span className="muted small">{info.help}</span>
+                </span>
+                <button className="btn btn-sm" onClick={() => navigator.clipboard.writeText(link(w)).then(() => setCopied(key))}>
+                  {copied === key ? 'Copied' : 'Copy link'}
+                </button>
+              </div>
               {/* With the Main screen's settings for it, as the link uses them. */}
-              {previewing === key && <WidgetPreview widget={{ ...main.widgets.find((m) => widgetKey(m) === key), ...w, spot: 'top-left' }} />}
-            </li>
+              <PreviewStage widget={{ ...main.widgets.find((m) => widgetKey(m) === key), ...w, spot: 'top-left' }} feed={{ stats, chat, bus }} compact />
+            </div>
           );
         })}
-      </ul>
+      </div>
     </Card>
   );
 }
@@ -223,7 +216,7 @@ function PreviewStage({ widget, feed, compact }: { widget: ScreenWidget; feed: P
         <Widget widget={widget} stats={feed.stats} chat={feed.chat} bus={feed.bus} />
       )}
       {widget.type === 'goals' && goals?.length === 0 && <p className="widget-stage-empty">Add a goal in the Goals card to see it here.</p>}
-      {widget.type === 'firework' && compact && <p className="widget-stage-empty">For gifts worth {DEFAULT_FIREWORK_DIAMONDS}+ diamonds</p>}
+      {widget.type === 'firework' && compact && <p className="widget-stage-empty">For gifts worth {(widget.minDiamonds ?? DEFAULT_FIREWORK_DIAMONDS).toLocaleString()}+ diamonds</p>}
       {!compact && (
         <span className="widget-stage-note">
           {widget.type === 'firework'
