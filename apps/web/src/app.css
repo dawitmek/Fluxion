@@ -513,3 +513,9 @@ input[type='number']:not(:focus):not(:disabled):not([readonly]) { cursor: ns-res
 .default-look { display: grid; grid-template-columns: minmax(260px, 2fr) 3fr; gap: 20px; align-items: start; }
 .default-look > .alert-preview { position: sticky; top: 84px; min-height: 220px; }
 @media (max-width: 900px) { .default-look { grid-template-columns: 1fr; } .default-look > .alert-preview { position: relative; top: 0; } }
+
+/* Light or dark, in the top bar (the mobile bar on phones). */
+.mode-toggle { flex: none; }
+.mobile-bar .mode-toggle { margin-left: auto; }
+.mobile-bar .mode-toggle + .btn { margin-left: 0; }
+@media (max-width: 760px) { .topbar .mode-toggle { display: none; } }

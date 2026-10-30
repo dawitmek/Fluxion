@@ -95,6 +95,7 @@ function Shell({ host, refreshHost }: { host: Host; refreshHost: () => Promise<u
           Fluxion
         </Link>
         {status.live && <span className="on-air">On air</span>}
+        <ModeToggle host={host} refreshHost={refreshHost} />
         <button className="btn btn-ghost" aria-expanded={menuOpen} aria-controls="sidebar" onClick={() => setMenuOpen(!menuOpen)}>
           <Icon name={menuOpen ? 'close' : 'menu'} size={20} />
           <span className="sr-only">Menu</span>
@@ -143,6 +144,7 @@ function Shell({ host, refreshHost }: { host: Host; refreshHost: () => Promise<u
           {status.live && <span className="on-air">{status.source === 'simulated' ? 'Test mode' : 'On air'}</span>}
           <div className="spacer" />
           <ProfilePicker host={host} refreshHost={refreshHost} />
+          <ModeToggle host={host} refreshHost={refreshHost} />
         </div>
         <header className="page-header">
           <h1>{section.label}</h1>
@@ -155,6 +157,24 @@ function Shell({ host, refreshHost }: { host: Host; refreshHost: () => Promise<u
         </ViewerContext.Provider>
       </main>
     </div>
+  );
+}
+
+// Light or dark in one click, from any page. It switches to the opposite of what shows now, even when following
+// the system; Settings, Appearance can set it back to the system's.
+function ModeToggle({ host, refreshHost }: { host: Host; refreshHost: () => Promise<unknown> }) {
+  const [, redraw] = useState(0); // the page switches at once, so the icon does too, before the save comes back
+  const dark = document.documentElement.dataset.mode === 'dark';
+  const next = dark ? 'light' : 'dark';
+  const toggle = () => {
+    rememberTheme({ theme: host.uiTheme, style: host.uiThemeStyle, mode: next });
+    redraw((n) => n + 1);
+    void api('PATCH', '/settings', { uiMode: next }).then(refreshHost);
+  };
+  return (
+    <button className="btn btn-ghost btn-icon mode-toggle" onClick={toggle} aria-label={`Switch to ${next} mode`} title={`Switch to ${next} mode`}>
+      <Icon name={dark ? 'sun' : 'moon'} size={18} />
+    </button>
   );
 }
 
