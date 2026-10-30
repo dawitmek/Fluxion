@@ -7,6 +7,7 @@ import type { PageProps } from './Dashboard';
 import type { ActivityKind } from './live-feed';
 import { MODE_INFO } from './modes';
 import { ActivityFeed } from './ActivityFeed';
+import { VoiceControls } from './VoiceControls';
 import { ViewerLink } from './ViewerPanel';
 import { ActivityChart, CommandUsage, useStreamDetail } from './StreamInsights';
 
@@ -23,6 +24,7 @@ export function LivePage(props: PageProps) {
         </div>
         <aside className="stack live-side" aria-label="Happening now">
           <ModeCard {...props} />
+          <VoiceControls {...props} />
           <ActivityCard {...props} />
           <TopPlayers {...props} />
         </aside>

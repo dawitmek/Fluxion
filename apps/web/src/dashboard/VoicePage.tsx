@@ -7,7 +7,7 @@ import type { PageProps } from './Dashboard';
 import { previewAudio } from './audio';
 
 // Installed voices only: cloud "Online" voices exist in one browser (Edge) and never in OBS.
-function useVoices() {
+export function useVoices() {
   const [voices, setVoices] = useState<SpeechSynthesisVoice[]>([]);
   useEffect(() => {
     if (!('speechSynthesis' in window)) return;
@@ -19,7 +19,7 @@ function useVoices() {
   return voices;
 }
 
-const ENGINES: [TtsEngine, string, string][] = [
+export const ENGINES: [TtsEngine, string, string][] = [
   ['piper', 'Piper (server)', 'Natural offline voices made on the Fluxion server. Plays through OBS.'],
   ['espeak', 'eSpeak (overlay)', 'Robotic voice made inside the overlay, many languages. Plays through OBS.'],
   ['tiktok', 'TikTok voices', "TikTok's own voices, through your TikTok account. Unofficial: TikTok may change or block it."],
