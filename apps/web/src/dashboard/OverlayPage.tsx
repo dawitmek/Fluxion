@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useState, type FormEvent } from 'react';
+import { useCallback, useEffect, useLayoutEffect, useRef, useState, type CSSProperties, type FormEvent, type PointerEvent as ReactPointerEvent, type ReactNode } from 'react';
 import { ALERT_POSITIONS, GOAL_METRICS, MAX_WIDGETS, WIDGET_SPOTS, WIDGET_TYPES, type GoalMetric, type ScreenWidget, type StreamStats, type WidgetSpot, type WidgetType } from '@fluxion/shared';
 import { api, type AlertPosition, type Goal, type Screen } from '../api';
 import { Card, ErrorNotice, HueIcon, NumberCell, Scrubber, Seg, TextCell, useError, type Hue } from '../ui';
@@ -69,12 +69,15 @@ const SPOT_LABELS: Record<WidgetSpot, string> = {
 };
 
 // A tiny map of the screen with the widget's spot lit; every spot for one that covers the whole screen.
-function SpotMap({ spot, hue }: { spot: WidgetSpot | null; hue: Hue }) {
+// A widget placed by hand shows as a dot where it sits.
+function SpotMap({ spot, pos, hue }: { spot: WidgetSpot | null; pos?: ScreenWidget['pos']; hue: Hue }) {
   return (
-    <span className={`spot-map ${hue}`} aria-hidden="true">
-      {WIDGET_SPOTS.map((s) => (
-        <span key={s} className={spot === null || spot === s ? 'lit' : ''} />
-      ))}
+    <span className={`spot-map ${hue} ${pos ? 'placed' : ''}`} aria-hidden="true">
+      {pos ? (
+        <span className="spot-dot" style={{ left: `${pos.x}%`, top: `${pos.y}%` }} />
+      ) : (
+        WIDGET_SPOTS.map((s) => <span key={s} className={spot === null || spot === s ? 'lit' : ''} />)
+      )}
     </span>
   );
 }
@@ -88,7 +91,14 @@ function widgetInfo(w: Pick<ScreenWidget, 'type' | 'goalId'>, goals: Goal[]) {
 // Each widget once per screen: a type, or one goal's own.
 const widgetKey = (w: Pick<ScreenWidget, 'type' | 'goalId'>) => (w.goalId ? `goal:${w.goalId}` : w.type);
 
-function WidgetsEditor({ widgets, goals, onSave }: { widgets: ScreenWidget[]; goals: Goal[]; onSave: (widgets: ScreenWidget[]) => void }) {
+function WidgetsEditor({ widgets, goals, scale, onSave }: { widgets: ScreenWidget[]; goals: Goal[]; scale: number; onSave: (widgets: ScreenWidget[]) => void }) {
+  const [positioning, setPositioning] = useState<number | null>(null);
+  const replace = (i: number, widget: ScreenWidget) => onSave(widgets.map((w, j) => (j === i ? widget : w)));
+  // Back into a spot: the hand-placed position goes.
+  const toSpot = (i: number, spot: WidgetSpot) => {
+    const { pos: _pos, ...widget } = widgets[i]!;
+    replace(i, { ...widget, spot });
+  };
   const [previewing, setPreviewing] = useState<string | null>(null);
   const change = (i: number, patch: Partial<ScreenWidget>) => onSave(widgets.map((w, j) => (j === i ? { ...w, ...patch } : w)));
   const used = new Set(widgets.map(widgetKey));
@@ -130,9 +140,22 @@ function WidgetsEditor({ widgets, goals, onSave }: { widgets: ScreenWidget[]; go
                     <span className="muted small">diamonds</span>
                   </label>
                 ) : null}
-                <SpotMap spot={w.type === 'firework' ? null : w.spot} hue={info.hue} />
+                <button
+                  type="button"
+                  className="spot-map-btn"
+                  onClick={() => setPositioning(i)}
+                  aria-label={w.type === 'firework' ? `Preview ${info.label} on the screen` : `Position ${info.label} on the screen`}
+                  title={w.type === 'firework' ? 'Preview on the screen' : 'Position and preview'}
+                >
+                  <SpotMap spot={w.type === 'firework' ? null : w.spot} pos={w.type === 'firework' ? undefined : w.pos} hue={info.hue} />
+                </button>
                 {w.type !== 'firework' && (
-                  <select className="input widget-spot" value={w.spot} aria-label={`Where ${info.label} goes`} onChange={(e) => change(i, { spot: e.target.value as WidgetSpot })}>
+                  <select className="input widget-spot" value={w.pos ? 'custom' : w.spot} aria-label={`Where ${info.label} goes`} onChange={(e) => toSpot(i, e.target.value as WidgetSpot)}>
+                    {w.pos && (
+                      <option value="custom" disabled>
+                        Custom position
+                      </option>
+                    )}
                     {WIDGET_SPOTS.map((s) => (
                       <option key={s} value={s}>
                         {SPOT_LABELS[s]}
@@ -159,14 +182,27 @@ function WidgetsEditor({ widgets, goals, onSave }: { widgets: ScreenWidget[]; go
         </ul>
       )}
       {options.length > 0 && widgets.length < MAX_WIDGETS && <WidgetPicker options={options} goals={goals} onAdd={add} />}
+      {positioning !== null && widgets[positioning] && (
+        <PositionDialog
+          widgets={widgets}
+          index={positioning}
+          goals={goals}
+          scale={scale}
+          onSave={(widget) => (replace(positioning, widget), setPositioning(null))}
+          onClose={() => setPositioning(null)}
+        />
+      )}
     </div>
   );
 }
+
+const LINKS_SHOWN = 8; // four rows of two, then the rest behind Show more
 
 // Every widget, and every goal on its own, as a browser source of its own: for a stream that wants just the chat, say.
 // Laid out like the widget picker, each card showing its widget. One sample feed drives them all.
 function WidgetLinksCard({ main, goals }: { main: Screen; goals: Goal[] }) {
   const [copied, setCopied] = useState<string | null>(null);
+  const [expanded, setExpanded] = useState(false);
   const [bus] = useState(() => new GiftBus());
   const { stats, chat } = usePreview(true, bus);
   const link = (w: WidgetChoice) => `${location.origin}/overlay/${main.token}?widget=${w.type}${w.goalId ? `&goal=${w.goalId}` : ''}`;
@@ -177,7 +213,7 @@ function WidgetLinksCard({ main, goals }: { main: Screen; goals: Goal[] }) {
       description="Each widget on its own, as a browser source of its own, without a whole screen. Size and the coin jar and fireworks amounts follow your Main screen. Previews use sample viewers and gifts. Keep the links private."
     >
       <div className="widget-picker">
-        {all.map((w) => {
+        {(expanded ? all : all.slice(0, LINKS_SHOWN)).map((w) => {
           const info = widgetInfo(w, goals);
           const key = widgetKey(w);
           return (
@@ -198,7 +234,153 @@ function WidgetLinksCard({ main, goals }: { main: Screen; goals: Goal[] }) {
           );
         })}
       </div>
+      {all.length > LINKS_SHOWN && (
+        <button className="btn picker-toggle" aria-expanded={expanded} onClick={() => setExpanded(!expanded)}>
+          <Icon name="chevron" />
+          {expanded ? 'Show fewer' : `Show ${all.length - LINKS_SHOWN} more`}
+        </button>
+      )}
     </Card>
+  );
+}
+
+// The screen as a 1920 by 1080 canvas, drawn smaller to fit. Widgets keep their real size against it.
+const CANVAS = { width: 1920, height: 1080 };
+
+// Places one widget: drag it anywhere, or snap it to a spot. The screen's other widgets show faded behind it.
+// Fireworks cover the whole screen, so for them it's a preview only.
+function PositionDialog({
+  widgets,
+  index,
+  goals,
+  scale,
+  onSave,
+  onClose,
+}: {
+  widgets: ScreenWidget[];
+  index: number;
+  goals: Goal[];
+  scale: number;
+  onSave: (widget: ScreenWidget) => void;
+  onClose: () => void;
+}) {
+  const original = widgets[index]!;
+  const [draft, setDraft] = useState<ScreenWidget>(original);
+  const info = widgetInfo(original, goals);
+  const fixedPlace = original.type === 'firework';
+  const dialog = useRef<HTMLDialogElement>(null);
+  const stage = useRef<HTMLDivElement>(null);
+  const [fit, setFit] = useState(0.4); // canvas pixels to stage pixels
+  const [bus] = useState(() => new GiftBus());
+  const { stats, chat } = usePreview(true, bus);
+
+  useEffect(() => {
+    dialog.current?.showModal();
+  }, []);
+  useLayoutEffect(() => {
+    const measure = () => stage.current && setFit(stage.current.clientWidth / CANVAS.width);
+    measure();
+    const resize = new ResizeObserver(measure);
+    resize.observe(stage.current!);
+    return () => resize.disconnect();
+  }, []);
+
+  // Dragging moves the widget's top-left corner, kept on the screen. Listens on the window: the widget moves
+  // out of its spot into a place of its own as the drag starts.
+  const startDrag = (e: ReactPointerEvent<HTMLElement>) => {
+    if (fixedPlace || e.button !== 0) return;
+    e.preventDefault();
+    const box = stage.current!.getBoundingClientRect();
+    const target = e.currentTarget.getBoundingClientRect();
+    const grab = { x: e.clientX - target.left, y: e.clientY - target.top };
+    const size = { x: (target.width / box.width) * 100, y: (target.height / box.height) * 100 };
+    const clamp = (n: number, max: number) => Math.round(Math.min(Math.max(n, 0), Math.max(0, max)) * 10) / 10;
+    const move = (m: PointerEvent) => {
+      const x = clamp(((m.clientX - box.left - grab.x) / box.width) * 100, 100 - size.x);
+      const y = clamp(((m.clientY - box.top - grab.y) / box.height) * 100, 100 - size.y);
+      setDraft((d) => ({ ...d, pos: { x, y } }));
+    };
+    const stop = () => {
+      window.removeEventListener('pointermove', move);
+      window.removeEventListener('pointerup', stop);
+    };
+    window.addEventListener('pointermove', move);
+    window.addEventListener('pointerup', stop);
+  };
+  const snap = (spot: WidgetSpot) => {
+    const { pos: _pos, ...widget } = draft;
+    setDraft({ ...widget, spot });
+  };
+
+  const own = new Set(widgets.map((w) => w.goalId).filter(Boolean));
+  const statsFor = (w: ScreenWidget) => (w.type === 'goals' && !w.goalId && stats ? { ...stats, goals: stats.goals.filter((g) => !own.has(g.id)) } : stats);
+  const draw = (w: ScreenWidget) => <Widget widget={w} stats={statsFor(w)} chat={chat} bus={bus} />;
+  const target = fixedPlace ? null : (
+    <div className="pos-target" onPointerDown={startDrag}>
+      {draw(draft)}
+    </div>
+  );
+  // Everything but this widget, faded, where it sits on stream.
+  const others = widgets.filter((w, i) => i !== index && w.type !== 'firework');
+  const spots = Object.fromEntries(WIDGET_SPOTS.map((s) => [s, [] as ReactNode[]])) as Record<WidgetSpot, ReactNode[]>;
+  const placed: ReactNode[] = [];
+  others.forEach((w, i) => {
+    const el = <div key={`o${i}`} className="pos-other">{draw(w)}</div>;
+    if (w.pos) placed.push(<div key={`o${i}`} className="overlay-placed" style={{ left: `${w.pos.x}%`, top: `${w.pos.y}%` }}>{el}</div>);
+    else spots[w.spot].push(el);
+  });
+  if (target && draft.pos) placed.push(<div key="target" className="overlay-placed" style={{ left: `${draft.pos.x}%`, top: `${draft.pos.y}%` }}>{target}</div>);
+  else if (target) spots[draft.spot].push(<div key="target">{target}</div>);
+
+  return (
+    <dialog ref={dialog} className="pos-dialog" onClose={onClose} aria-labelledby="pos-title">
+      <div className="pos-head">
+        <HueIcon name={info.icon} hue={info.hue} />
+        <div>
+          <h2 id="pos-title">{info.label}</h2>
+          <p className="muted small">
+            {fixedPlace
+              ? 'Fireworks cover the whole screen. Sample gifts set them off.'
+              : 'Drag the widget anywhere, or snap it to a spot. Your other widgets show faded. Sample viewers and gifts.'}
+          </p>
+        </div>
+        <button className="btn btn-ghost btn-sm btn-icon" onClick={() => dialog.current?.close()} aria-label="Close">
+          <Icon name="close" />
+        </button>
+      </div>
+      <div className="pos-stage" ref={stage} style={{ aspectRatio: `${CANVAS.width} / ${CANVAS.height}` }}>
+        <div className="pos-canvas" style={{ ...CANVAS, transform: `scale(${fit})` }}>
+          <div className="overlay-screen" style={{ '--overlay-scale': scale / 100 } as CSSProperties}>
+            {fixedPlace && <Fireworks min={original.minDiamonds ?? DEFAULT_FIREWORK_DIAMONDS} bus={bus} />}
+            {WIDGET_SPOTS.map((s) => (
+              <div key={s} className={`overlay-spot spot-${s}`}>
+                {spots[s]}
+              </div>
+            ))}
+            {placed}
+          </div>
+        </div>
+      </div>
+      {!fixedPlace && (
+        <div className="pos-foot">
+          <div className="pos-spots" role="group" aria-label="Snap to a spot">
+            {WIDGET_SPOTS.map((s) => (
+              <button key={s} type="button" className={`btn btn-sm ${!draft.pos && draft.spot === s ? 'on' : ''}`} aria-pressed={!draft.pos && draft.spot === s} onClick={() => snap(s)}>
+                {SPOT_LABELS[s]}
+              </button>
+            ))}
+          </div>
+          <span className="muted small">{draft.pos ? `Custom: ${Math.round(draft.pos.x)}% across, ${Math.round(draft.pos.y)}% down` : `In the ${SPOT_LABELS[draft.spot].toLowerCase()} spot`}</span>
+          <span className="spacer" />
+          <button className="btn btn-ghost" onClick={() => dialog.current?.close()}>
+            Cancel
+          </button>
+          <button className="btn btn-primary" onClick={() => onSave(draft)}>
+            Save position
+          </button>
+        </div>
+      )}
+    </dialog>
   );
 }
 
@@ -419,7 +601,7 @@ function ScreenCard({ screen, goals, reload }: { screen: Screen; goals: Goal[]; 
           <PartToggle key={part.part} {...part} checked={screen[part.part]} onChange={(on) => save({ [part.part]: on })} />
         ))}
       </div>
-      <WidgetsEditor widgets={screen.widgets} goals={goals} onSave={(widgets) => save({ widgets })} />
+      <WidgetsEditor widgets={screen.widgets} goals={goals} scale={screen.scale} onSave={(widgets) => save({ widgets })} />
     </Card>
   );
 }

@@ -793,6 +793,11 @@ describe('widgets and goals', () => {
     ];
     expect((await api(cookie, 'PATCH', `/api/screens/${main.id}`, { widgets })).json().widgets).toEqual(widgets);
     expect((await api(cookie, 'PATCH', `/api/screens/${main.id}`, { widgets: [{ type: 'clock', spot: 'top' }] })).statusCode).toBe(400);
+    // A widget can be placed by hand, anywhere on the screen.
+    const placed = [{ type: 'chat', spot: 'bottom-right', pos: { x: 12.5, y: 60 } }];
+    expect((await api(cookie, 'PATCH', `/api/screens/${main.id}`, { widgets: placed })).json().widgets).toEqual(placed);
+    expect((await api(cookie, 'PATCH', `/api/screens/${main.id}`, { widgets: [{ ...placed[0], pos: { x: 120, y: 0 } }] })).statusCode).toBe(400);
+    await api(cookie, 'PATCH', `/api/screens/${main.id}`, { widgets });
 
     const likes = (await api(cookie, 'POST', '/api/goals', { name: ' Likes ', metric: 'likes', target: 100 })).json();
     expect(likes).toMatchObject({ name: 'Likes', metric: 'likes', target: 100, enabled: true });

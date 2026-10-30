@@ -37,6 +37,8 @@ html.overlay-page, html.overlay-page body { background: transparent; }
 /* Widget spots: each corner and edge stacks its widgets. */
 .overlay-spot { position: fixed; display: flex; flex-direction: column; gap: 10px; max-width: 34vw; font-family: system-ui, sans-serif; }
 .overlay-spot:empty { display: none; }
+/* A widget placed by hand: its top-left corner at a percentage of the screen. */
+.overlay-placed { position: fixed; font-family: system-ui, sans-serif; }
 .spot-top-left { top: 16px; left: 16px; align-items: flex-start; }
 .spot-top { top: 16px; left: 50%; transform: translateX(-50%); align-items: center; }
 .spot-top-right { top: 16px; right: 16px; align-items: flex-end; }

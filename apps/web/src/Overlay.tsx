@@ -191,9 +191,18 @@ function LiveWidgets({
   // The grouped goals widget leaves out goals that have a widget of their own on this screen.
   const own = new Set(screen.widgets.map((w) => w.goalId).filter(Boolean));
   const grouped = stats && { ...stats, goals: stats.goals.filter((g) => !own.has(g.id)) };
-  screen.widgets.forEach((w, i) =>
-    spots[w.spot].push(<Widget key={`w${i}`} widget={w} stats={w.type === 'goals' && !w.goalId ? grouped : stats} chat={chat} bus={bus} />),
-  );
+  // Widgets placed by hand sit where they were put; the rest stack in their spots.
+  const placed: ReactNode[] = [];
+  screen.widgets.forEach((w, i) => {
+    const widget = <Widget key={`w${i}`} widget={w} stats={w.type === 'goals' && !w.goalId ? grouped : stats} chat={chat} bus={bus} />;
+    if (w.pos && w.type !== 'firework') {
+      placed.push(
+        <div key={`w${i}`} className="overlay-placed" style={{ left: `${w.pos.x}%`, top: `${w.pos.y}%` }}>
+          {widget}
+        </div>,
+      );
+    } else spots[w.spot].push(widget);
+  });
   const firework = screen.widgets.find((w) => w.type === 'firework');
   return (
     <>
@@ -203,6 +212,7 @@ function LiveWidgets({
           {spots[spot]}
         </div>
       ))}
+      {placed}
     </>
   );
 }

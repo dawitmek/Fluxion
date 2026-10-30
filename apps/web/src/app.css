@@ -342,6 +342,29 @@ label.btn.disabled { opacity: 0.6; pointer-events: none; }
 .test-result { margin: 0 0 12px; }
 .widget-name { display: flex; flex-direction: column; min-width: 0; }
 .widget-spot { width: auto; }
+/* The position map is a button: it opens the position window. */
+.spot-map-btn { display: inline-grid; padding: 0; border: 0; border-radius: 6px; background: none; cursor: pointer; }
+.spot-map-btn:hover .spot-map { border-color: var(--indigo-fill); }
+.spot-map.placed { position: relative; display: block; width: 32px; height: 20px; box-sizing: border-box; padding: 0; }
+.spot-map .spot-dot { position: absolute; width: 6px; height: 6px; border-radius: 2px; margin: 1px 0 0 1px; background: currentColor; }
+.spot-map.red { color: var(--red); } .spot-map.green { color: var(--green); } .spot-map.amber { color: var(--amber); }
+.spot-map.indigo { color: var(--indigo); } .spot-map.sky { color: var(--sky); } .spot-map.pink { color: var(--pink); }
+.spot-map.violet { color: var(--violet); } .spot-map.teal { color: var(--teal); } .spot-map.orange { color: var(--orange); }
+/* The position window: the screen at 1920 by 1080, scaled to fit, with the widget to drag. */
+.pos-dialog { width: min(1040px, calc(100vw - 32px)); max-width: none; padding: 20px; border: 1px solid var(--line-strong); border-radius: 18px; background: var(--panel); color: var(--ink); box-sizing: border-box; }
+.pos-dialog::backdrop { background: rgba(5, 6, 10, 0.65); }
+.pos-dialog[open] { display: flex; flex-direction: column; gap: 14px; }
+.pos-head { display: flex; align-items: flex-start; gap: 12px; }
+.pos-head > div { flex: 1; display: flex; flex-direction: column; gap: 2px; }
+.pos-stage { position: relative; width: 100%; overflow: hidden; border-radius: 12px; background: linear-gradient(135deg, #2b3a4a, #47344f); }
+.pos-canvas { position: absolute; top: 0; left: 0; transform-origin: 0 0; }
+.pos-canvas .w-fireworks { width: 100%; height: 100%; }
+.pos-target { cursor: grab; touch-action: none; user-select: none; border-radius: 12px; outline: 3px dashed rgba(255, 255, 255, 0.85); outline-offset: 6px; }
+.pos-target:active { cursor: grabbing; }
+.pos-other { opacity: 0.3; pointer-events: none; }
+.pos-foot { display: flex; flex-wrap: wrap; align-items: center; gap: 10px 14px; }
+.pos-spots { display: grid; grid-template-columns: repeat(3, auto); gap: 4px; }
+.pos-spots .btn.on { color: var(--indigo); background: var(--indigo-soft); border-color: var(--indigo-fill); }
 /* Adding a widget: two cards to a row, each with its preview. */
 .picker-toggle { align-self: flex-start; }
 .picker-toggle svg { transition: transform 0.2s; }
