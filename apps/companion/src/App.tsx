@@ -4,6 +4,7 @@ import { listen } from "@tauri-apps/api/event";
 import { openUrl } from "@tauri-apps/plugin-opener";
 import "@fluxion/theme/theme.css";
 import "./App.css";
+import { Icon, SectionHead } from "./icons";
 
 interface LogEntry {
   key: string;
@@ -76,9 +77,7 @@ export default function App() {
     <main className="companion">
       <header className="top">
         <span className="logo-mark" aria-hidden="true">
-          <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.4" strokeLinecap="round">
-            <path d="M4 16c3-8 6-8 8 0s5 8 8 0" />
-          </svg>
+          <Icon name="logo" strokeWidth={2.4} />
         </span>
         <h1>Fluxion Companion</h1>
         {state.paired && <ConnectionTag connection={state.connection} />}
@@ -134,31 +133,46 @@ function PairForm({ run, defaultServer }: { run: Run; defaultServer: string | nu
 
   return (
     <form
-      className="card stack"
+      className="card pair stack"
       onSubmit={(e) => {
         e.preventDefault();
         setBusy(true);
         run("pair", { serverUrl, code, name }).finally(() => setBusy(false));
       }}
     >
-      <div>
+      <div className="pair-intro">
         <h2>Pair this PC</h2>
-        <p className="muted">On the Fluxion dashboard, open Companion and create a pairing code. It shows the server address too.</p>
+        <p className="muted">Once paired, chat's commands on your stream press keys in your game, on this PC only.</p>
       </div>
-      <label className="field">
-        Server address
-        <input value={serverUrl} onChange={(e) => setServerUrl(e.target.value)} required />
-      </label>
+      <ol className="pair-steps">
+        <li>Open Companion on the Fluxion dashboard.</li>
+        <li>Create a pairing code. The server address is shown with it.</li>
+        <li>Enter both here.</li>
+      </ol>
       <label className="field">
         Pairing code
-        <input className="code-input" value={code} onChange={(e) => setCode(e.target.value.toUpperCase())} maxLength={6} required />
+        <input
+          className="code-input"
+          value={code}
+          onChange={(e) => setCode(e.target.value.toUpperCase())}
+          maxLength={6}
+          placeholder="••••••"
+          autoFocus
+          required
+        />
       </label>
-      <label className="field">
-        Device name
-        <input value={name} onChange={(e) => setName(e.target.value)} required />
-      </label>
+      <div className="pair-fields">
+        <label className="field">
+          Server address
+          <input value={serverUrl} onChange={(e) => setServerUrl(e.target.value)} required />
+        </label>
+        <label className="field">
+          Device name
+          <input value={name} onChange={(e) => setName(e.target.value)} required />
+        </label>
+      </div>
       <button className="btn btn-primary btn-lg" disabled={busy}>
-        {busy ? "Pairing…" : "Pair"}
+        {busy ? "Pairing…" : "Pair this PC"}
       </button>
     </form>
   );
@@ -170,70 +184,89 @@ function Paired({ state, run }: { state: Snapshot; run: Run }) {
   useEffect(() => void refreshWindows(), []);
 
   const connected = state.connection === "connected";
+  // One state for the whole PC, most pressing first: nothing arrives while disconnected, nothing is pressed while
+  // paused or with no game picked.
+  const status = !connected
+    ? { hue: "red", title: state.connection === "connecting" ? "Connecting" : "Offline", text: "Not connected to the server, so chat's keys can't reach this PC." }
+    : state.paused
+      ? { hue: "amber", title: "Paused", text: "Nothing is pressed until you resume." }
+      : !state.targetProcess
+        ? { hue: "amber", title: "Pick a game", text: "Nothing is pressed until you pick the game chat plays." }
+        : { hue: "green", title: "Ready", text: `Chat's keys go to ${state.targetProcess} while its window is in focus.` };
 
   return (
     <>
-      <section className={`tile ${state.paused ? "amber" : "green"} control`} aria-label="Input">
-        <div className="tile-title" style={{ color: state.paused ? "var(--amber)" : "var(--green)" }}>
-          <span className="dot" aria-hidden="true" />
-          {state.paused ? "Input paused" : "Ready to press keys"}
-        </div>
-        <p className="muted small">
-          {state.deviceName} on {state.serverUrl}
-        </p>
-        <button
-          className={`btn btn-lg ${state.paused ? "btn-success" : "btn-danger"}`}
-          onClick={() => run("set_paused", { paused: !state.paused })}
-        >
-          {state.paused ? "Resume input" : "Pause input"}
-        </button>
-        <p className="muted small">
-          Panic hotkey: <kbd className="kbd">{state.panicHotkey}</kbd> pauses instantly and lets go of every held key.
-        </p>
-        <div className="row">
-          {!connected && (
-            <button className="btn btn-sm" onClick={() => run("reconnect")}>
+      <section className={`hero ${status.hue}`} aria-label="Input">
+        <div className="hero-main">
+          <span className={`orb ${status.hue === "green" ? "live" : ""}`} aria-hidden="true">
+            <span />
+          </span>
+          <div className="hero-text">
+            <h2 className="hero-state">{status.title}</h2>
+            <p className="muted small">{status.text}</p>
+          </div>
+          {connected ? (
+            <button
+              className={`btn hero-toggle ${state.paused ? "btn-success" : "btn-danger"}`}
+              onClick={() => run("set_paused", { paused: !state.paused })}
+            >
+              <Icon name={state.paused ? "play" : "pause"} />
+              {state.paused ? "Resume" : "Pause"}
+            </button>
+          ) : (
+            <button className="btn hero-toggle" onClick={() => run("reconnect")}>
+              <Icon name="refresh" />
               Reconnect
             </button>
           )}
+        </div>
+
+        <div className="hero-game">
+          <label className="field">
+            <span className="hero-label">
+              Game
+              {state.profileName && (
+                <span className="tag teal" title="Switching profiles on the dashboard picks its game here when the profile names one.">
+                  {state.profileName} profile
+                </span>
+              )}
+            </span>
+            <div className="row">
+              <select className="input" value={state.targetProcess ?? ""} onChange={(e) => run("set_target", { process: e.target.value || null })}>
+                <option value="">Select a game…</option>
+                {state.targetProcess && !windows.some((w) => w.process === state.targetProcess) && (
+                  <option value={state.targetProcess}>{state.targetProcess} (not running)</option>
+                )}
+                {windows.map((w) => (
+                  <option key={w.process} value={w.process}>
+                    {w.process}: {w.title.slice(0, 40)}
+                  </option>
+                ))}
+              </select>
+              <button className="btn btn-icon" onClick={refreshWindows} aria-label="Refresh the list of windows" title="Refresh the list of windows">
+                <Icon name="refresh" />
+              </button>
+            </div>
+          </label>
+          {state.profileGame && state.targetProcess !== state.profileGame && (
+            <p className="notice warning">
+              The {state.profileName} profile is for {state.profileGame}, but this PC is targeting {state.targetProcess ?? "nothing"}.
+            </p>
+          )}
+        </div>
+
+        <footer className="hero-foot">
+          <span className="panic">
+            <Icon name="shield" size={14} />
+            <kbd className="kbd">{state.panicHotkey}</kbd> pauses instantly and lets go of every held key
+          </span>
+          <span className="device" title={`${state.deviceName} on ${state.serverUrl}`}>
+            {state.deviceName} on {state.serverUrl}
+          </span>
           <button className="btn btn-ghost btn-sm" onClick={() => run("unpair")}>
             Unpair
           </button>
-        </div>
-      </section>
-
-      <section className="card stack" aria-labelledby="game-title">
-        <div>
-          <h2 id="game-title">Game</h2>
-          <p className="muted">Keys are only pressed while this program's window is in focus.</p>
-        </div>
-        {state.profileName && (
-          <p className="muted small">
-            Dashboard profile: <span className="tag teal">{state.profileName}</span> Switching profiles on the dashboard picks its
-            game here when the profile names one.
-          </p>
-        )}
-        {state.profileGame && state.targetProcess !== state.profileGame && (
-          <p className="notice warning">
-            The {state.profileName} profile is for {state.profileGame}, but this PC is targeting {state.targetProcess ?? "nothing"}.
-          </p>
-        )}
-        <div className="row">
-          <select className="input" value={state.targetProcess ?? ""} onChange={(e) => run("set_target", { process: e.target.value || null })}>
-            <option value="">Select a game…</option>
-            {state.targetProcess && !windows.some((w) => w.process === state.targetProcess) && (
-              <option value={state.targetProcess}>{state.targetProcess} (not running)</option>
-            )}
-            {windows.map((w) => (
-              <option key={w.process} value={w.process}>
-                {w.process}: {w.title.slice(0, 40)}
-              </option>
-            ))}
-          </select>
-          <button className="btn" onClick={refreshWindows}>
-            Refresh
-          </button>
-        </div>
+        </footer>
       </section>
 
       {state.pendingApprovals > 0 && (
@@ -249,19 +282,21 @@ function Paired({ state, run }: { state: Snapshot; run: Run }) {
 
       <TiktokVoices serverUrl={state.serverUrl} />
 
-      <section className="card" aria-labelledby="activity-title">
-        <h2 id="activity-title" style={{ marginBottom: 8 }}>
-          Activity
-        </h2>
+      <section className="card stack" aria-labelledby="activity-title">
+        <SectionHead id="activity-title" icon="feed" hue="sky" title="Activity">
+          The latest keys chat pressed on this PC, and any it refused.
+        </SectionHead>
         {state.log.length === 0 ? (
-          <p className="muted">Keys appear here as chat presses them.</p>
+          <p className="empty">Keys appear here as chat presses them.</p>
         ) : (
           <ul className="log">
             {state.log.map((entry, i) => (
-              <li key={i}>
-                <span className={`tag ${entry.ok ? "indigo" : "red"}`}>{entry.ok ? "Pressed" : "Refused"}</span>
+              <li key={i} className={entry.ok ? "ok" : "refused"}>
+                <span className="log-mark" aria-label={entry.ok ? "Pressed" : "Refused"}>
+                  <Icon name={entry.ok ? "check" : "close"} size={13} strokeWidth={2.6} />
+                </span>
                 <kbd className="kbd">{keyLabel(entry.key)}</kbd>
-                {!entry.ok && <span className="muted small">{entry.reason}</span>}
+                <span className="muted small">{entry.ok ? "Pressed" : entry.reason}</span>
               </li>
             ))}
           </ul>
@@ -307,12 +342,9 @@ function TiktokVoices({ serverUrl }: { serverUrl: string | null }) {
 
   return (
     <section className="card stack" aria-labelledby="tiktok-title">
-      <div>
-        <h2 id="tiktok-title">TikTok voices</h2>
-        <p className="muted">
-          Read chat aloud in TikTok's own voices. Sign in to TikTok here and Fluxion uses your account to make the speech.
-        </p>
-      </div>
+      <SectionHead id="tiktok-title" icon="voice" hue="pink" title="TikTok voices">
+        Read chat aloud in TikTok's own voices. Sign in to TikTok here and Fluxion uses your account to make the speech.
+      </SectionHead>
       {message && (
         <div className={`notice ${message.ok ? "info" : "error"}`} role="status">
           {message.text}
@@ -342,13 +374,33 @@ function TiktokVoices({ serverUrl }: { serverUrl: string | null }) {
   );
 }
 
-const WIDE_KEYS = ["Space", "Enter", "ShiftLeft", "ShiftRight"];
+// Where each key sits on the keyboard drawn under Allowed keys: [code, row, first column, columns wide], on a grid of
+// half-key columns so rows can be staggered like a real keyboard. Keys not placed here go in a row of their own below.
+const row = (codes: string[], rowNumber: number, firstColumn: number): [string, number, number, number][] =>
+  codes.map((code, i) => [code, rowNumber, firstColumn + i * 2, 2]);
+const KEYBOARD: [string, number, number, number][] = [
+  ...row(["1", "2", "3", "4", "5", "6", "7", "8", "9", "0"].map((d) => `Digit${d}`), 1, 1),
+  ...row([..."QWERTYUIOP"].map((l) => `Key${l}`), 2, 2),
+  ...row([..."ASDFGHJKL"].map((l) => `Key${l}`), 3, 3),
+  ["Enter", 3, 21, 3],
+  ["ShiftLeft", 4, 1, 2],
+  ...row([..."ZXCVBNM"].map((l) => `Key${l}`), 4, 3),
+  ["ShiftRight", 4, 17, 2],
+  ["ArrowUp", 4, 19, 2],
+  ["Space", 5, 5, 10],
+  ...row(["ArrowLeft", "ArrowDown", "ArrowRight"], 5, 17),
+];
+// Shorter names where a key is narrow; the full name is its label for screen readers and its tooltip.
+const CAP_NAMES: Record<string, string> = { ShiftLeft: "⇧", ShiftRight: "⇧", Enter: "Enter ↵" };
 
 // The keys this PC lets the server press. A click allows or blocks one key. Clicking with Shift or Ctrl/Cmd held only
 // selects, like a file list: Ctrl/Cmd-click picks single keys, Shift-click everything from the last key clicked to
 // this one (in grid order), and Ctrl+Shift-click adds that range to the selection.
 function AllowedKeys({ state, run }: { state: Snapshot; run: Run }) {
   const allowed = new Set(state.allowedKeys);
+  // Keys in reading order of the drawn keyboard, which is the order a Shift-click range follows.
+  const placed = KEYBOARD.filter(([code]) => state.allKeys.includes(code)).sort((a, b) => a[1] - b[1] || a[2] - b[2]);
+  const order = [...placed.map(([code]) => code), ...state.allKeys.filter((k) => !KEYBOARD.some(([code]) => code === k))];
   const [selected, setSelected] = useState<Set<string>>(new Set());
   const [selecting, setSelecting] = useState(false); // Shift is held: clicks select instead of toggling
   const anchor = useRef<string | null>(null); // the last key clicked: where a Shift-click range starts
@@ -375,9 +427,9 @@ function AllowedKeys({ state, run }: { state: Snapshot; run: Run }) {
   };
   const select = (e: React.MouseEvent, key: string) => {
     if (e.shiftKey && anchor.current) {
-      const from = state.allKeys.indexOf(anchor.current);
-      const to = state.allKeys.indexOf(key);
-      const range = state.allKeys.slice(Math.min(from, to), Math.max(from, to) + 1);
+      const from = order.indexOf(anchor.current);
+      const to = order.indexOf(key);
+      const range = order.slice(Math.min(from, to), Math.max(from, to) + 1);
       return setSelected(new Set([...(e.ctrlKey || e.metaKey ? selected : []), ...range]));
     }
     const next = new Set(selected);
@@ -410,30 +462,39 @@ function AllowedKeys({ state, run }: { state: Snapshot; run: Run }) {
 
   return (
     <section className="card stack" aria-labelledby="keys-title">
-      <div>
-        <h2 id="keys-title">Allowed keys on this PC</h2>
-        <p className="muted">
-          The server can only press the keys lit up here. Click a key to allow or block it. To change several at once, select
-          them first: Shift-click selects a range from the last key you clicked, Ctrl-click (⌘-click on a Mac) picks single
-          keys. Key combinations like Ctrl+E are allowed one by one under Commands.
-        </p>
-      </div>
+      <SectionHead id="keys-title" icon="commands" hue="indigo" title="Allowed keys on this PC">
+        The server can only press the keys lit up here. Click a key to allow or block it. Key combinations like Ctrl+E are
+        allowed one by one under Commands.
+      </SectionHead>
       <div className={`keys ${selecting ? "selecting" : ""}`}>
-        {state.allKeys.map((key) => (
-          <button
-            key={key}
-            className={`keycap ${allowed.has(key) ? "on" : ""} ${selected.has(key) ? "selected" : ""} ${WIDE_KEYS.includes(key) ? "wide" : ""}`}
-            aria-pressed={allowed.has(key)}
-            aria-label={`${keyLabel(key)}${selected.has(key) ? ", selected" : ""}`}
-            onMouseDown={(e) => onMouseDown(e, key)}
-            onClick={(e) => onClick(e, key)}
-            // macOS also sends a Ctrl-click as a right-click; it already selected on mouse down, so just skip the menu.
-            onContextMenu={(e) => e.preventDefault()}
-          >
-            {keyLabel(key)}
-          </button>
-        ))}
+        {order.map((key, i) => {
+          // Keys not on the drawn keyboard fill the rows after it, eleven to a row.
+          const extra = i - placed.length;
+          const place = placed.find(([code]) => code === key) ?? [key, 6 + Math.floor(extra / 11), 1 + (extra % 11) * 2, 2];
+          return (
+            <button
+              key={key}
+              className={`keycap ${allowed.has(key) ? "on" : ""} ${selected.has(key) ? "selected" : ""}`}
+              style={{ gridRow: place[1], gridColumn: `${place[2]} / span ${place[3]}` }}
+              aria-pressed={allowed.has(key)}
+              aria-label={`${keyLabel(key)}${selected.has(key) ? ", selected" : ""}`}
+              title={keyLabel(key)}
+              onMouseDown={(e) => onMouseDown(e, key)}
+              onClick={(e) => onClick(e, key)}
+              // macOS also sends a Ctrl-click as a right-click; it already selected on mouse down, so just skip the menu.
+              onContextMenu={(e) => e.preventDefault()}
+            >
+              {CAP_NAMES[key] ?? keyLabel(key)}
+            </button>
+          );
+        })}
       </div>
+      <p className="muted small keys-legend">
+        <span className="legend-cap on" aria-hidden="true" /> Allowed
+        <span className="legend-cap" aria-hidden="true" /> Blocked
+        <span className="spacer" />
+        Shift-click selects a range, Ctrl-click (⌘ on a Mac) single keys.
+      </p>
       {selected.size > 0 && (
         <div className="selection-bar" role="status">
           <span>
@@ -461,13 +522,10 @@ function Commands({ state, run }: { state: Snapshot; run: Run }) {
   if (state.commands.length === 0) return null;
   return (
     <section className="card stack" aria-labelledby="commands-title">
-      <div>
-        <h2 id="commands-title">Commands{state.profileName ? ` for ${state.profileName}` : ""}</h2>
-        <p className="muted">
-          What chat can trigger, from your dashboard. Key combinations are only pressed once you allow them here, so a
-          change on the dashboard can't add one without your OK.
-        </p>
-      </div>
+      <SectionHead id="commands-title" icon="chat" hue="violet" title={`Commands${state.profileName ? ` for ${state.profileName}` : ""}`}>
+        What chat can trigger, from your dashboard. Key combinations are only pressed once you allow them here, so a change
+        on the dashboard can't add one without your OK.
+      </SectionHead>
       <ul className="command-list">
         {state.commands.map((c) => (
           <li key={c.keyword} className={c.enabled ? "" : "off"}>

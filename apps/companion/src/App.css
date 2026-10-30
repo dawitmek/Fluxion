@@ -7,19 +7,10 @@ body { background: var(--aurora), var(--ground); background-repeat: no-repeat; m
 .connection { max-width: 220px; overflow: hidden; text-overflow: ellipsis; }
 .card { padding: 18px; }
 .small { font-size: 13px; }
-.control { display: flex; flex-direction: column; gap: 10px; padding: 18px; }
-.control .btn-lg { width: 100%; }
-.control .kbd { padding: 1px 7px 0; font-size: 12px; }
-.code-input { font-size: 20px !important; font-weight: 700 !important; letter-spacing: 0.25em; }
-.keys { display: grid; grid-template-columns: repeat(auto-fill, minmax(46px, 1fr)); gap: 6px; }
-.keycap { min-height: 38px; padding: 0 6px; border-radius: 10px; border: 1px solid var(--line-strong); border-bottom-width: 3px; background: var(--panel2); color: var(--muted); font: 600 13px var(--font); cursor: pointer; }
-.keycap.wide { grid-column: span 2; }
+.keycap { min-width: 0; padding: 0 2px; border-radius: 9px; white-space: nowrap; overflow: hidden; border: 1px solid var(--line-strong); border-bottom-width: 3px; background: var(--panel2); color: var(--muted); font: 600 12px var(--font); cursor: pointer; transition: background 0.15s, border-color 0.15s, color 0.15s; }
 .keycap.on { border-color: var(--key-edge); background: var(--indigo-soft); color: var(--key-ink); font-weight: 700; }
 .keycap:hover { border-color: var(--indigo-fill); }
-.log { list-style: none; margin: 0; padding: 0; max-height: 240px; overflow-y: auto; }
-.log li { display: flex; align-items: center; gap: 10px; padding: 6px 0; border-bottom: 1px solid var(--line); }
 .log li:last-child { border-bottom: 0; }
-.log .tag { justify-content: center; width: 64px; border-radius: 8px; font-size: 12px; padding: 2px 0; }
 .signed-in { font-size: 14px; padding: 6px 12px; }
 .keycap.selected { outline: 2px solid var(--indigo-fill); outline-offset: 2px; color: var(--ink); }
 .selection-bar { display: flex; flex-wrap: wrap; align-items: center; gap: 8px; padding: 10px 12px; border-radius: 12px; border: 1px solid var(--indigo-fill);
@@ -41,3 +32,65 @@ body { background: var(--aurora), var(--ground); background-repeat: no-repeat; m
 .command-status { display: flex; justify-content: flex-end; }
 .command-status .tag { max-width: 190px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
 .approve { display: inline-flex; align-items: center; gap: 8px; cursor: pointer; }
+
+/* Status at the top: one state for the whole PC in its color, the pause button, and the game keys go to. */
+.hero { --state: var(--green); --state-fill: #22c55e; position: relative; overflow: hidden; padding: 20px; border-radius: 20px;
+  border: 1px solid color-mix(in srgb, var(--state-fill) 35%, var(--line));
+  background: radial-gradient(340px 170px at 0% 0%, color-mix(in srgb, var(--state-fill) 18%, transparent), transparent 75%), var(--panel);
+  box-shadow: 0 18px 40px -28px var(--state-fill); }
+.hero.amber { --state: var(--amber); --state-fill: var(--amber-fill); }
+.hero.red { --state: var(--red); --state-fill: #ef4459; }
+.hero-main { display: flex; align-items: center; gap: 14px; }
+.hero-text { flex: 1; min-width: 0; }
+.hero-state { color: var(--state); font-size: 26px; font-weight: 600; letter-spacing: -0.035em; line-height: 1.1; }
+.hero-text p { margin-top: 3px; }
+.hero-toggle { flex: none; min-height: 44px; padding: 0 18px; border-radius: 12px; }
+.orb { position: relative; display: grid; place-items: center; flex: none; width: 48px; height: 48px; border-radius: 50%;
+  background: color-mix(in srgb, var(--state-fill) 16%, transparent); }
+.orb > span { width: 18px; height: 18px; border-radius: 50%; background: var(--state-fill); box-shadow: 0 0 16px var(--state-fill); }
+/* Ready: a slow ring outward, so a glance tells the PC is live. */
+.orb.live::before { content: ''; position: absolute; inset: 0; border-radius: 50%; border: 2px solid var(--state-fill); animation: orb-ring 2.4s ease-out infinite; }
+@keyframes orb-ring { from { transform: scale(0.45); opacity: 0.9; } to { transform: scale(1.25); opacity: 0; } }
+@media (prefers-reduced-motion: reduce) { .orb.live::before { animation: none; opacity: 0.4; } }
+.hero-game { display: flex; flex-direction: column; gap: 10px; margin-top: 18px; padding-top: 16px; border-top: 1px solid var(--line); }
+.hero-label { display: flex; align-items: center; justify-content: space-between; gap: 8px; }
+.hero-foot { display: flex; flex-wrap: wrap; align-items: center; gap: 6px 12px; margin-top: 14px; color: var(--muted); font-size: 12.5px; }
+.hero-foot .panic { display: flex; flex-wrap: wrap; align-items: center; gap: 6px; flex: 1 1 100%; }
+.hero-foot .kbd { padding: 1px 7px 0; font-size: 12px; }
+.hero-foot .device { flex: 1; min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+
+/* Section headings: a tinted icon beside the title and what the section is for. */
+.section-head { display: flex; align-items: flex-start; gap: 12px; }
+.section-head h2 { font-size: 17px; font-weight: 600; line-height: 32px; }
+.section-head p { margin-top: -2px; }
+
+/* The allowed keys, drawn as a keyboard on half-key columns (KEYBOARD in App.tsx). */
+.keys { display: grid; grid-template-columns: repeat(23, minmax(0, 1fr)); grid-auto-rows: 38px; gap: 5px; }
+.keycap.on { box-shadow: 0 6px 14px -10px var(--indigo-fill); }
+.keys-legend { display: flex; flex-wrap: wrap; align-items: center; gap: 6px; }
+.keys-legend .spacer { flex: 1; }
+.legend-cap { display: inline-block; width: 14px; height: 14px; border-radius: 4px; border: 1px solid var(--line-strong); border-bottom-width: 2px; background: var(--panel2); }
+.legend-cap.on { border-color: var(--key-edge); background: var(--indigo-soft); }
+.legend-cap + * { margin-right: 6px; }
+
+/* Activity: a mark for pressed or refused, the key, and why when refused. */
+.log { list-style: none; margin: 0; padding: 0; max-height: 260px; overflow-y: auto; }
+.log li { display: flex; align-items: center; gap: 10px; padding: 7px 0; border-bottom: 1px solid var(--line); }
+.log .kbd { padding: 1px 8px 0; font-size: 12px; }
+.log-mark { display: grid; place-items: center; flex: none; width: 22px; height: 22px; border-radius: 50%; }
+.log li.ok .log-mark { color: var(--green); background: var(--green-soft); }
+.log li.refused .log-mark { color: var(--red); background: var(--red-soft); }
+.log li.refused .muted { color: var(--red); }
+
+/* Pairing */
+.pair { padding: 24px; }
+.pair-intro h2 { font-size: 22px; font-weight: 600; }
+.pair-intro p { margin-top: 4px; }
+.pair-steps { display: flex; flex-direction: column; gap: 8px; margin: 0; padding: 0; list-style: none; counter-reset: step; }
+.pair-steps li { display: flex; align-items: center; gap: 10px; color: var(--muted); font-size: 14px; counter-increment: step; }
+.pair-steps li::before { content: counter(step); display: grid; place-items: center; flex: none; width: 24px; height: 24px; border-radius: 50%;
+  background: var(--indigo-soft); color: var(--indigo); font-size: 12px; font-weight: 700; }
+.field .code-input.code-input { height: 64px; text-align: center; font-size: 30px; font-weight: 700; letter-spacing: 0.45em; padding-left: 0.45em; }
+.code-input::placeholder { color: var(--line-strong); letter-spacing: 0.3em; }
+.pair-fields { display: grid; grid-template-columns: 1fr 1fr; gap: 12px; }
+@media (max-width: 440px) { .pair-fields { grid-template-columns: 1fr; } }
