@@ -1,6 +1,6 @@
 import type { FastifyInstance } from 'fastify';
 import { and, eq } from 'drizzle-orm';
-import { GOAL_METRICS, type Goal, type GoalMetric } from '@fluxion/shared';
+import { GOAL_METRICS, MAX_WIDGETS, type Goal, type GoalMetric } from '@fluxion/shared';
 import { goals, overlayScreens } from '../db/schema.js';
 import { toScreen } from '../screens/routes.js';
 import { requireHost } from '../auth/session.js';
@@ -33,6 +33,13 @@ export async function goalRoutes(app: FastifyInstance) {
         .insert(goals)
         .values({ ...req.body, name: req.body.name.trim(), hostId: req.hostId })
         .returning(listed);
+      // Each goal gets a widget of its own on the main screen, to place on its own; grouping them is opt-in.
+      const [main] = await db.select().from(overlayScreens).where(and(eq(overlayScreens.hostId, req.hostId), eq(overlayScreens.main, true)));
+      if (main && main.widgets.length < MAX_WIDGETS) {
+        const widgets = [...main.widgets, { type: 'goals' as const, spot: 'top' as const, goalId: created!.id }];
+        const [updated] = await db.update(overlayScreens).set({ widgets }).where(eq(overlayScreens.id, main.id)).returning();
+        app.hub.sendToScreen(req.hostId, main.id, { type: 'screen', screen: toScreen(updated!) });
+      }
       await app.live.reload(req.hostId);
       return reply.code(201).send(created);
     },

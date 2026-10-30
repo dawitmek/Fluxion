@@ -49,7 +49,7 @@ export function OverlayPage() {
 
 // Colored by what they show: gifts amber, followers sky, chat indigo, numbers teal, goals violet.
 const WIDGETS: Record<WidgetType, { label: string; help: string; spot: WidgetSpot; icon: IconName; hue: Hue }> = {
-  goals: { label: 'Goals', help: 'Progress bars for your goals below.', spot: 'top', icon: 'target', hue: 'violet' },
+  goals: { label: 'Goals (grouped)', help: "Goals together in one panel, except ones with a widget of their own.", spot: 'top', icon: 'target', hue: 'violet' },
   top_gift: { label: 'Top gift', help: "The stream's most valuable gift and who sent it.", spot: 'top-right', icon: 'trophy', hue: 'amber' },
   top_streak: { label: 'Longest streak', help: 'The biggest gift combo so far.', spot: 'top-right', icon: 'flame', hue: 'orange' },
   last_follower: { label: 'Latest follower', help: 'Who followed last.', spot: 'bottom-right', icon: 'follower', hue: 'sky' },
@@ -185,8 +185,8 @@ function WidgetLinksCard({ main, goals }: { main: Screen; goals: Goal[] }) {
               <div className="picker-head">
                 <HueIcon name={info.icon} hue={info.hue} />
                 <span className="widget-name">
-                  <strong>{w.type === 'goals' && !w.goalId ? 'Goals (all of them)' : info.label}</strong>
-                  <span className="muted small">{info.help}</span>
+                  <strong>{info.label}</strong>
+                  <span className="muted small">{w.type === 'goals' && !w.goalId ? 'Every goal together in one panel.' : info.help}</span>
                 </span>
                 <button className="btn btn-sm" onClick={() => navigator.clipboard.writeText(link(w)).then(() => setCopied(key))}>
                   {copied === key ? 'Copied' : 'Copy link'}
@@ -256,7 +256,7 @@ function WidgetPicker({ options, goals, onAdd }: { options: WidgetChoice[]; goal
                   <div className="picker-head">
                     <HueIcon name={info.icon} hue={info.hue} />
                     <span className="widget-name">
-                      <strong>{w.type === 'goals' && !w.goalId ? 'Goals (all of them)' : info.label}</strong>
+                      <strong>{info.label}</strong>
                       <span className="muted small">{info.help}</span>
                     </span>
                     <button className="btn btn-sm btn-primary" onClick={() => onAdd(w)} aria-label={`Add ${info.label}`}>

@@ -188,7 +188,12 @@ function LiveWidgets({
   if (mode) spots['top-left'].push(<ModePanel key="mode" state={mode.state} clockOffset={mode.clockOffset} />);
   if (leaderboard.entries.length > 0) spots['top-right'].push(<Leaderboard key="leaderboard" leaderboard={leaderboard} />);
   if (screen.feed) spots['bottom-left'].push(<Feed key="feed" items={items} hint={mode?.state.mode === 'anarchy'} />);
-  screen.widgets.forEach((w, i) => spots[w.spot].push(<Widget key={`w${i}`} widget={w} stats={stats} chat={chat} bus={bus} />));
+  // The grouped goals widget leaves out goals that have a widget of their own on this screen.
+  const own = new Set(screen.widgets.map((w) => w.goalId).filter(Boolean));
+  const grouped = stats && { ...stats, goals: stats.goals.filter((g) => !own.has(g.id)) };
+  screen.widgets.forEach((w, i) =>
+    spots[w.spot].push(<Widget key={`w${i}`} widget={w} stats={w.type === 'goals' && !w.goalId ? grouped : stats} chat={chat} bus={bus} />),
+  );
   const firework = screen.widgets.find((w) => w.type === 'firework');
   return (
     <>

@@ -796,6 +796,8 @@ describe('widgets and goals', () => {
 
     const likes = (await api(cookie, 'POST', '/api/goals', { name: ' Likes ', metric: 'likes', target: 100 })).json();
     expect(likes).toMatchObject({ name: 'Likes', metric: 'likes', target: 100, enabled: true });
+    // A new goal gets a widget of its own on the main screen.
+    expect((await api(cookie, 'GET', '/api/screens')).json()[0].widgets).toEqual([...widgets, { type: 'goals', spot: 'top', goalId: likes.id }]);
     expect((await api(cookie, 'POST', '/api/goals', { name: 'x', metric: 'hugs', target: 1 })).statusCode).toBe(400);
     for (const a of (await api(cookie, 'GET', '/api/actions')).json()) await api(cookie, 'DELETE', `/api/actions/${a.id}`);
     expect((await api(cookie, 'POST', '/api/actions', { name: 'x', trigger: 'goal' })).statusCode).toBe(400);
