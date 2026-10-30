@@ -73,7 +73,7 @@ export async function sendThemeToCompanions(app: FastifyInstance, hostId: string
 const PROFILE_FIELDS = ['mode', 'voteWindowMs', 'turnMs', 'giftBoosts'] as const;
 
 export async function settingsRoutes(app: FastifyInstance) {
-  app.addHook('preHandler', requireHost);
+  app.addHook('onRequest', requireHost);
 
   app.patch<{ Body: Body }>(
     '/',

@@ -9,6 +9,7 @@ export interface Config {
   piperVoicesDir: string | undefined;
   tiktokSessionId: string | undefined;
   secretsKey: Buffer;
+  trustProxy?: string; // addresses of the reverse proxies in front, so rate limits see each client's own address
   debugLog?: string; // a file for the debug log (see debug-log.ts); never set in production
 }
 
@@ -34,6 +35,8 @@ export function loadConfig(env: NodeJS.ProcessEnv = process.env): Config {
     // Optional: a TikTok account's sessionid cookie, used for TikTok voices by every host who hasn't signed in themselves.
     tiktokSessionId: env.TIKTOK_SESSION_ID || undefined,
     secretsKey,
+    // Off unless set: trusting X-Forwarded-For from anyone would let clients pick their own address.
+    trustProxy: env.TRUST_PROXY && env.TRUST_PROXY !== 'none' ? env.TRUST_PROXY : undefined,
     // For development only: production ignores it, so a debug setting left in an .env can't fill a server's disk.
     debugLog: env.NODE_ENV === 'production' ? undefined : env.DEBUG_LOG || undefined,
   };

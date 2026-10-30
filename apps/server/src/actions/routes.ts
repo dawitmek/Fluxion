@@ -91,7 +91,7 @@ type Problem = { error: string };
 
 export async function actionRoutes(app: FastifyInstance) {
   const { db } = app;
-  app.addHook('preHandler', requireHost);
+  app.addHook('onRequest', requireHost);
 
   // Trigger-specific fields only mean something for their trigger; anything else is cleared. Files, commands and
   // profiles must be the host's own. A key press puts the action in its command's profile.

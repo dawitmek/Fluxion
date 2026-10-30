@@ -12,7 +12,7 @@ const UUID = '^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$';
 const LIVE_REPORT_MS = 5000;
 
 export async function analyticsRoutes(app: FastifyInstance) {
-  app.addHook('preHandler', requireHost);
+  app.addHook('onRequest', requireHost);
   const { db } = app;
 
   // "latest" is the stream being recorded now, or else the most recent one (test mode included).

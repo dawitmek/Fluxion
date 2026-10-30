@@ -11,7 +11,7 @@ export const ESPEAK_VOICES = [
 ];
 
 export async function ttsRoutes(app: FastifyInstance) {
-  app.addHook('preHandler', requireHost);
+  app.addHook('onRequest', requireHost);
 
   // What this server can do, for the dashboard's engine and voice pickers.
   app.get('/options', async () => ({
@@ -35,7 +35,7 @@ export async function ttsRoutes(app: FastifyInstance) {
   // Speaks a sample with the host's saved settings and reports errors instead of falling back,
   // so a wrong cloud key shows up on the dashboard.
   // The body is optional ({ text }), so no JSON schema: an empty POST is fine.
-  app.post<{ Body: { text?: unknown } | undefined }>('/preview', async (req, reply) => {
+  app.post<{ Body: { text?: unknown } | undefined }>('/preview', { config: { rateLimit: { max: 30, timeWindow: '1 minute' } } }, async (req, reply) => {
     const text = typeof req.body?.text === 'string' && req.body.text.trim() ? req.body.text.slice(0, 200) : 'viewer says hello from Fluxion';
     const [host] = await app.db.select().from(hosts).where(eq(hosts.id, req.hostId));
     try {

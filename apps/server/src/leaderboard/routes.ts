@@ -2,7 +2,7 @@ import type { FastifyInstance } from 'fastify';
 import { requireHost } from '../auth/session.js';
 
 export async function leaderboardRoutes(app: FastifyInstance) {
-  app.addHook('preHandler', requireHost);
+  app.addHook('onRequest', requireHost);
 
   app.get('/', async (req) => app.stats.top(req.hostId, 20));
 

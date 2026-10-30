@@ -19,7 +19,7 @@ const listed = { id: goals.id, name: goals.name, metric: goals.metric, target: g
 
 export async function goalRoutes(app: FastifyInstance) {
   const { db } = app;
-  app.addHook('preHandler', requireHost);
+  app.addHook('onRequest', requireHost);
 
   app.get('/', async (req): Promise<Goal[]> => db.select(listed).from(goals).where(eq(goals.hostId, req.hostId)).orderBy(goals.position));
 

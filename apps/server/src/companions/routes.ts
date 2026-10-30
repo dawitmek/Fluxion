@@ -26,7 +26,7 @@ export async function companionRoutes(app: FastifyInstance) {
   };
 
   // A new code replaces the host's earlier ones, so only the latest can pair.
-  app.post('/pairing-code', { preHandler: requireHost }, async (req) => {
+  app.post('/pairing-code', { onRequest: requireHost }, async (req) => {
     const code = newPairingCode();
     const expiresAt = new Date(Date.now() + PAIRING_TTL_MS);
     await db.delete(pairingCodes).where(eq(pairingCodes.hostId, req.hostId));
@@ -113,7 +113,7 @@ export async function companionRoutes(app: FastifyInstance) {
     return { signedIn: host?.session != null, needed: (await app.tiktokAccount.state()) !== 'ok' };
   });
 
-  app.get('/', { preHandler: requireHost }, async (req) =>
+  app.get('/', { onRequest: requireHost }, async (req) =>
     db
       .select({ id: companions.id, name: companions.name, lastSeenAt: companions.lastSeenAt, hostname: companions.hostname, platform: companions.platform })
       .from(companions)
@@ -123,7 +123,7 @@ export async function companionRoutes(app: FastifyInstance) {
   app.delete<{ Params: { id: string } }>(
     '/:id',
     {
-      preHandler: requireHost,
+      onRequest: requireHost,
       schema: { params: { type: 'object', properties: { id: { type: 'string', format: 'uuid' } } } },
     },
     async (req, reply) => {

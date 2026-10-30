@@ -26,7 +26,7 @@ export async function endSession(db: Db, req: FastifyRequest, reply: FastifyRepl
   reply.clearCookie(SESSION_COOKIE, { path: '/' });
 }
 
-// preHandler for routes that need a signed-in host. Sets req.hostId.
+// onRequest hook for routes that need a signed-in host: it runs before the body is read. Sets req.hostId.
 export async function requireHost(req: FastifyRequest, reply: FastifyReply) {
   const token = req.cookies[SESSION_COOKIE];
   if (token) {

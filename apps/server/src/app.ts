@@ -1,6 +1,6 @@
 import { existsSync } from 'node:fs';
 import { fileURLToPath } from 'node:url';
-import Fastify from 'fastify';
+import Fastify, { type FastifyError } from 'fastify';
 import { eq, isNotNull, or } from 'drizzle-orm';
 import fastifyCookie from '@fastify/cookie';
 import fastifyRateLimit from '@fastify/rate-limit';
@@ -60,8 +60,11 @@ interface Options {
   piper?: Piper;
 }
 
+const MAX_WS_MESSAGE_BYTES = 64 * 1024;
+const PG_INVALID_TEXT = '22021'; // Postgres refusing a NUL character in text, which JSON and URLs can carry
+
 export async function buildApp(config: Config, options: Options = {}) {
-  const app = Fastify({ logger: options.logger ?? true });
+  const app = Fastify({ logger: options.logger ?? true, trustProxy: config.trustProxy ?? false });
   const { db, close } = createDb(config.databaseUrl);
   const hub = new Hub();
   const createTikTok = options.createTikTok ?? ((username) => new TikTokAdapter(username, config.eulerApiKey));
@@ -103,9 +106,19 @@ export async function buildApp(config: Config, options: Options = {}) {
     debug.close();
   });
 
+  // Never answers with an error's own text unless it's meant for the client: database errors quote the SQL.
+  app.setErrorHandler((err: FastifyError, req, reply) => {
+    if ((err.cause as { code?: string } | undefined)?.code === PG_INVALID_TEXT) return reply.code(400).send({ error: 'That text has an invalid character' });
+    if (err.statusCode !== undefined && err.statusCode < 500) return reply.send(err);
+    req.log.error(err);
+    return reply.code(500).send({ error: 'Something went wrong' });
+  });
+
   await app.register(fastifyCookie);
-  await app.register(fastifyRateLimit, { global: false });
-  await app.register(fastifyWebsocket);
+  // A ceiling for every route, well above what a dashboard's polling uses. Costly routes set lower ones.
+  await app.register(fastifyRateLimit, { global: true, max: 600, timeWindow: '1 minute' });
+  // Companions and overlays only send short messages.
+  await app.register(fastifyWebsocket, { options: { maxPayload: MAX_WS_MESSAGE_BYTES } });
 
   app.get('/api/health', async () => ({ ok: true, protocol: PROTOCOL_VERSION }));
   await app.register(authRoutes, { prefix: '/api/auth' });

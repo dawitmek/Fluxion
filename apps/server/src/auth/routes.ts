@@ -67,7 +67,7 @@ export async function authRoutes(app: FastifyInstance) {
     return { ok: true };
   });
 
-  app.get('/me', { preHandler: requireHost }, async (req) => {
+  app.get('/me', { onRequest: requireHost }, async (req) => {
     const [host] = await db
       .select({
         id: hosts.id,

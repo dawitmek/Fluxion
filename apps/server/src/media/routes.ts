@@ -20,7 +20,7 @@ const toItem = (row: Omit<MediaItem, 'createdAt'> & { createdAt: Date }): MediaI
 // The host's uploads. The files themselves are served by mediaFileRoute.
 export async function mediaRoutes(app: FastifyInstance) {
   const { db } = app;
-  app.addHook('preHandler', requireHost);
+  app.addHook('onRequest', requireHost);
   // Uploads are the raw file as the request body, whatever type the browser says it is; sniff() decides.
   app.addContentTypeParser('*', { parseAs: 'buffer', bodyLimit: MAX_MEDIA_BYTES }, (_req, body, done) => done(null, body));
 
@@ -30,7 +30,7 @@ export async function mediaRoutes(app: FastifyInstance) {
 
   app.post<{ Querystring: { name: string }; Body: Buffer }>(
     '/',
-    { schema: { querystring: { type: 'object', required: ['name'], properties: { name } } } },
+    { config: { rateLimit: { max: 30, timeWindow: '1 minute' } }, schema: { querystring: { type: 'object', required: ['name'], properties: { name } } } },
     async (req, reply) => {
       const body = req.body;
       if (!Buffer.isBuffer(body) || body.length === 0) return reply.code(400).send({ error: 'The file is empty' });

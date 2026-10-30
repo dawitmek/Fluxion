@@ -29,7 +29,7 @@ const idParam = { type: 'object', properties: { id: { type: 'string', format: 'u
 
 export async function commandRoutes(app: FastifyInstance) {
   const { db } = app;
-  app.addHook('preHandler', requireHost);
+  app.addHook('onRequest', requireHost);
 
   // Commands of the active profile; switching profiles switches the list.
   app.get('/', async (req) => {

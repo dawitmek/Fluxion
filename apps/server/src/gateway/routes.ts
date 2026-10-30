@@ -1,5 +1,5 @@
 import type { FastifyInstance } from 'fastify';
-import type { WebSocket } from 'ws';
+import type { RawData, WebSocket } from 'ws';
 import { eq } from 'drizzle-orm';
 import { PROTOCOL_VERSION, type CompanionToServer, type OverlayToServer, type ServerToCompanion } from '@fluxion/shared';
 import { companions, hosts, overlayScreens } from '../db/schema.js';
@@ -15,50 +15,61 @@ const reply = (socket: WebSocket, message: ServerToCompanion) => socket.send(JSO
 export async function gatewayRoutes(app: FastifyInstance) {
   const { db, hub } = app;
 
+  const greet = async (socket: WebSocket, raw: RawData) => {
+    let hello: CompanionToServer | null;
+    try {
+      hello = JSON.parse(raw.toString());
+    } catch {
+      return socket.close(4001, 'Bad message');
+    }
+    if (hello?.type !== 'hello' || typeof hello.token !== 'string') return socket.close(4001, 'Expected hello');
+    if (hello.protocol !== PROTOCOL_VERSION) {
+      reply(socket, { type: 'error', reason: `Protocol ${hello.protocol} unsupported; server speaks ${PROTOCOL_VERSION}` });
+      return socket.close(4001, 'Protocol mismatch');
+    }
+
+    // The PC's name and OS come along with every connect, so a renamed PC shows its new name.
+    const device = (value: unknown) => {
+      const text = typeof value === 'string' ? value.replaceAll('\0', '').trim() : '';
+      return text ? text.slice(0, 128) : undefined;
+    };
+    const [companion] = await db
+      .update(companions)
+      .set({ lastSeenAt: new Date(), hostname: device(hello.hostname), platform: device(hello.platform) })
+      .where(eq(companions.tokenHash, sha256(hello.token)))
+      .returning({ id: companions.id, hostId: companions.hostId });
+    if (!companion) {
+      reply(socket, { type: 'error', reason: 'Unknown companion token' });
+      return socket.close(4001, 'Unauthorized');
+    }
+
+    hub.addCompanion(companion.hostId, companion.id, socket);
+    reply(socket, { type: 'ready', hostId: companion.hostId });
+    await sendProfileToCompanions(app, companion.hostId).catch((err) => app.log.error(err, 'could not send profile'));
+    await sendThemeToCompanions(app, companion.hostId).catch((err) => app.log.error(err, 'could not send theme'));
+
+    socket.on('message', (data) => {
+      try {
+        const message = JSON.parse(data.toString()) as CompanionToServer;
+        if (message.type === 'ack' && message.status === 'rejected') {
+          app.log.warn({ companionId: companion.id, ...message }, 'companion rejected action');
+        }
+      } catch {
+        // Ignore malformed messages from an authenticated companion.
+      }
+    });
+  };
+
   // The token travels in the first message rather than the URL, so it never lands in access logs.
   app.get('/ws/companion', { websocket: true }, (socket) => {
     const timer = setTimeout(() => socket.close(4001, 'No hello'), HELLO_TIMEOUT_MS);
 
-    socket.once('message', async (raw) => {
+    socket.once('message', (raw) => {
       clearTimeout(timer);
-      let hello: CompanionToServer;
-      try {
-        hello = JSON.parse(raw.toString());
-      } catch {
-        return socket.close(4001, 'Bad message');
-      }
-      if (hello.type !== 'hello' || typeof hello.token !== 'string') return socket.close(4001, 'Expected hello');
-      if (hello.protocol !== PROTOCOL_VERSION) {
-        reply(socket, { type: 'error', reason: `Protocol ${hello.protocol} unsupported; server speaks ${PROTOCOL_VERSION}` });
-        return socket.close(4001, 'Protocol mismatch');
-      }
-
-      // The PC's name and OS come along with every connect, so a renamed PC shows its new name.
-      const device = (value: unknown) => (typeof value === 'string' && value.trim() ? value.trim().slice(0, 128) : undefined);
-      const [companion] = await db
-        .update(companions)
-        .set({ lastSeenAt: new Date(), hostname: device(hello.hostname), platform: device(hello.platform) })
-        .where(eq(companions.tokenHash, sha256(hello.token)))
-        .returning({ id: companions.id, hostId: companions.hostId });
-      if (!companion) {
-        reply(socket, { type: 'error', reason: 'Unknown companion token' });
-        return socket.close(4001, 'Unauthorized');
-      }
-
-      hub.addCompanion(companion.hostId, companion.id, socket);
-      reply(socket, { type: 'ready', hostId: companion.hostId });
-      await sendProfileToCompanions(app, companion.hostId).catch((err) => app.log.error(err, 'could not send profile'));
-      await sendThemeToCompanions(app, companion.hostId).catch((err) => app.log.error(err, 'could not send theme'));
-
-      socket.on('message', (data) => {
-        try {
-          const message = JSON.parse(data.toString()) as CompanionToServer;
-          if (message.type === 'ack' && message.status === 'rejected') {
-            app.log.warn({ companionId: companion.id, ...message }, 'companion rejected action');
-          }
-        } catch {
-          // Ignore malformed messages from an authenticated companion.
-        }
+      // This runs before the client has proved anything, so a failure must end the socket and not the server.
+      greet(socket, raw as RawData).catch((err) => {
+        app.log.warn({ err }, 'companion hello failed');
+        socket.close(4001, 'Bad hello');
       });
     });
   });

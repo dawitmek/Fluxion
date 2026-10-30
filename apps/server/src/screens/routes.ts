@@ -45,7 +45,7 @@ const idParam = { type: 'object', properties: { id: { type: 'string', format: 'u
 // Overlay screens. Their tokens are returned here (each screen's address) but never to the overlay itself.
 export async function screenRoutes(app: FastifyInstance) {
   const { db, hub } = app;
-  app.addHook('preHandler', requireHost);
+  app.addHook('onRequest', requireHost);
 
   app.get('/', async (req) => {
     const rows = await db.select().from(overlayScreens).where(eq(overlayScreens.hostId, req.hostId)).orderBy(overlayScreens.position);

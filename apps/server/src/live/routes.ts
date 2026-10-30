@@ -5,11 +5,12 @@ import { LiveError, type Source } from './session-manager.js';
 
 export async function liveRoutes(app: FastifyInstance) {
   const { live } = app;
-  app.addHook('preHandler', requireHost);
+  app.addHook('onRequest', requireHost);
 
   app.post<{ Body: { source: Source } }>(
     '/start',
     {
+      config: { rateLimit: { max: 20, timeWindow: '1 minute' } },
       schema: {
         body: {
           type: 'object',

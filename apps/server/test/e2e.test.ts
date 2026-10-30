@@ -1,4 +1,4 @@
-import { afterAll, beforeAll, beforeEach, describe, expect, it } from 'vitest';
+import { afterAll, beforeAll, beforeEach, describe, expect, it, vi } from 'vitest';
 import type { AddressInfo } from 'node:net';
 import { WebSocket } from 'ws';
 import { sql } from 'drizzle-orm';
@@ -78,7 +78,7 @@ async function signUp(email = 'host@example.com') {
 }
 
 const api = (cookie: string, method: 'GET' | 'POST' | 'PATCH' | 'DELETE', url: string, payload?: object) =>
-  app.inject({ method, url, payload, headers: { cookie } });
+  app.inject({ method, url, payload, headers: { cookie }, remoteAddress: nextAddress() });
 
 // The smallest files each kind of upload recognises.
 const WAV = Buffer.concat([Buffer.from('RIFF'), Buffer.alloc(4), Buffer.from('WAVEfmt '), Buffer.alloc(32)]);
@@ -90,6 +90,7 @@ async function upload(cookie: string, name: string, body: Buffer, expected = 201
     url: `/api/media?name=${encodeURIComponent(name)}`,
     payload: body,
     headers: { cookie, 'content-type': 'application/octet-stream' },
+    remoteAddress: nextAddress(),
   });
   expect(res.statusCode).toBe(expected);
   return res.json();
@@ -1315,5 +1316,93 @@ describe('gateway auth', () => {
   it('rejects an overlay with an unknown token', async () => {
     const overlay = connect('/ws/overlay?token=nope');
     expect(await overlay.closed).toBe(4001);
+  });
+
+  it.each([
+    ['null', 'null'],
+    ['a number', '5'],
+    ['a NUL in the hostname', JSON.stringify({ type: 'hello', protocol: PROTOCOL_VERSION, token: 'x', hostname: 'a\u0000b' })],
+  ])('survives a hello of %s from an unknown client', async (_name, hello) => {
+    const companion = connect('/ws/companion');
+    await companion.opened;
+    companion.socket.send(hello);
+    expect(await companion.closed).toBe(4001);
+    expect((await app.inject({ url: '/api/health' })).statusCode).toBe(200);
+  });
+
+  it('keeps a NUL out of a paired companion\'s hostname', async () => {
+    const { cookie } = await signUp();
+    const { token } = await pairCompanion(cookie);
+    const companion = connect('/ws/companion', ['commands', 'theme']);
+    await companion.opened;
+    companion.socket.send(JSON.stringify({ type: 'hello', protocol: PROTOCOL_VERSION, token, hostname: 'Game\u0000PC' }));
+    expect((await companion.next()).type).toBe('ready');
+    expect((await api(cookie, 'GET', '/api/companions')).json()[0].hostname).toBe('GamePC');
+  });
+
+  it('closes a WebSocket that sends an oversized message', async () => {
+    const companion = connect('/ws/companion');
+    await companion.opened;
+    companion.socket.send('x'.repeat(65 * 1024));
+    expect(await companion.closed).toBe(1009);
+  });
+});
+
+describe('endpoint protection', () => {
+  it('refuses an upload without a login before reading its body', async () => {
+    const res = await app.inject({
+      method: 'POST',
+      url: '/api/media?name=x',
+      payload: Buffer.alloc(11 * 1024 * 1024),
+      headers: { 'content-type': 'application/octet-stream' },
+    });
+    expect(res.statusCode).toBe(401);
+  });
+
+  it('checks the login before validating a request', async () => {
+    const res = await app.inject({ method: 'PATCH', url: '/api/screens/not-a-uuid', payload: {} });
+    expect(res.statusCode).toBe(401);
+  });
+
+  it('answers a NUL in text with a 400 that quotes no SQL', async () => {
+    const { cookie } = await signUp();
+    const res = await api(cookie, 'POST', '/api/screens', { name: 'a\u0000b' });
+    expect(res.statusCode).toBe(400);
+    expect(res.body).not.toMatch(/insert|overlay_screens/i);
+  });
+
+  it('hides the text of an unexpected error', async () => {
+    const { cookie } = await signUp();
+    const status = vi.spyOn(app.live, 'status').mockImplementationOnce(() => {
+      throw new Error('secret detail');
+    });
+    const res = await api(cookie, 'GET', '/api/live/status');
+    status.mockRestore();
+    expect(res.statusCode).toBe(500);
+    expect(res.body).not.toContain('secret detail');
+  });
+
+  it('keeps each client behind a proxy to their own rate limit', async () => {
+    const proxied = await buildApp({ ...app.config, trustProxy: 'loopback' }, { logger: false, fetch: fakeFetch });
+    const login = (address: string) =>
+      proxied.inject({
+        method: 'POST',
+        url: '/api/auth/login',
+        payload: { email: 'nobody@example.com', password: 'wrong password' },
+        headers: { 'x-forwarded-for': address },
+        remoteAddress: '127.0.0.1',
+      });
+    for (let i = 0; i < 10; i++) expect((await login('203.0.113.1')).statusCode).toBe(401);
+    expect((await login('203.0.113.1')).statusCode).toBe(429);
+    expect((await login('203.0.113.2')).statusCode).toBe(401);
+    await proxied.close();
+  });
+
+  it('applies a ceiling to routes with no limit of their own', async () => {
+    const limited = await buildApp(app.config, { logger: false, fetch: fakeFetch });
+    const health = () => limited.inject({ url: '/api/health' });
+    for (let i = 0; i < 600; i++) expect((await health()).statusCode).toBe(200);
+    expect((await health()).statusCode).toBe(429);
+    await limited.close();
   });
 });

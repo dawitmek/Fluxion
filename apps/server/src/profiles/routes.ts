@@ -23,7 +23,7 @@ const normalize = (gameProcess: string | null | undefined) => gameProcess?.trim(
 
 export async function profileRoutes(app: FastifyInstance) {
   const { db } = app;
-  app.addHook('preHandler', requireHost);
+  app.addHook('onRequest', requireHost);
 
   const applyIfActive = async (hostId: string, profileId: string) => {
     const [host] = await db.select({ active: hosts.activeProfileId }).from(hosts).where(eq(hosts.id, hostId));
