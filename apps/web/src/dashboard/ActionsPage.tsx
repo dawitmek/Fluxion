@@ -147,6 +147,7 @@ function ActionsCard({ host, media }: { host: Host; media: MediaItem[] }) {
                   ))}
                 </span>
               </div>
+              <AlertPreview draft={a} media={media} compact />
               <span className="action-buttons">
                 <button className="btn btn-sm btn-try" onClick={() => test(a.id)} title="Show this alert on your open overlays">
                   Test
@@ -512,12 +513,12 @@ function Section({ title, icon, hue, children }: { title: string; icon: IconName
 }
 
 // The alert as it looks on stream, with sample names in its placeholders, over a stand-in for the stream. Its place
-// and size are set with Place and size.
-function AlertPreview({ draft, media }: { draft: Draft; media: MediaItem[] }) {
+// and size are set with Place and size. Compact is the small one on each row of the list.
+function AlertPreview({ draft, media, compact }: { draft: Draft; media: MediaItem[]; compact?: boolean }) {
   const file = media.find((m) => m.id === draft.mediaId);
   const text = draft.text ? sampleText(draft.text) : '';
   return (
-    <div className="alert-preview" aria-label="Alert preview">
+    <div className={`alert-preview ${compact ? 'compact' : ''}`} aria-label={compact ? `${draft.name} alert preview` : 'Alert preview'}>
       {text || file ? (
         <div className={`overlay-alert ${text ? '' : 'media-only'}`}>
           {file?.kind === 'image' && <img className="overlay-alert-media" src={`/media/${file.id}`} alt="" />}
@@ -525,9 +526,9 @@ function AlertPreview({ draft, media }: { draft: Draft; media: MediaItem[] }) {
           {text}
         </div>
       ) : (
-        <span className="alert-preview-empty">No text or picture, so nothing shows. A sound or voice still plays.</span>
+        <span className="alert-preview-empty">{compact ? 'No pop-up' : 'No text or picture, so nothing shows. A sound or voice still plays.'}</span>
       )}
-      <span className="alert-preview-note">Preview, with sample names</span>
+      {!compact && <span className="alert-preview-note">Preview, with sample names</span>}
     </div>
   );
 }

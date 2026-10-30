@@ -366,8 +366,17 @@ fieldset:disabled * { cursor: not-allowed; }
 .alert-preview .overlay-alert-media { max-width: 220px; max-height: 120px; margin-bottom: 8px; }
 .alert-preview-empty { color: rgba(255, 255, 255, 0.7); font-size: 13px; text-align: center; }
 .alert-preview-note { position: absolute; right: 10px; bottom: 8px; color: rgba(255, 255, 255, 0.55); font-size: 11px; }
+/* The small one on each action in the list: the same alert, scaled down, at most two lines. */
+.alert-preview.compact { flex: none; width: 190px; min-height: 0; height: 72px; padding: 8px; border-radius: 10px; }
+.alert-preview.compact .overlay-alert { padding: 5px 10px; border-radius: 8px; font-size: 11px; line-height: 1.3; display: -webkit-box; -webkit-box-orient: vertical; -webkit-line-clamp: 2; overflow: hidden; }
+.alert-preview.compact .overlay-alert.media-only { display: block; padding: 0; }
+.alert-preview.compact .overlay-alert-media { max-width: 120px; max-height: 34px; margin-bottom: 3px; border-radius: 4px; }
+.alert-preview.compact .overlay-alert.media-only .overlay-alert-media { max-height: 56px; margin: 0 auto; }
+.alert-preview.compact .alert-preview-empty { font-size: 11px; }
+.action-list > li.off .alert-preview.compact { opacity: 0.55; }
 @media (max-width: 640px) {
   .action-row { flex-wrap: wrap; }
+  .alert-preview.compact { width: 100%; height: 56px; }
   .action-buttons { width: 100%; justify-content: flex-end; }
 }
 
