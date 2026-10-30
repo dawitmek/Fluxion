@@ -235,9 +235,9 @@ function WidgetLinksCard({ main, goals }: { main: Screen; goals: Goal[] }) {
         })}
       </div>
       {all.length > LINKS_SHOWN && (
-        <button className="btn picker-toggle" aria-expanded={expanded} onClick={() => setExpanded(!expanded)}>
+        <button className="show-more" aria-expanded={expanded} onClick={() => setExpanded(!expanded)}>
+          {expanded ? 'Show fewer' : `Show ${all.length - LINKS_SHOWN} more widget${all.length - LINKS_SHOWN === 1 ? '' : 's'}`}
           <Icon name="chevron" />
-          {expanded ? 'Show fewer' : `Show ${all.length - LINKS_SHOWN} more`}
         </button>
       )}
     </Card>
