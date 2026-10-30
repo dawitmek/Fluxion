@@ -92,6 +92,7 @@ export interface Host {
   ttsTiktokConnected: boolean;
   uiTheme: UiTheme;
   uiThemeStyle: UiThemeStyle;
+  alertStyle: AlertStyle | null; // the look of alerts whose action has none; null: DEFAULT_ALERT_STYLE
   // Active profile
   profileId: string;
   profileName: string;

@@ -492,10 +492,28 @@ input[type='number']:not(:focus):not(:disabled):not([readonly]) { cursor: ns-res
 .look-group { display: flex; flex-direction: column; gap: 12px; min-width: 0; margin: 0; padding: 14px; border: 1px solid var(--line); border-radius: calc(12px * var(--radius-scale)); background: var(--panel2); }
 .look-group legend { padding: 0 6px; font-weight: 600; }
 .look-group > .seg { display: flex; }
-.look-group > .seg button { flex: 1; }
+.look-group > .seg button { flex: 1; padding: 0 8px; white-space: nowrap; }
 .look-row { display: grid; grid-template-columns: repeat(auto-fit, minmax(110px, 1fr)); gap: 10px; align-items: end; }
-.color-input { display: flex; align-items: center; gap: 8px; height: 40px; padding: 0 10px 0 4px; box-sizing: border-box; border: 1px solid var(--line-strong);
-  border-radius: calc(10px * var(--radius-scale)); background: var(--panel); font-weight: 500; }
-.field .color-input input[type='color'] { width: 32px; height: 30px; padding: 0; border: 0; border-radius: calc(6px * var(--radius-scale)); background: none; cursor: pointer; }
-.field .color-input input[type='color']::-webkit-color-swatch-wrapper { padding: 0; }
-.field .color-input input[type='color']::-webkit-color-swatch { border: 1px solid var(--line-strong); border-radius: calc(6px * var(--radius-scale)); }
+
+/* The colors of a pop-up style, always in view: a big swatch to click for each, with its name and hex. */
+.look-colors { display: grid; grid-template-columns: repeat(auto-fill, minmax(150px, 1fr)); gap: 8px; }
+.look-color { display: flex; align-items: center; gap: 10px; padding: 8px; border: 1px solid var(--line-strong); border-radius: calc(12px * var(--radius-scale));
+  background: var(--panel); cursor: pointer; font-weight: 400; }
+.look-color:hover, .look-color:focus-within { border-color: var(--indigo-fill); }
+.look-color strong { display: block; font-weight: 600; font-size: 13px; }
+.look-color-swatch { position: relative; flex: none; width: 40px; height: 40px; border-radius: calc(9px * var(--radius-scale));
+  box-shadow: 0 0 0 1px var(--line-strong), 0 1px 2px rgba(0, 0, 0, 0.15); } /* the outline shows a dark color on a dark card */
+/* The browser's color input covers the swatch, invisible, so clicking the swatch opens the color picker. */
+.look-color-swatch input { position: absolute; inset: 0; width: 100%; height: 100%; opacity: 0; cursor: pointer; }
+.look-color:has(input:focus-visible) { outline: 2px solid var(--indigo-fill); outline-offset: 2px; }
+.look-color-off { justify-content: flex-start; height: auto; min-height: 58px; border-style: dashed; color: var(--muted); }
+/* More settings: a full-width button, so it reads as something to press. */
+.look-more { display: flex; align-items: center; gap: 8px; width: 100%; padding: 11px 14px; border: 1px solid var(--line-strong); border-radius: calc(12px * var(--radius-scale));
+  background: var(--panel2); color: var(--ink); font: 600 14px var(--font); cursor: pointer; text-align: left; }
+.look-more:hover { border-color: var(--indigo-fill); }
+.look-more > svg:last-child { margin-left: auto; color: var(--muted); transition: transform 0.15s; }
+.look-more[aria-expanded='true'] > svg:last-child { transform: rotate(180deg); }
+/* The default style's card: the preview stays in view beside the settings on wide screens. */
+.default-look { display: grid; grid-template-columns: minmax(260px, 2fr) 3fr; gap: 20px; align-items: start; }
+.default-look > .alert-preview { position: sticky; top: 84px; min-height: 220px; }
+@media (max-width: 900px) { .default-look { grid-template-columns: 1fr; } .default-look > .alert-preview { position: relative; top: 0; } }

@@ -44,6 +44,7 @@ export const hosts = pgTable('hosts', {
   ttsTiktokVoice: text('tts_tiktok_voice'), // a TIKTOK_VOICES id; null means the first
   uiTheme: text('ui_theme').$type<UiTheme>().notNull().default('default'), // the dashboard's and companion's look
   uiThemeStyle: text('ui_theme_style').$type<UiThemeStyle>().notNull().default('full'),
+  alertStyle: jsonb('alert_style').$type<AlertStyle>(), // the look of alerts whose action has none; null: DEFAULT_ALERT_STYLE
   createdAt: timestamp('created_at', { withTimezone: true }).notNull().defaultNow(),
 });
 

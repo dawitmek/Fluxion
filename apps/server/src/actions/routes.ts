@@ -283,7 +283,7 @@ export async function actionRoutes(app: FastifyInstance) {
 }
 
 // Every part of an alert's look, within the limits the dashboard offers.
-function alertStyleSchema() {
+export function alertStyleSchema() {
   const color = { type: 'string', pattern: '^#[0-9a-fA-F]{6}([0-9a-fA-F]{2})?$' };
   const range = (key: keyof typeof ALERT_STYLE_LIMITS) => ({ type: 'number', minimum: ALERT_STYLE_LIMITS[key][0], maximum: ALERT_STYLE_LIMITS[key][1] });
   const properties = {

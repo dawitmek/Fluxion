@@ -647,6 +647,37 @@ describe('looks', () => {
     await api(cookie, 'POST', '/api/live/stop');
   });
 
+  it("gives alerts of actions without their own look the host's default look, live and in Test", async () => {
+    const { cookie } = await signUp();
+    const me = (await api(cookie, 'GET', '/api/auth/me')).json();
+    expect(me.alertStyle).toBeNull();
+    const all = (await api(cookie, 'GET', '/api/actions')).json();
+    const follow = all.find((a: any) => a.trigger === 'follow');
+    const share = all.find((a: any) => a.trigger === 'share');
+    const solar = ALERT_PRESETS.find((p) => p.id === 'solar')!.style;
+    const bold = ALERT_PRESETS.find((p) => p.id === 'bold')!.style;
+    expect((await api(cookie, 'PATCH', '/api/settings', { alertStyle: { ...solar, size: 200 } })).statusCode).toBe(400);
+    await api(cookie, 'PATCH', '/api/settings', { alertStyle: solar });
+    expect((await api(cookie, 'GET', '/api/auth/me')).json().alertStyle).toEqual(solar);
+    await api(cookie, 'PATCH', `/api/actions/${share.id}`, { enabled: true, alertStyle: bold });
+    await api(cookie, 'POST', '/api/live/start', { source: 'simulated' });
+    const overlay = connect(`/ws/overlay?token=${me.overlayToken}`);
+    await overlay.drain(100);
+    await api(cookie, 'POST', '/api/live/simulate', { viewer: 'alice', event: 'follow' });
+    await api(cookie, 'POST', '/api/live/simulate', { viewer: 'alice', event: 'share' });
+    const alerts = (await overlay.drain()).filter((m: any) => m.type === 'alert');
+    expect(alerts.find((a: any) => a.action === follow.id).style).toEqual(solar);
+    expect(alerts.find((a: any) => a.action === share.id).style).toEqual(bold);
+    expect((await api(cookie, 'POST', `/api/actions/${follow.id}/test`)).json().alert.style).toEqual(solar);
+    // The default changes mid-stream: the next alert has the new look. The action itself still has none of its own.
+    await overlay.drain(); // the Test alert
+    await api(cookie, 'PATCH', '/api/settings', { alertStyle: null });
+    await api(cookie, 'POST', '/api/live/simulate', { viewer: 'bob', event: 'follow' });
+    expect((await overlay.drain()).find((m: any) => m.type === 'alert')).not.toHaveProperty('style');
+    expect((await api(cookie, 'GET', '/api/actions')).json().find((a: any) => a.id === follow.id).alertStyle).toBeNull();
+    await api(cookie, 'POST', '/api/live/stop');
+  });
+
   it("keeps the account's theme, and the companion gets it on connect and when it changes", async () => {
     const { cookie } = await signUp();
     expect((await api(cookie, 'GET', '/api/auth/me')).json()).toMatchObject({ uiTheme: 'default', uiThemeStyle: 'full' });

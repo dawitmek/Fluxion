@@ -12,12 +12,14 @@ import {
   type Mode,
   type TtsEngine,
   type TtsMode,
+  type AlertStyle,
   type UiTheme,
   type UiThemeStyle,
   type VoiceEffect,
 } from '@fluxion/shared';
 import { requireHost } from '../auth/session.js';
 import { activeProfile } from '../profiles/active.js';
+import { alertStyleSchema } from '../actions/routes.js';
 
 type Body = {
   tiktokUsername?: string | null;
@@ -55,6 +57,7 @@ type Body = {
   ttsTiktokSession?: null;
   uiTheme?: UiTheme;
   uiThemeStyle?: UiThemeStyle;
+  alertStyle?: AlertStyle | null;
 };
 
 // Tells the host's companions the dashboard's theme, which they follow.
@@ -113,12 +116,13 @@ export async function settingsRoutes(app: FastifyInstance) {
             ttsTiktokSession: { type: 'null' },
             uiTheme: { enum: UI_THEMES.map((t) => t.id) },
             uiThemeStyle: { enum: ['full', 'colors'] },
+            alertStyle: { anyOf: [{ type: 'null' }, alertStyleSchema()] },
           },
         },
       },
     },
     async (req, reply) => {
-      const { tiktokUsername, actionsPerSecond, progression, levelGating, uiTheme, uiThemeStyle } = req.body;
+      const { tiktokUsername, actionsPerSecond, progression, levelGating, uiTheme, uiThemeStyle, alertStyle } = req.body;
       const tts = Object.fromEntries(Object.entries(req.body).filter(([k]) => k.startsWith('tts')));
       const points = Object.fromEntries(Object.entries(req.body).filter(([k]) => k.startsWith('points')));
       if (typeof req.body.ttsCloudKey === 'string') tts.ttsCloudKey = app.secrets.seal(req.body.ttsCloudKey);
@@ -143,6 +147,7 @@ export async function settingsRoutes(app: FastifyInstance) {
         ...(levelGating !== undefined && { levelGating }),
         ...(uiTheme !== undefined && { uiTheme }),
         ...(uiThemeStyle !== undefined && { uiThemeStyle }),
+        ...(alertStyle !== undefined && { alertStyle }),
       };
       const profilePatch = Object.fromEntries(
         PROFILE_FIELDS.filter((f) => req.body[f] !== undefined).map((f) => [f, req.body[f]]),

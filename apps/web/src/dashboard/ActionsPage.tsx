@@ -1,8 +1,8 @@
-import { useCallback, useEffect, useLayoutEffect, useRef, useState, type ChangeEvent, type CSSProperties, type FormEvent, type PointerEvent as ReactPointerEvent, type ReactNode } from 'react';
-import { ACTION_TRIGGERS, ALERT_SOUNDS, AUDIENCES, MAX_KEY_REPEATS, MAX_MEDIA_TOTAL_BYTES, type ServerToOverlay } from '@fluxion/shared';
+import { createContext, useCallback, useContext, useEffect, useLayoutEffect, useRef, useState, type ChangeEvent, type CSSProperties, type FormEvent, type PointerEvent as ReactPointerEvent, type ReactNode } from 'react';
+import { ACTION_TRIGGERS, ALERT_SOUNDS, AUDIENCES, DEFAULT_ALERT_STYLE, MAX_KEY_REPEATS, MAX_MEDIA_TOTAL_BYTES, type AlertStyle, type ServerToOverlay } from '@fluxion/shared';
 import { api, uploadMedia, type Action, type ActionTrigger, type Audience, type Command, type Goal, type Host, type MediaItem, type Screen } from '../api';
 import { playSound } from '../sounds';
-import { Card, ErrorNotice, HueIcon, Scrubber, useError, type Hue } from '../ui';
+import { Card, ErrorNotice, HueIcon, Scrubber, Seg, useError, type Hue } from '../ui';
 import { Icon, type IconName } from '../icons';
 import { alertPlace } from '../Overlay';
 import { alertLook } from '../alert-style';
@@ -13,15 +13,59 @@ import { playAlertPreview, previewAudio } from './audio';
 import { Link } from '../router';
 import type { PageProps } from './Dashboard';
 
-export function ActionsPage({ host }: PageProps) {
+// The host's default pop-up look, for the previews of actions that don't have their own.
+const DefaultLook = createContext<AlertStyle>(DEFAULT_ALERT_STYLE);
+
+export function ActionsPage({ host, refreshHost }: PageProps) {
   const [media, setMedia] = useState<MediaItem[]>([]);
   const loadMedia = useCallback(() => api<MediaItem[]>('GET', '/media').then(setMedia), []);
   useEffect(() => void loadMedia(), [loadMedia]);
   return (
-    <div className="stack">
-      <ActionsCard host={host} media={media} />
-      <MediaCard media={media} reload={loadMedia} />
-    </div>
+    <DefaultLook.Provider value={host.alertStyle ?? DEFAULT_ALERT_STYLE}>
+      <div className="stack">
+        <DefaultLookCard host={host} refreshHost={refreshHost} />
+        <ActionsCard host={host} media={media} />
+        <MediaCard media={media} reload={loadMedia} />
+      </div>
+    </DefaultLook.Provider>
+  );
+}
+
+// How every alert looks unless its action has a look of its own. Edited here and saved together, so dragging
+// through colors doesn't reload a live stream at every step.
+function DefaultLookCard({ host, refreshHost }: Pick<PageProps, 'host' | 'refreshHost'>) {
+  const saved = host.alertStyle ?? DEFAULT_ALERT_STYLE;
+  const [draft, setDraft] = useState<AlertStyle>(saved);
+  const [replays, setReplays] = useState(0);
+  const { error, guard } = useError();
+  const changed = JSON.stringify(draft) !== JSON.stringify(saved);
+  const save = guard(() => api('PATCH', '/settings', { alertStyle: draft }).then(refreshHost));
+  return (
+    <Card
+      title="Pop-up style"
+      description="How your alerts look on stream: colors, font, shape and animation. Every action uses this style unless you give it its own."
+    >
+      <ErrorNotice error={error} />
+      <div className="default-look">
+        <div className="alert-preview" aria-label="Pop-up preview">
+          <div key={replays} className={`overlay-alert ${alertLook(draft).className}`} style={alertLook(draft).style}>
+            nightowl followed!
+          </div>
+          <span className="alert-preview-note">Preview, with a sample name</span>
+        </div>
+        <AlertLookEditor value={draft} onChange={setDraft} onReplay={() => setReplays((n) => n + 1)} />
+      </div>
+      <div className="row" style={{ marginTop: 16 }}>
+        <button className="btn btn-primary" disabled={!changed} onClick={() => void save()}>
+          {changed ? 'Save pop-up style' : 'Saved'}
+        </button>
+        {changed && (
+          <button className="btn btn-ghost" onClick={() => setDraft(saved)}>
+            Undo changes
+          </button>
+        )}
+      </div>
+    </Card>
   );
 }
 
@@ -236,6 +280,7 @@ function ActionEditor({
 }) {
   const [draft, setDraft] = useState<Draft>(initial);
   const [replays, setReplays] = useState(0); // a new count shows the preview's entrance again
+  const defaultLook = useContext(DefaultLook);
   const { error, guard } = useError();
   const set = (patch: Partial<Draft>) => setDraft((d) => ({ ...d, ...patch }));
   const text = (value: string) => value.trim() || null;
@@ -386,7 +431,21 @@ function ActionEditor({
           <input className="input" maxLength={200} value={draft.text ?? ''} onChange={(e) => set({ text: e.target.value || null })} />
         </label>
         <AlertPreview key={replays} draft={draft} media={media} />
-        <AlertLookEditor value={draft.alertStyle} onChange={(alertStyle) => set({ alertStyle })} onReplay={() => setReplays((n) => n + 1)} />
+        <div className="field">
+          Pop-up style
+          <Seg<'default' | 'own'>
+            label="Pop-up style"
+            value={draft.alertStyle ? 'own' : 'default'}
+            options={[
+              ['default', 'Your pop-up style'],
+              ['own', 'A style just for this action'],
+            ]}
+            // Its own style starts as a copy of the default, so nothing jumps until something is changed.
+            onChange={(choice) => set({ alertStyle: choice === 'own' ? { ...defaultLook } : null })}
+          />
+          {!draft.alertStyle && <span className="hint">Change it at the top of this page, under Pop-up style. Every action using it changes too.</span>}
+        </div>
+        {draft.alertStyle && <AlertLookEditor value={draft.alertStyle} onChange={(alertStyle) => set({ alertStyle })} onReplay={() => setReplays((n) => n + 1)} />}
         <div className="form-grid">
           <label className="field">
             Sound
@@ -522,7 +581,8 @@ function Section({ title, icon, hue, children }: { title: string; icon: IconName
 function AlertPreview({ draft, media, compact }: { draft: Draft; media: MediaItem[]; compact?: boolean }) {
   const file = media.find((m) => m.id === draft.mediaId);
   const text = draft.text ? sampleText(draft.text) : '';
-  const look = alertLook(draft.alertStyle);
+  const defaultLook = useContext(DefaultLook);
+  const look = alertLook(draft.alertStyle ?? defaultLook);
   return (
     <div className={`alert-preview ${compact ? 'compact' : ''}`} aria-label={compact ? `${draft.name} alert preview` : 'Alert preview'}>
       {text || file ? (
@@ -657,6 +717,8 @@ function AlertPlaceDialog({ draft, screen, media, onDone, onClose }: { draft: Dr
   const [bus] = useState(() => new GiftBus());
   const { stats, chat } = usePreview(true, bus);
   const file = media.find((m) => m.id === draft.mediaId);
+  const defaultLook = useContext(DefaultLook);
+  const look = alertLook(draft.alertStyle ?? defaultLook);
 
   useEffect(() => dialog.current?.showModal(), []);
   useLayoutEffect(() => {
@@ -710,8 +772,8 @@ function AlertPlaceDialog({ draft, screen, media, onDone, onClose }: { draft: Dr
           <div className={`overlay-screen alerts-${screen.alertPosition}`} style={{ '--overlay-scale': screen.scale / 100 } as CSSProperties}>
             <FadedWidgets widgets={screen.widgets} feed={{ stats, chat, bus }} />
             <div
-              className={`overlay-alert alert-drag ${alertLook(draft.alertStyle).className} ${text ? '' : 'media-only'}`}
-              style={{ ...alertLook(draft.alertStyle).style, ...alertPlace({ pos: placed ? { x: place.alertX!, y: place.alertY! } : null, scale: place.alertScale }) }}
+              className={`overlay-alert alert-drag ${look.className} ${text ? '' : 'media-only'}`}
+              style={{ ...look.style, ...alertPlace({ pos: placed ? { x: place.alertX!, y: place.alertY! } : null, scale: place.alertScale }) }}
               onPointerDown={startDrag}
             >
               {file?.kind === 'image' && <img className="overlay-alert-media" src={`/media/${file.id}`} alt="" draggable={false} />}

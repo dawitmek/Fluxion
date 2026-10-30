@@ -126,7 +126,7 @@ export function ViewerPanel({ viewer, onClose }: { viewer: string; onClose: () =
             </section>
 
             <section>
-              <h3>Everything they did</h3>
+              <h3>Activity history</h3>
               <ol className="activity-list viewer-history">
                 {events.map((e, i) => {
                   const newStream = i === 0 || events[i - 1]!.streamId !== e.streamId;
