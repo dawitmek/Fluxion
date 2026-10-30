@@ -31,6 +31,7 @@ interface Snapshot {
   pendingApprovals: number;
   theme: string | null; // the account's dashboard theme, which this window follows
   themeStyle: string | null;
+  themeMode: string | null; // "light", "dark" or "system"
 }
 
 interface CommandView {
@@ -74,14 +75,20 @@ export default function App() {
       .then(() => setError(null))
       .catch((e) => setError(String(e)));
 
-  // The dashboard's theme (see @fluxion/theme's themes.css), as the server last sent it.
+  // The dashboard's look (see @fluxion/theme), as the server last sent it: theme, style, and light or dark.
   useEffect(() => {
     const root = document.documentElement;
     if (state?.theme && state.theme !== "default") root.dataset.theme = state.theme;
     else delete root.dataset.theme;
     if (state?.themeStyle === "full") root.dataset.themeStyle = "full";
     else delete root.dataset.themeStyle;
-  }, [state?.theme, state?.themeStyle]);
+    const mode = state?.themeMode ?? "system";
+    const system = matchMedia("(prefers-color-scheme: dark)");
+    const apply = () => (root.dataset.mode = mode === "dark" || (mode === "system" && system.matches) ? "dark" : "light");
+    apply();
+    system.addEventListener("change", apply);
+    return () => system.removeEventListener("change", apply);
+  }, [state?.theme, state?.themeStyle, state?.themeMode]);
 
   if (!state) return null;
 

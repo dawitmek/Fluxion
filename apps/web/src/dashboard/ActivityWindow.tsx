@@ -17,7 +17,7 @@ export function ActivityWindow() {
     document.title = 'Full activity - Fluxion';
     api<Host>('GET', '/auth/me')
       .then((host) => {
-        rememberTheme({ theme: host.uiTheme, style: host.uiThemeStyle });
+        rememberTheme({ theme: host.uiTheme, style: host.uiThemeStyle, mode: host.uiMode });
         setSignedIn(true);
       })
       .catch(() => navigate(`/login?next=${encodeURIComponent(location.pathname)}`, { replace: true }));

@@ -31,8 +31,14 @@ pub enum ServerMessage {
     Profile { name: String, game_process: Option<String> },
     // The active profile's commands. Key combinations among them still need this PC's own approval.
     Commands { commands: Vec<CommandInfo> },
-    // The dashboard's theme, which this window follows: "default" or "solar-dusk", in "full" or "colors" style.
-    Theme { theme: String, style: String },
+    // The dashboard's look, which this window follows: a theme ("default", "solar-dusk"…) in "full" or "colors"
+    // style, and "light", "dark" or "system". Servers from before light or dark was a choice don't send a mode.
+    Theme {
+        theme: String,
+        style: String,
+        #[serde(default)]
+        mode: Option<String>,
+    },
 }
 
 #[derive(Serialize)]
@@ -54,8 +60,10 @@ mod tests {
 
     #[test]
     fn parses_theme_messages() {
-        let theme: ServerMessage = serde_json::from_str(r#"{"type":"theme","theme":"solar-dusk","style":"colors"}"#).unwrap();
-        assert!(matches!(theme, ServerMessage::Theme { ref theme, ref style } if theme == "solar-dusk" && style == "colors"));
+        let theme: ServerMessage = serde_json::from_str(r#"{"type":"theme","theme":"solar-dusk","style":"colors","mode":"dark"}"#).unwrap();
+        assert!(matches!(theme, ServerMessage::Theme { ref theme, ref style, mode: Some(ref mode) } if theme == "solar-dusk" && style == "colors" && mode == "dark"));
+        let older: ServerMessage = serde_json::from_str(r#"{"type":"theme","theme":"default","style":"full"}"#).unwrap();
+        assert!(matches!(older, ServerMessage::Theme { mode: None, .. }));
     }
 
     #[test]

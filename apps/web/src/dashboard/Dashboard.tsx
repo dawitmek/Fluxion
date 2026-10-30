@@ -58,8 +58,8 @@ export function Dashboard() {
   useEffect(() => void refresh(), [refresh]);
   // The account's theme, also remembered for the login page and the next first paint.
   useEffect(() => {
-    if (host) rememberTheme({ theme: host.uiTheme, style: host.uiThemeStyle });
-  }, [host?.uiTheme, host?.uiThemeStyle]);
+    if (host) rememberTheme({ theme: host.uiTheme, style: host.uiThemeStyle, mode: host.uiMode });
+  }, [host?.uiTheme, host?.uiThemeStyle, host?.uiMode]);
   useEffect(() => {
     if (host === null) navigate(`/login?next=${encodeURIComponent(location.pathname)}`, { replace: true });
   }, [host]);

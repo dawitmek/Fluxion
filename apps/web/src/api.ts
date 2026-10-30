@@ -35,6 +35,7 @@ import type {
   Speech,
   TtsEngine,
   TtsMode,
+  UiMode,
   UiTheme,
   UiThemeStyle,
   VoiceEffect,
@@ -92,6 +93,7 @@ export interface Host {
   ttsTiktokConnected: boolean;
   uiTheme: UiTheme;
   uiThemeStyle: UiThemeStyle;
+  uiMode: UiMode;
   alertStyle: AlertStyle | null; // the look of alerts whose action has none; null: DEFAULT_ALERT_STYLE
   // Active profile
   profileId: string;

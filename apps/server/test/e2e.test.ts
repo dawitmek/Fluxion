@@ -686,10 +686,13 @@ describe('looks', () => {
     expect(await companion.next()).toMatchObject({ type: 'ready' });
     expect(await companion.next()).toMatchObject({ type: 'profile' });
     expect(await companion.nextAside()).toMatchObject({ type: 'commands' });
-    expect(await companion.nextAside()).toEqual({ type: 'theme', theme: 'default', style: 'full' });
+    expect(await companion.nextAside()).toEqual({ type: 'theme', theme: 'default', style: 'full', mode: 'system' });
     await api(cookie, 'PATCH', '/api/settings', { uiTheme: 'solar-dusk', uiThemeStyle: 'colors' });
-    expect(await companion.nextAside()).toEqual({ type: 'theme', theme: 'solar-dusk', style: 'colors' });
-    expect((await api(cookie, 'GET', '/api/auth/me')).json()).toMatchObject({ uiTheme: 'solar-dusk', uiThemeStyle: 'colors' });
+    expect(await companion.nextAside()).toEqual({ type: 'theme', theme: 'solar-dusk', style: 'colors', mode: 'system' });
+    await api(cookie, 'PATCH', '/api/settings', { uiMode: 'dark' });
+    expect(await companion.nextAside()).toEqual({ type: 'theme', theme: 'solar-dusk', style: 'colors', mode: 'dark' });
+    expect((await api(cookie, 'GET', '/api/auth/me')).json()).toMatchObject({ uiTheme: 'solar-dusk', uiThemeStyle: 'colors', uiMode: 'dark' });
+    expect((await api(cookie, 'PATCH', '/api/settings', { uiMode: 'dim' })).statusCode).toBe(400);
     expect((await api(cookie, 'PATCH', '/api/settings', { uiTheme: 'neon-noir' })).statusCode).toBe(400);
     expect((await api(cookie, 'PATCH', '/api/settings', { uiThemeStyle: 'half' })).statusCode).toBe(400);
   });

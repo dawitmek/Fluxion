@@ -44,6 +44,7 @@ pub struct Snapshot {
     pending_approvals: usize, // enabled combinations waiting for this PC's OK
     theme: Option<String>,
     theme_style: Option<String>,
+    theme_mode: Option<String>,
 }
 
 /// A dashboard command and whether this PC will press it.
@@ -135,6 +136,7 @@ impl Controller {
             pending_approvals,
             theme: config.theme,
             theme_style: config.theme_style,
+            theme_mode: config.theme_mode,
         }
     }
 

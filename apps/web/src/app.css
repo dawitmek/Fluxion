@@ -96,9 +96,7 @@
 .command-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(190px, 1fr)); gap: 12px; }
 /* The gold-edged key on each command card, in each theme. */
 :root { --gold-key-bg: #fff8ea; --gold-key-edge: #d8962a; --gold-key-ink: #8a4f06; }
-@media (prefers-color-scheme: dark) {
-  :root { --gold-key-bg: #20242f; --gold-key-edge: #f5a524; --gold-key-ink: #fbbf4a; }
-}
+:root:where([data-mode='dark']) { --gold-key-bg: #20242f; --gold-key-edge: #f5a524; --gold-key-ink: #fbbf4a; }
 .command-card { position: relative; padding: 16px; border-radius: calc(16px * var(--radius-scale)); background: var(--panel2); border: 1px solid var(--line); }
 .command-card::before { content: ''; position: absolute; left: 14px; right: 14px; top: 0; height: 2px; border-radius: 0 0 2px 2px; background: var(--edge-gradient); }
 .command-card .kbd { transition: transform 0.12s, background 0.12s, color 0.12s; }
@@ -219,9 +217,7 @@ fieldset:disabled * { cursor: not-allowed; }
 
 /* Charts (dashboard/charts.tsx). Series colours validated for colour-blind separation and contrast in both themes. */
 :root { --series-1: #2a78d6; --series-2: #eb6834; }
-@media (prefers-color-scheme: dark) {
-  :root { --series-1: #3987e5; --series-2: #d95926; }
-}
+:root:where([data-mode='dark']) { --series-1: #3987e5; --series-2: #d95926; }
 .slot-1 { background: var(--series-1); }
 .slot-2 { background: var(--series-2); }
 .chart { position: relative; margin: 0; }

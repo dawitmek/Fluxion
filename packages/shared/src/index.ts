@@ -137,7 +137,7 @@ export type ServerToCompanion =
   // Sent on connect and whenever commands or the active profile change.
   | { type: 'commands'; commands: { keyword: string; key: string; enabled: boolean }[] }
   // The host's dashboard theme, which the companion follows. Sent on connect and when the host changes it.
-  | { type: 'theme'; theme: UiTheme; style: UiThemeStyle };
+  | { type: 'theme'; theme: UiTheme; style: UiThemeStyle; mode: UiMode };
 
 // Crowd-control modes. The host picks one and can switch while live.
 export const MODES = ['anarchy', 'democracy', 'queue', 'gift'] as const;
@@ -280,6 +280,8 @@ export const UI_THEMES = [
 ] as const;
 export type UiTheme = (typeof UI_THEMES)[number]['id'];
 export type UiThemeStyle = 'full' | 'colors';
+export const UI_MODES = ['system', 'light', 'dark'] as const;
+export type UiMode = (typeof UI_MODES)[number]; // light or dark; 'system' follows the computer's setting
 // Template placeholders: {viewer}, {count}, {gift}, {diamonds}, {total} (likes), {months}, {text} (command), {goal}, {target}.
 
 export const TTS_MODES = ['off', 'prefix', 'all'] as const;

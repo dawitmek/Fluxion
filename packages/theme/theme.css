@@ -1,11 +1,12 @@
 /* Fluxion design system, shared by the dashboard and the companion app.
-   Colours follow the system light/dark preference. Meaning colours: red = live, green = ready,
+   Light or dark follows data-mode="dark" on <html>, which the page sets from the account's choice (light, dark, or
+   the system's). Meaning colours: red = live, green = ready,
    amber = a vote or something that needs a look. Indigo is the brand and the action colour. */
 @import '@fontsource-variable/geist';
 @import './themes.css';
 
 :root {
-  color-scheme: light dark;
+  color-scheme: light;
   --ground: #f6f6f9;
   --panel: #ffffff;
   --panel2: #f2f2f6;
@@ -82,45 +83,44 @@
   color: var(--ink);
   background: var(--ground);
 }
-@media (prefers-color-scheme: dark) {
-  :root {
-    --ground: #07080c;
-    --panel: #0d0f15;
-    --panel2: #141720;
-    --line: rgba(255, 255, 255, 0.08);
-    --line-strong: rgba(255, 255, 255, 0.16);
-    --ink: #f4f5fa;
-    --muted: #9aa0b4;
-    --meter: #262a36;
-    --shadow: none;
-    --solid-bg: #ffffff;
-    --solid-ink: #0b0c10;
-    --glow-strength: 1;
-    --aurora: radial-gradient(900px 380px at 78% -8%, rgba(99, 102, 241, 0.22), transparent 70%),
-      radial-gradient(700px 320px at 40% -12%, rgba(56, 189, 248, 0.12), transparent 70%),
-      radial-gradient(600px 300px at 100% 30%, rgba(217, 70, 239, 0.1), transparent 70%);
-    --red: #ff6b7a;
-    --red-soft: rgba(255, 80, 100, 0.12);
-    --green: #4fd08a;
-    --green-soft: rgba(60, 200, 120, 0.11);
-    --amber: #fbbf4a;
-    --amber-soft: rgba(245, 165, 36, 0.12);
-    --indigo: #a3a6ff;
-    --indigo-fill: #6366f1;
-    --indigo-soft: rgba(99, 102, 241, 0.16);
-    --key-ink: #d4d5ff;
-    --key-edge: rgba(140, 143, 255, 0.35);
-    --sky: #74c0f7;
-    --sky-soft: rgba(43, 149, 234, 0.14);
-    --pink: #f784be;
-    --pink-soft: rgba(229, 70, 154, 0.14);
-    --violet: #bb9cff;
-    --violet-soft: rgba(141, 94, 245, 0.16);
-    --teal: #5ed9d3;
-    --teal-soft: rgba(20, 163, 160, 0.15);
-    --orange: #ffa868;
-    --orange-soft: rgba(240, 127, 46, 0.14);
-  }
+:root:where([data-mode='dark']) {
+  color-scheme: dark;
+  --ground: #07080c;
+  --panel: #0d0f15;
+  --panel2: #141720;
+  --line: rgba(255, 255, 255, 0.08);
+  --line-strong: rgba(255, 255, 255, 0.16);
+  --ink: #f4f5fa;
+  --muted: #9aa0b4;
+  --meter: #262a36;
+  --shadow: none;
+  --solid-bg: #ffffff;
+  --solid-ink: #0b0c10;
+  --glow-strength: 1;
+  --aurora: radial-gradient(900px 380px at 78% -8%, rgba(99, 102, 241, 0.22), transparent 70%),
+    radial-gradient(700px 320px at 40% -12%, rgba(56, 189, 248, 0.12), transparent 70%),
+    radial-gradient(600px 300px at 100% 30%, rgba(217, 70, 239, 0.1), transparent 70%);
+  --red: #ff6b7a;
+  --red-soft: rgba(255, 80, 100, 0.12);
+  --green: #4fd08a;
+  --green-soft: rgba(60, 200, 120, 0.11);
+  --amber: #fbbf4a;
+  --amber-soft: rgba(245, 165, 36, 0.12);
+  --indigo: #a3a6ff;
+  --indigo-fill: #6366f1;
+  --indigo-soft: rgba(99, 102, 241, 0.16);
+  --key-ink: #d4d5ff;
+  --key-edge: rgba(140, 143, 255, 0.35);
+  --sky: #74c0f7;
+  --sky-soft: rgba(43, 149, 234, 0.14);
+  --pink: #f784be;
+  --pink-soft: rgba(229, 70, 154, 0.14);
+  --violet: #bb9cff;
+  --violet-soft: rgba(141, 94, 245, 0.16);
+  --teal: #5ed9d3;
+  --teal-soft: rgba(20, 163, 160, 0.15);
+  --orange: #ffa868;
+  --orange-soft: rgba(240, 127, 46, 0.14);
 }
 
 body { margin: 0; background: var(--ground); color: var(--ink); }

@@ -17,6 +17,7 @@ pub struct Config {
     /// The account's dashboard theme, as the server last sent it, so the window opens in it before connecting.
     pub theme: Option<String>,
     pub theme_style: Option<String>,
+    pub theme_mode: Option<String>, // "light", "dark" or "system"
 }
 
 impl Config {

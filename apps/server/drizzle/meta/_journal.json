@@ -183,6 +183,13 @@
       "when": 1793378851943,
       "tag": "0025_host_alert_style",
       "breakpoints": true
+    },
+    {
+      "idx": 26,
+      "version": "7",
+      "when": 1793379308760,
+      "tag": "0026_ui_mode",
+      "breakpoints": true
     }
   ]
 }

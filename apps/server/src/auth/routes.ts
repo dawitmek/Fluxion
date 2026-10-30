@@ -106,6 +106,7 @@ export async function authRoutes(app: FastifyInstance) {
         ttsTiktokConnected: sql<boolean>`${hosts.ttsTiktokSession} is not null`,
         uiTheme: hosts.uiTheme,
         uiThemeStyle: hosts.uiThemeStyle,
+        uiMode: hosts.uiMode,
         alertStyle: hosts.alertStyle,
         // Mode settings of the active profile.
         profileId: profiles.id,

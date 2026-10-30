@@ -1,5 +1,5 @@
 import { useState } from 'react';
-import { UI_THEMES, type UiTheme, type UiThemeStyle } from '@fluxion/shared';
+import { UI_THEMES, type UiMode, type UiTheme, type UiThemeStyle } from '@fluxion/shared';
 import { api, type Host } from '../api';
 import { navigate } from '../router';
 import { Card, Choices, ErrorNotice, Seg, useError } from '../ui';
@@ -69,14 +69,28 @@ const SWATCHES: Record<UiTheme, { light: string[]; dark: string[]; note: string 
 // The dashboard's and companion's look. Applies at once, here and on the paired companions.
 function Appearance({ host, refreshHost }: { host: Host; refreshHost: () => Promise<unknown> }) {
   const { error, guard } = useError();
-  const save = (patch: { uiTheme?: UiTheme; uiThemeStyle?: UiThemeStyle }) => {
-    rememberTheme({ theme: patch.uiTheme ?? host.uiTheme, style: patch.uiThemeStyle ?? host.uiThemeStyle });
+  const save = (patch: { uiTheme?: UiTheme; uiThemeStyle?: UiThemeStyle; uiMode?: UiMode }) => {
+    rememberTheme({ theme: patch.uiTheme ?? host.uiTheme, style: patch.uiThemeStyle ?? host.uiThemeStyle, mode: patch.uiMode ?? host.uiMode });
     return guard(() => api('PATCH', '/settings', patch).then(refreshHost))();
   };
   return (
-    <Card title="Appearance" description="The look of your dashboard and the companion app. Light or dark follows your system.">
+    <Card title="Appearance" description="The look of your dashboard and the companion app.">
       <ErrorNotice error={error} />
       <div className="stack">
+        <div className="field">
+          Light or dark
+          <span className="hint">System matches your computer, and switches when it does.</span>
+          <Seg<UiMode>
+            label="Light or dark"
+            value={host.uiMode}
+            options={[
+              ['system', 'System'],
+              ['light', 'Light'],
+              ['dark', 'Dark'],
+            ]}
+            onChange={(uiMode) => save({ uiMode })}
+          />
+        </div>
         <Choices<UiTheme>
           label="Theme"
           value={host.uiTheme}

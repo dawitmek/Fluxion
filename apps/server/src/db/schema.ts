@@ -1,5 +1,5 @@
 import { bigserial, boolean, customType, index, integer, jsonb, pgTable, primaryKey, real, serial, text, timestamp, unique, uuid, type AnyPgColumn } from 'drizzle-orm/pg-core';
-import type { ActionTrigger, ActivityKind, AlertPosition, AlertSound, AlertStyle, Audience, CloudProvider, GoalMetric, MediaKind, Mode, ScreenWidget, TtsEngine, TtsMode, UiTheme, UiThemeStyle, VoiceEffect } from '@fluxion/shared';
+import type { ActionTrigger, ActivityKind, AlertPosition, AlertSound, AlertStyle, Audience, CloudProvider, GoalMetric, MediaKind, Mode, ScreenWidget, TtsEngine, TtsMode, UiMode, UiTheme, UiThemeStyle, VoiceEffect } from '@fluxion/shared';
 
 const bytea = customType<{ data: Buffer }>({ dataType: () => 'bytea' });
 
@@ -44,6 +44,7 @@ export const hosts = pgTable('hosts', {
   ttsTiktokVoice: text('tts_tiktok_voice'), // a TIKTOK_VOICES id; null means the first
   uiTheme: text('ui_theme').$type<UiTheme>().notNull().default('default'), // the dashboard's and companion's look
   uiThemeStyle: text('ui_theme_style').$type<UiThemeStyle>().notNull().default('full'),
+  uiMode: text('ui_mode').$type<UiMode>().notNull().default('system'), // light or dark, or the system's
   alertStyle: jsonb('alert_style').$type<AlertStyle>(), // the look of alerts whose action has none; null: DEFAULT_ALERT_STYLE
   createdAt: timestamp('created_at', { withTimezone: true }).notNull().defaultNow(),
 });

@@ -1,7 +1,7 @@
 /* Themes beyond the default (theme.css). The page sets one on <html>: data-theme="solar-dusk", plus
    data-theme-style="full" to also take the theme's font, corners and shadows ("colors only" leaves it off).
-   Each theme redefines the tokens of theme.css for light mode, then again for dark. Selectors start at
-   :root[data-theme=…] so they win over theme.css whichever file loads first. */
+   Each theme redefines the tokens of theme.css for light mode, then again for dark (data-mode="dark"; see
+   theme.css). Selectors start at :root[data-theme=…] so they win over theme.css whichever file loads first. */
 @import '@fontsource-variable/oxanium';
 @import '@fontsource-variable/dm-sans';
 @import '@fontsource-variable/plus-jakarta-sans';
@@ -56,49 +56,47 @@
 :root[data-theme='solar-dusk'] .content-glow .s-blob-5 { --c: 161, 98, 7; }
 :root[data-theme='solar-dusk'] .content-glow .s-blob-pointer { --c: 251, 146, 60; }
 
-@media (prefers-color-scheme: dark) {
-  :root[data-theme='solar-dusk'] {
-    --ground: #1c1917;
-    --panel: #292524;
-    --panel2: #201d1a;
-    --line: #44403c;
-    --line-strong: #57534e;
-    --ink: #f5f5f4;
-    --muted: #a8a29e;
-    --meter: #44403c;
-    --solid-bg: #f97316;
-    --solid-ink: #ffffff;
-    --aurora: radial-gradient(900px 380px at 78% -8%, rgba(249, 115, 22, 0.16), transparent 70%),
-      radial-gradient(700px 320px at 40% -12%, rgba(14, 165, 233, 0.1), transparent 70%),
-      radial-gradient(600px 300px at 100% 30%, rgba(234, 179, 8, 0.08), transparent 70%);
-    --red: #f87171;
-    --red-soft: rgba(220, 38, 38, 0.16);
-    --indigo: #fb8c3c;
-    --indigo-fill: #f97316;
-    --indigo-soft: rgba(249, 115, 22, 0.16);
-    --key-ink: #fdba74;
-    --key-edge: rgba(249, 115, 22, 0.4);
-    --brand-gradient: linear-gradient(135deg, #eab308 0%, #f97316 100%);
-    --edge-gradient: linear-gradient(90deg, #f97316, #eab308);
-    --plasma: linear-gradient(90deg, #eab308 0%, #f97316 55%, #ea580c 100%);
-    --usage-gradient: linear-gradient(90deg, #0ea5e9, #38bdf8);
-    --avatar-gradient: linear-gradient(135deg, #f97316, #0ea5e9);
-    --accent-gradient: linear-gradient(180deg, #fb8a3c, #ea6a0c);
-    --accent-shadow: rgba(249, 115, 22, 0.7);
-    --glow-rgb: 249, 115, 22;
-    --sb-bg: #292524;
-    --sb-ink: #f5f5f4;
-    --sb-muted: #a8a29e;
-    --sb-line: #44403c;
-    --sb-hover: rgba(255, 255, 255, 0.05);
-    --sb-active: rgba(14, 165, 233, 0.16);
-    --sb-focus: #f97316;
-    --sb-marker: linear-gradient(180deg, #f97316, #0ea5e9);
-  }
-  /* A dark sidebar again: lighter icon shades, as with the default theme. */
-  :root[data-theme='solar-dusk'] .sidebar {
-    --red: #ff8a96; --indigo: #fb8c3c; --pink: #f78bc0; --violet: #c3a8ff; --sky: #7cc4f8; --teal: #62dad4; --orange: #ffae74; --green: #6fe0a2;
-  }
+:root:where([data-mode='dark'])[data-theme='solar-dusk'] {
+  --ground: #1c1917;
+  --panel: #292524;
+  --panel2: #201d1a;
+  --line: #44403c;
+  --line-strong: #57534e;
+  --ink: #f5f5f4;
+  --muted: #a8a29e;
+  --meter: #44403c;
+  --solid-bg: #f97316;
+  --solid-ink: #ffffff;
+  --aurora: radial-gradient(900px 380px at 78% -8%, rgba(249, 115, 22, 0.16), transparent 70%),
+    radial-gradient(700px 320px at 40% -12%, rgba(14, 165, 233, 0.1), transparent 70%),
+    radial-gradient(600px 300px at 100% 30%, rgba(234, 179, 8, 0.08), transparent 70%);
+  --red: #f87171;
+  --red-soft: rgba(220, 38, 38, 0.16);
+  --indigo: #fb8c3c;
+  --indigo-fill: #f97316;
+  --indigo-soft: rgba(249, 115, 22, 0.16);
+  --key-ink: #fdba74;
+  --key-edge: rgba(249, 115, 22, 0.4);
+  --brand-gradient: linear-gradient(135deg, #eab308 0%, #f97316 100%);
+  --edge-gradient: linear-gradient(90deg, #f97316, #eab308);
+  --plasma: linear-gradient(90deg, #eab308 0%, #f97316 55%, #ea580c 100%);
+  --usage-gradient: linear-gradient(90deg, #0ea5e9, #38bdf8);
+  --avatar-gradient: linear-gradient(135deg, #f97316, #0ea5e9);
+  --accent-gradient: linear-gradient(180deg, #fb8a3c, #ea6a0c);
+  --accent-shadow: rgba(249, 115, 22, 0.7);
+  --glow-rgb: 249, 115, 22;
+  --sb-bg: #292524;
+  --sb-ink: #f5f5f4;
+  --sb-muted: #a8a29e;
+  --sb-line: #44403c;
+  --sb-hover: rgba(255, 255, 255, 0.05);
+  --sb-active: rgba(14, 165, 233, 0.16);
+  --sb-focus: #f97316;
+  --sb-marker: linear-gradient(180deg, #f97316, #0ea5e9);
+}
+/* A dark sidebar again: lighter icon shades, as with the default theme. */
+:root:where([data-mode='dark'])[data-theme='solar-dusk'] .sidebar {
+  --red: #ff8a96; --indigo: #fb8c3c; --pink: #f78bc0; --violet: #c3a8ff; --sky: #7cc4f8; --teal: #62dad4; --orange: #ffae74; --green: #6fe0a2;
 }
 
 /* Full theme: Solar Dusk's own font, sharp 0.3rem corners and soft drop shadows. */
@@ -108,9 +106,7 @@
   --radius-pill: 5px;
   --shadow: 0 2px 3px 0 hsl(28 18% 25% / 0.18);
 }
-@media (prefers-color-scheme: dark) {
-  :root[data-theme='solar-dusk'][data-theme-style='full'] { --shadow: 0 2px 3px 0 hsl(0 0% 5% / 0.18); }
-}
+:root:where([data-mode='dark'])[data-theme='solar-dusk'][data-theme-style='full'] { --shadow: 0 2px 3px 0 hsl(0 0% 5% / 0.18); }
 
 /* Graphite Mono: grays, with near-black (light) or near-white (dark) as the action color, and blue for gradients,
    glows and the sidebar marker. */
@@ -162,42 +158,40 @@
 :root[data-theme='graphite-mono'] .content-glow .s-blob-5 { --c: 115, 115, 115; }
 :root[data-theme='graphite-mono'] .content-glow .s-blob-pointer { --c: 191, 219, 254; }
 
-@media (prefers-color-scheme: dark) {
-  :root[data-theme='graphite-mono'] {
-    --ground: oklch(0.205 0 0);
-    --panel: oklch(0.165 0 0);
-    --panel2: oklch(0.235 0 0);
-    --line: oklch(0.269 0 0);
-    --line-strong: oklch(0.371 0 0);
-    --ink: oklch(0.985 0 0);
-    --muted: oklch(0.708 0 0);
-    --meter: oklch(0.269 0 0);
-    --solid-bg: oklch(0.922 0 0);
-    --solid-ink: oklch(0.205 0 0);
-    --aurora: radial-gradient(900px 380px at 78% -8%, oklch(0.62 0.19 260 / 0.14), transparent 70%),
-      radial-gradient(700px 320px at 40% -12%, oklch(0.81 0.1 252 / 0.08), transparent 70%);
-    --red: oklch(0.704 0.191 22.216);
-    --red-soft: oklch(0.704 0.191 22.216 / 0.14);
-    --indigo: oklch(0.922 0 0);
-    --indigo-fill: oklch(0.922 0 0);
-    --indigo-soft: oklch(0.371 0 0 / 0.6);
-    --key-ink: oklch(0.985 0 0);
-    --key-edge: oklch(0.439 0 0);
-    --accent-gradient: linear-gradient(180deg, oklch(0.97 0 0), oklch(0.87 0 0));
-    --accent-ink: oklch(0.205 0 0);
-    --accent-shadow: oklch(0 0 0 / 0.5);
-    --sb-bg: oklch(0.269 0 0);
-    --sb-ink: oklch(0.985 0 0);
-    --sb-muted: oklch(0.708 0 0);
-    --sb-line: oklch(0.275 0 0);
-    --sb-hover: oklch(1 0 0 / 0.05);
-    --sb-active: oklch(0.32 0 0);
-    --sb-focus: oklch(0.439 0 0);
-    --sb-marker: oklch(0.488 0.243 264.376);
-  }
-  :root[data-theme='graphite-mono'] .sidebar {
-    --red: #ff8a96; --indigo: oklch(0.985 0 0); --pink: #f78bc0; --violet: #c3a8ff; --sky: #7cc4f8; --teal: #62dad4; --orange: #ffae74; --green: #6fe0a2;
-  }
+:root:where([data-mode='dark'])[data-theme='graphite-mono'] {
+  --ground: oklch(0.205 0 0);
+  --panel: oklch(0.165 0 0);
+  --panel2: oklch(0.235 0 0);
+  --line: oklch(0.269 0 0);
+  --line-strong: oklch(0.371 0 0);
+  --ink: oklch(0.985 0 0);
+  --muted: oklch(0.708 0 0);
+  --meter: oklch(0.269 0 0);
+  --solid-bg: oklch(0.922 0 0);
+  --solid-ink: oklch(0.205 0 0);
+  --aurora: radial-gradient(900px 380px at 78% -8%, oklch(0.62 0.19 260 / 0.14), transparent 70%),
+    radial-gradient(700px 320px at 40% -12%, oklch(0.81 0.1 252 / 0.08), transparent 70%);
+  --red: oklch(0.704 0.191 22.216);
+  --red-soft: oklch(0.704 0.191 22.216 / 0.14);
+  --indigo: oklch(0.922 0 0);
+  --indigo-fill: oklch(0.922 0 0);
+  --indigo-soft: oklch(0.371 0 0 / 0.6);
+  --key-ink: oklch(0.985 0 0);
+  --key-edge: oklch(0.439 0 0);
+  --accent-gradient: linear-gradient(180deg, oklch(0.97 0 0), oklch(0.87 0 0));
+  --accent-ink: oklch(0.205 0 0);
+  --accent-shadow: oklch(0 0 0 / 0.5);
+  --sb-bg: oklch(0.269 0 0);
+  --sb-ink: oklch(0.985 0 0);
+  --sb-muted: oklch(0.708 0 0);
+  --sb-line: oklch(0.275 0 0);
+  --sb-hover: oklch(1 0 0 / 0.05);
+  --sb-active: oklch(0.32 0 0);
+  --sb-focus: oklch(0.439 0 0);
+  --sb-marker: oklch(0.488 0.243 264.376);
+}
+:root:where([data-mode='dark'])[data-theme='graphite-mono'] .sidebar {
+  --red: #ff8a96; --indigo: oklch(0.985 0 0); --pink: #f78bc0; --violet: #c3a8ff; --sky: #7cc4f8; --teal: #62dad4; --orange: #ffae74; --green: #6fe0a2;
 }
 
 /* Full theme: DM Sans, rounder 1rem corners, no letter tightening, and light drop shadows. */
@@ -258,48 +252,46 @@
 :root[data-theme='sage-mist'] .content-glow .s-blob-5 { --c: 115, 189, 66; }
 :root[data-theme='sage-mist'] .content-glow .s-blob-pointer { --c: 175, 190, 165; }
 
-@media (prefers-color-scheme: dark) {
-  :root[data-theme='sage-mist'] {
-    --ground: #070503;
-    --panel: #100d08;
-    --panel2: #1e1a14;
-    --line: #2f281b;
-    --line-strong: #40372a;
-    --ink: #f9f8f7;
-    --muted: #928f8a;
-    --meter: #26211a;
-    --solid-bg: #afbea5;
-    --solid-ink: #040302;
-    --aurora: radial-gradient(900px 380px at 78% -8%, rgba(115, 189, 66, 0.12), transparent 70%),
-      radial-gradient(700px 320px at 40% -12%, rgba(175, 190, 165, 0.1), transparent 70%);
-    --red: #ef5f66;
-    --red-soft: rgba(179, 25, 31, 0.2);
-    --indigo: #afbea5;
-    --indigo-fill: #afbea5;
-    --indigo-soft: rgba(73, 89, 64, 0.45);
-    --key-ink: #c9d5c0;
-    --key-edge: #495940;
-    --brand-gradient: linear-gradient(135deg, #a9e382 0%, #408a0f 100%);
-    --edge-gradient: linear-gradient(90deg, #408a0f, #afbea5);
-    --plasma: linear-gradient(90deg, #408a0f 0%, #73bd42 50%, #afbea5 100%);
-    --usage-gradient: linear-gradient(90deg, #59a626, #a9e382);
-    --avatar-gradient: linear-gradient(135deg, #a9e382, #408a0f);
-    --accent-gradient: linear-gradient(180deg, #bdcab4, #afbea5);
-    --accent-ink: #040302;
-    --accent-shadow: rgba(0, 0, 0, 0.5);
-    --glow-rgb: 115, 189, 66;
-    --sb-bg: #040302;
-    --sb-ink: #f0eeeb;
-    --sb-muted: #928f8a;
-    --sb-line: #272117;
-    --sb-hover: rgba(255, 255, 255, 0.04);
-    --sb-active: #495940;
-    --sb-focus: #afbea5;
-    --sb-marker: #afbea5;
-  }
-  :root[data-theme='sage-mist'] .sidebar {
-    --red: #ff8a96; --indigo: #c9d5c0; --pink: #f78bc0; --violet: #c3a8ff; --sky: #7cc4f8; --teal: #62dad4; --orange: #ffae74; --green: #6fe0a2;
-  }
+:root:where([data-mode='dark'])[data-theme='sage-mist'] {
+  --ground: #070503;
+  --panel: #100d08;
+  --panel2: #1e1a14;
+  --line: #2f281b;
+  --line-strong: #40372a;
+  --ink: #f9f8f7;
+  --muted: #928f8a;
+  --meter: #26211a;
+  --solid-bg: #afbea5;
+  --solid-ink: #040302;
+  --aurora: radial-gradient(900px 380px at 78% -8%, rgba(115, 189, 66, 0.12), transparent 70%),
+    radial-gradient(700px 320px at 40% -12%, rgba(175, 190, 165, 0.1), transparent 70%);
+  --red: #ef5f66;
+  --red-soft: rgba(179, 25, 31, 0.2);
+  --indigo: #afbea5;
+  --indigo-fill: #afbea5;
+  --indigo-soft: rgba(73, 89, 64, 0.45);
+  --key-ink: #c9d5c0;
+  --key-edge: #495940;
+  --brand-gradient: linear-gradient(135deg, #a9e382 0%, #408a0f 100%);
+  --edge-gradient: linear-gradient(90deg, #408a0f, #afbea5);
+  --plasma: linear-gradient(90deg, #408a0f 0%, #73bd42 50%, #afbea5 100%);
+  --usage-gradient: linear-gradient(90deg, #59a626, #a9e382);
+  --avatar-gradient: linear-gradient(135deg, #a9e382, #408a0f);
+  --accent-gradient: linear-gradient(180deg, #bdcab4, #afbea5);
+  --accent-ink: #040302;
+  --accent-shadow: rgba(0, 0, 0, 0.5);
+  --glow-rgb: 115, 189, 66;
+  --sb-bg: #040302;
+  --sb-ink: #f0eeeb;
+  --sb-muted: #928f8a;
+  --sb-line: #272117;
+  --sb-hover: rgba(255, 255, 255, 0.04);
+  --sb-active: #495940;
+  --sb-focus: #afbea5;
+  --sb-marker: #afbea5;
+}
+:root:where([data-mode='dark'])[data-theme='sage-mist'] .sidebar {
+  --red: #ff8a96; --indigo: #c9d5c0; --pink: #f78bc0; --violet: #c3a8ff; --sky: #7cc4f8; --teal: #62dad4; --orange: #ffae74; --green: #6fe0a2;
 }
 
 /* Full theme: Plus Jakarta Sans, round 1.4rem corners and soft shadows. This font's spaces are narrow, and the
@@ -312,6 +304,4 @@
   letter-spacing: 0;
   word-spacing: 0.08em;
 }
-@media (prefers-color-scheme: dark) {
-  :root[data-theme='sage-mist'][data-theme-style='full'] { --shadow: 0 2px 12px 0 rgba(0, 0, 0, 0.35); }
-}
+:root:where([data-mode='dark'])[data-theme='sage-mist'][data-theme-style='full'] { --shadow: 0 2px 12px 0 rgba(0, 0, 0, 0.35); }

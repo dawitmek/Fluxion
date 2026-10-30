@@ -4,6 +4,10 @@
     <meta charset="UTF-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
     <title>Fluxion Companion</title>
+    <script>
+      // Light or dark before anything shows; the app then follows the account's choice.
+      document.documentElement.dataset.mode = matchMedia('(prefers-color-scheme: dark)').matches ? 'dark' : 'light';
+    </script>
   </head>
 
   <body>

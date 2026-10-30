@@ -1,0 +1,1 @@
+ALTER TABLE "hosts" ADD COLUMN "ui_mode" text DEFAULT 'system' NOT NULL;

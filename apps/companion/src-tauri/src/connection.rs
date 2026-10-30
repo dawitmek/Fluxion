@@ -90,8 +90,8 @@ async fn session(
                 Ok(ServerMessage::Commands { commands }) => {
                     let _ = controller.set_commands(commands);
                 }
-                Ok(ServerMessage::Theme { theme, style }) => {
-                    let _ = controller.update_config(|c| (c.theme, c.theme_style) = (Some(theme), Some(style)));
+                Ok(ServerMessage::Theme { theme, style, mode }) => {
+                    let _ = controller.update_config(|c| (c.theme, c.theme_style, c.theme_mode) = (Some(theme), Some(style), mode));
                 }
                 Ok(ServerMessage::Error { reason }) => controller.set_connection(format!("server error: {reason}")),
                 Ok(ServerMessage::Action { action }) => {

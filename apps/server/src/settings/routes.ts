@@ -6,6 +6,7 @@ import {
   MODES,
   TTS_ENGINES,
   TTS_MODES,
+  UI_MODES,
   UI_THEMES,
   VOICE_EFFECTS,
   type CloudProvider,
@@ -13,6 +14,7 @@ import {
   type TtsEngine,
   type TtsMode,
   type AlertStyle,
+  type UiMode,
   type UiTheme,
   type UiThemeStyle,
   type VoiceEffect,
@@ -57,13 +59,14 @@ type Body = {
   ttsTiktokSession?: null;
   uiTheme?: UiTheme;
   uiThemeStyle?: UiThemeStyle;
+  uiMode?: UiMode;
   alertStyle?: AlertStyle | null;
 };
 
 // Tells the host's companions the dashboard's theme, which they follow.
 export async function sendThemeToCompanions(app: FastifyInstance, hostId: string) {
-  const [host] = await app.db.select({ theme: hosts.uiTheme, style: hosts.uiThemeStyle }).from(hosts).where(eq(hosts.id, hostId));
-  if (host) app.hub.sendToCompanions(hostId, { type: 'theme', theme: host.theme, style: host.style });
+  const [host] = await app.db.select({ theme: hosts.uiTheme, style: hosts.uiThemeStyle, mode: hosts.uiMode }).from(hosts).where(eq(hosts.id, hostId));
+  if (host) app.hub.sendToCompanions(hostId, { type: 'theme', theme: host.theme, style: host.style, mode: host.mode });
 }
 
 // Mode settings belong to the active profile (they differ per game); the rest to the host.
@@ -116,13 +119,14 @@ export async function settingsRoutes(app: FastifyInstance) {
             ttsTiktokSession: { type: 'null' },
             uiTheme: { enum: UI_THEMES.map((t) => t.id) },
             uiThemeStyle: { enum: ['full', 'colors'] },
+            uiMode: { enum: UI_MODES },
             alertStyle: { anyOf: [{ type: 'null' }, alertStyleSchema()] },
           },
         },
       },
     },
     async (req, reply) => {
-      const { tiktokUsername, actionsPerSecond, progression, levelGating, uiTheme, uiThemeStyle, alertStyle } = req.body;
+      const { tiktokUsername, actionsPerSecond, progression, levelGating, uiTheme, uiThemeStyle, uiMode, alertStyle } = req.body;
       const tts = Object.fromEntries(Object.entries(req.body).filter(([k]) => k.startsWith('tts')));
       const points = Object.fromEntries(Object.entries(req.body).filter(([k]) => k.startsWith('points')));
       if (typeof req.body.ttsCloudKey === 'string') tts.ttsCloudKey = app.secrets.seal(req.body.ttsCloudKey);
@@ -147,6 +151,7 @@ export async function settingsRoutes(app: FastifyInstance) {
         ...(levelGating !== undefined && { levelGating }),
         ...(uiTheme !== undefined && { uiTheme }),
         ...(uiThemeStyle !== undefined && { uiThemeStyle }),
+        ...(uiMode !== undefined && { uiMode }),
         ...(alertStyle !== undefined && { alertStyle }),
       };
       const profilePatch = Object.fromEntries(
@@ -159,7 +164,7 @@ export async function settingsRoutes(app: FastifyInstance) {
       }
       await app.live.reload(req.hostId);
       // The companion follows the dashboard's theme.
-      if (uiTheme !== undefined || uiThemeStyle !== undefined) await sendThemeToCompanions(app, req.hostId);
+      if (uiTheme !== undefined || uiThemeStyle !== undefined || uiMode !== undefined) await sendThemeToCompanions(app, req.hostId);
       // Volume isn't part of the voice: open overlays turn up or down now, even mid-line, and nothing is dropped.
       if (req.body.ttsVolume !== undefined) app.hub.sendToOverlays(req.hostId, { type: 'speechVolume', volume: req.body.ttsVolume });
       return { ok: true };
