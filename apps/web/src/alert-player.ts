@@ -51,8 +51,8 @@ export class AlertPlayer {
     this.next();
   }
 
-  say(speech: Speech) {
-    if (this.audible) this.speech.say(speech);
+  say(speech: Speech, chat = false) {
+    if (this.audible) this.speech.say(speech, chat);
     else this.report('speech not played: this screen has sound off', { kind: speech.kind });
   }
 
@@ -61,9 +61,14 @@ export class AlertPlayer {
     void this.context().resume();
   }
 
-  // The voice changed: drop speech made with the old one.
-  clearSpeech() {
-    this.speech.stop('the voice changed');
+  // The voice changed: drop speech made with the old one. Or reading chat was turned off: drop just the chat.
+  clearSpeech(chatOnly = false) {
+    this.speech.stop(chatOnly ? 'reading chat was turned off' : 'the voice changed', chatOnly);
+  }
+
+  speechVolume(volume: number) {
+    this.report('voice volume', { volume });
+    this.speech.setVolume(volume);
   }
 
   // The stream ended: drop the alerts and speech still waiting, and take down the one showing.

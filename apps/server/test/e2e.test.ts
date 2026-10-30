@@ -106,7 +106,7 @@ async function pairCompanion(cookie: string) {
 // Messages of the `aside` types go to their own queue (nextAside), so tests that count messages ignore them.
 // Overlays always get their screen first, and widget data (stats, chat, gifts) as things happen. Tests that care
 // read those with nextAside, or pass their own `aside`.
-const OVERLAY_ASIDE = ['screen', 'stats', 'chat', 'gift'];
+const OVERLAY_ASIDE = ['screen', 'speechVolume', 'stats', 'chat', 'gift'];
 function connect(path: string, aside: string[] = path.startsWith('/ws/overlay') ? OVERLAY_ASIDE : []) {
   const socket = new WebSocket(baseWs + path);
   sockets.push(socket);
@@ -549,6 +549,42 @@ describe('voice changes mid-stream', () => {
     expect((await overlay.drain()).filter((m: any) => m.type === 'clearSpeech')).toEqual([{ type: 'clearSpeech' }]);
     await api(cookie, 'POST', '/api/live/stop');
   });
+
+  it('cuts off read-aloud chat the moment reading chat is turned off, and reads nothing after', async () => {
+    const { cookie } = await signUp();
+    const me = (await api(cookie, 'GET', '/api/auth/me')).json();
+    await api(cookie, 'PATCH', '/api/settings', { ttsMode: 'all', ttsEngine: 'espeak' });
+    await api(cookie, 'POST', '/api/live/start', { source: 'simulated' });
+    const overlay = connect(`/ws/overlay?token=${me.overlayToken}`);
+    await overlay.next(); // live
+    await overlay.next(); // mode
+    await overlay.next(); // leaderboard
+    await api(cookie, 'POST', '/api/live/simulate', { viewer: 'alice', text: 'hello there' });
+    expect((await overlay.drain()).filter((m: any) => m.type === 'tts')).toHaveLength(1);
+    // Another mode that still reads chat cuts nothing off.
+    await api(cookie, 'PATCH', '/api/settings', { ttsMode: 'prefix' });
+    expect((await overlay.drain()).filter((m: any) => m.type === 'clearSpeech')).toEqual([]);
+    await api(cookie, 'PATCH', '/api/settings', { ttsMode: 'off' });
+    expect((await overlay.drain()).filter((m: any) => m.type === 'clearSpeech')).toEqual([{ type: 'clearSpeech', chatOnly: true }]);
+    await api(cookie, 'POST', '/api/live/simulate', { viewer: 'bob', text: 'still there?' });
+    expect((await overlay.drain()).filter((m: any) => m.type === 'tts')).toEqual([]);
+    await api(cookie, 'POST', '/api/live/stop');
+  });
+
+  it("sends the voice volume to overlays when they connect and whenever it changes, live or not", async () => {
+    const { cookie } = await signUp();
+    const me = (await api(cookie, 'GET', '/api/auth/me')).json();
+    expect(me.ttsVolume).toBe(100);
+    const overlay = connect(`/ws/overlay?token=${me.overlayToken}`);
+    await overlay.nextAside(); // screen
+    expect(await overlay.nextAside()).toEqual({ type: 'speechVolume', volume: 100 });
+    expect((await api(cookie, 'PATCH', '/api/settings', { ttsVolume: 40 })).statusCode).toBe(200);
+    expect(await overlay.nextAside()).toEqual({ type: 'speechVolume', volume: 40 });
+    expect((await api(cookie, 'GET', '/api/auth/me')).json().ttsVolume).toBe(40);
+    expect((await api(cookie, 'PATCH', '/api/settings', { ttsVolume: 101 })).statusCode).toBe(400);
+    // Volume isn't the voice: speech already waiting on the overlay stays.
+    expect((await overlay.drain()).filter((m: any) => m.type === 'clearSpeech')).toEqual([]);
+  });
 });
 
 describe('stats per TikTok account', () => {
@@ -761,6 +797,7 @@ describe('overlay screens', () => {
     expect(side).toMatchObject({ name: 'Side', main: false, alerts: true, feed: false, audio: false });
     const overlay = connect(`/ws/overlay?token=${side.token}`);
     expect(await overlay.nextAside()).toEqual({ type: 'screen', screen: expect.objectContaining({ id: side.id, name: 'Side' }) });
+    await overlay.nextAside(); // speechVolume
     await api(cookie, 'PATCH', `/api/screens/${side.id}`, { alertPosition: 'top', scale: 150 });
     expect(await overlay.nextAside()).toMatchObject({ type: 'screen', screen: { alertPosition: 'top', scale: 150 } });
     expect((await api(cookie, 'PATCH', `/api/screens/${side.id}`, { scale: 500 })).statusCode).toBe(400);
@@ -809,7 +846,7 @@ describe('widgets and goals', () => {
     await api(cookie, 'POST', '/api/actions', { name: 'Goal!', trigger: 'goal', goalId: likes.id, text: '{goal} reached thanks to {viewer}', sound: null });
 
     await api(cookie, 'POST', '/api/live/start', { source: 'simulated' });
-    const overlay = connect(`/ws/overlay?token=${me.overlayToken}`, ['screen']);
+    const overlay = connect(`/ws/overlay?token=${me.overlayToken}`, ['screen', 'speechVolume']);
     await overlay.next(); // live
     await overlay.next(); // mode
     await overlay.next(); // leaderboard

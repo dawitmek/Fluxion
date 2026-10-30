@@ -1,0 +1,1 @@
+ALTER TABLE "hosts" ADD COLUMN "tts_volume" integer DEFAULT 100 NOT NULL;

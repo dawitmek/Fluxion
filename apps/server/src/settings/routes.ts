@@ -43,6 +43,7 @@ type Body = {
   ttsPiperVoice?: string | null;
   ttsPiperSpeaker?: number | null;
   ttsEffect?: VoiceEffect;
+  ttsVolume?: number;
   ttsCloudProvider?: CloudProvider | null;
   ttsCloudKey?: string | null;
   ttsCloudRegion?: string | null;
@@ -91,6 +92,7 @@ export async function settingsRoutes(app: FastifyInstance) {
             ttsPiperVoice: { type: ['string', 'null'], pattern: '^[A-Za-z0-9_.-]{1,100}$' },
             ttsPiperSpeaker: { type: ['integer', 'null'], minimum: 0, maximum: 100000 },
             ttsEffect: { enum: VOICE_EFFECTS },
+            ttsVolume: { type: 'integer', minimum: 0, maximum: 100 },
             ttsCloudProvider: { enum: [...CLOUD_PROVIDERS, null] },
             ttsCloudKey: { type: ['string', 'null'], maxLength: 300 },
             ttsCloudRegion: { type: ['string', 'null'], pattern: '^[a-z0-9]{1,40}$' },
@@ -136,6 +138,8 @@ export async function settingsRoutes(app: FastifyInstance) {
         await app.db.update(profiles).set(profilePatch).where(eq(profiles.id, profile.id));
       }
       await app.live.reload(req.hostId);
+      // Volume isn't part of the voice: open overlays turn up or down now, even mid-line, and nothing is dropped.
+      if (req.body.ttsVolume !== undefined) app.hub.sendToOverlays(req.hostId, { type: 'speechVolume', volume: req.body.ttsVolume });
       return { ok: true };
     },
   );

@@ -34,6 +34,7 @@ export const hosts = pgTable('hosts', {
   ttsPiperVoice: text('tts_piper_voice'), // a model name; null means the server's first voice
   ttsPiperSpeaker: integer('tts_piper_speaker'), // multi-speaker models only; null means speaker 0
   ttsEffect: text('tts_effect').$type<VoiceEffect>().notNull().default('none'),
+  ttsVolume: integer('tts_volume').notNull().default(100), // percent, of every voice on the overlays
   ttsCloudProvider: text('tts_cloud_provider').$type<CloudProvider>(),
   ttsCloudKey: text('tts_cloud_key'), // the host's own API key; never sent back to the browser
   ttsCloudRegion: text('tts_cloud_region'), // Azure only

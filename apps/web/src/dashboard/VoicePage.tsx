@@ -2,7 +2,7 @@ import { useEffect, useState } from 'react';
 import { CLOUD_PROVIDERS, MAX_LEVEL, TIKTOK_VOICES, VOICE_EFFECTS } from '@fluxion/shared';
 import { api, ApiError, type CloudProvider, type Host, type Speech, type TtsEngine, type VoiceEffect } from '../api';
 import { SpeechPlayer } from '../speech-player';
-import { Card, Choices, ErrorNotice, NumberCell, TextCell, useError } from '../ui';
+import { Card, Choices, ErrorNotice, NumberCell, Scrubber, TextCell, useError } from '../ui';
 import type { PageProps } from './Dashboard';
 import { previewAudio } from './audio';
 
@@ -141,6 +141,7 @@ function VoiceCard({
     try {
       const speech = await api<Speech>('POST', '/tts/preview', { text: 'viewer says hello from Fluxion' });
       previewPlayer ??= new SpeechPlayer(previewAudio);
+      previewPlayer.setVolume(host.ttsVolume / 100);
       await previewPlayer.play(speech);
     } catch (e) {
       setError(e instanceof ApiError ? e.message : `Could not play the preview: ${String(e)}`);
@@ -360,6 +361,11 @@ function VoiceCard({
               ))}
             </select>
           </label>
+          <div className="field">
+            Volume
+            <span className="hint">Of every voice on your overlays, chat and alerts alike. Changes right away, even mid-sentence.</span>
+            <Scrubber value={host.ttsVolume} min={0} max={100} buttonStep={5} unit="%" label="Voice volume" onSave={(ttsVolume) => save({ ttsVolume })} />
+          </div>
         </div>
       </div>
     </Card>

@@ -2,7 +2,7 @@ import type { FastifyInstance } from 'fastify';
 import type { WebSocket } from 'ws';
 import { eq } from 'drizzle-orm';
 import { PROTOCOL_VERSION, type CompanionToServer, type OverlayToServer, type ServerToCompanion } from '@fluxion/shared';
-import { companions, overlayScreens } from '../db/schema.js';
+import { companions, hosts, overlayScreens } from '../db/schema.js';
 import { toScreen } from '../screens/routes.js';
 import { sha256 } from '../crypto.js';
 import { sendProfileToCompanions } from '../profiles/active.js';
@@ -70,6 +70,8 @@ export async function gatewayRoutes(app: FastifyInstance) {
     const dashboard = req.query.dashboard === '1';
     hub.addOverlay(row.hostId, row.id, socket, dashboard);
     socket.send(JSON.stringify({ type: 'screen', screen: toScreen(row) }));
+    const [host] = await db.select({ volume: hosts.ttsVolume }).from(hosts).where(eq(hosts.id, row.hostId));
+    socket.send(JSON.stringify({ type: 'speechVolume', volume: host?.volume ?? 100 }));
     for (const message of await app.live.overlaySnapshot(row.hostId)) socket.send(JSON.stringify(message));
     // With the debug log on, overlays report what they do with alerts and speech; otherwise they send nothing.
     if (!app.debug.on) return;

@@ -230,6 +230,8 @@ export class SessionManager {
     const ttsBefore = session.actionCtx.config.tts.mode;
     if (ttsBefore !== loaded.actionConfig.tts.mode) {
       this.debug.write('tts', hostId, `read chat aloud: ${ttsBefore} -> ${loaded.actionConfig.tts.mode}`, { unsent: session.waiting });
+      // Turned off: chat stops being read now, not after the lines already waiting. Alerts still speak.
+      if (loaded.actionConfig.tts.mode === 'off') this.hub.sendToOverlays(hostId, { type: 'clearSpeech', chatOnly: true });
     }
     // Lines the overlay already holds were made with the old voice; without this a switch waits for them all.
     if (JSON.stringify(loaded.voice) !== JSON.stringify(session.voice)) {
@@ -333,6 +335,9 @@ export class SessionManager {
     if (this.sessions.get(hostId) !== session) {
       if (output.type === 'tts' || output.speak) this.debug.write(area, hostId, 'dropped, the stream ended first', { text: output.text });
       return; // stopped while earlier speech was being made
+    }
+    if (output.type === 'tts' && session.actionCtx.config.tts.mode === 'off') {
+      return this.debug.write(area, hostId, 'dropped, reading chat was turned off', { viewer: output.viewer, text: output.text });
     }
     const began = Date.now();
     if (output.type === 'alert') {

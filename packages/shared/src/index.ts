@@ -280,7 +280,10 @@ export type ServerToOverlay =
   | { type: 'chat'; viewer: string; text: string }
   | { type: 'gift'; viewer: string; gift: string; count: number; diamonds: number } // diamonds: the whole streak's
   | { type: 'tts'; viewer: string; text: string; speech: Speech }
-  | { type: 'clearSpeech' } // the voice changed: drop lines made with the old one
+  // Drop lines waiting and cut off the one playing: every line when the voice changed (they were made with the old
+  // one), only read-aloud chat when reading chat was turned off.
+  | { type: 'clearSpeech'; chatOnly?: true }
+  | { type: 'speechVolume'; volume: number } // percent, for every voice; sent on connect and when the host changes it
   | { type: 'debug' } // the server keeps a debug log: report what happens here (see OverlayToServer)
 
 // Overlay -> server: only debug reports, only after the server asks for them, and only in development.

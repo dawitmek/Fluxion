@@ -80,6 +80,7 @@ export interface Host {
   ttsPiperVoice: string | null;
   ttsPiperSpeaker: number | null;
   ttsEffect: VoiceEffect;
+  ttsVolume: number; // percent
   ttsCloudProvider: CloudProvider | null;
   ttsCloudKeySet: boolean;
   ttsCloudRegion: string | null;

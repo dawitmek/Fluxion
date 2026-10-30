@@ -129,8 +129,9 @@ export function Overlay({ token }: { token: string }) {
         }
         // An alert for another screen isn't this one's to show.
         if (message.type === 'alert' && shown?.alerts && (!message.screen || message.screen === shown.id)) player.enqueue(message);
-        if (message.type === 'tts') (report('chat line received', { viewer: message.viewer, text: message.text }), player.say(message.speech));
-        if (message.type === 'clearSpeech') player.clearSpeech();
+        if (message.type === 'tts') (report('chat line received', { viewer: message.viewer, text: message.text }), player.say(message.speech, true));
+        if (message.type === 'clearSpeech') player.clearSpeech(message.chatOnly);
+        if (message.type === 'speechVolume') player.speechVolume(message.volume / 100);
       };
       // A bad token is permanent (4001); anything else is worth retrying.
       socket.onclose = (event) => {

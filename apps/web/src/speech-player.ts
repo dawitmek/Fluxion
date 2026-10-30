@@ -9,29 +9,42 @@ const about = (speech: Speech) => ({ kind: speech.kind, ...(speech.kind !== 'aud
 
 // Says one thing at a time. Audio and eSpeak play through the page's AudioContext, which OBS captures;
 // browser voices go straight to the system output.
+type Line = { speech: Speech; chat: boolean }; // chat: read-aloud chat, rather than an alert's text
+
 export class SpeechPlayer {
-  private queue: Speech[] = [];
-  private speaking = false;
+  private queue: Line[] = [];
+  private speaking: Line | null = null;
   private source: AudioBufferSourceNode | null = null; // the line playing now, if it's audio
   private generation = 0; // bumped by stop(), so a line still being made isn't played after it
+  private gain: GainNode | null = null; // every line plays through it, so a volume change reaches the one playing
+  private volume = 1;
   report: Report = () => {};
 
   constructor(private audio: () => AudioContext) {}
 
-  say(speech: Speech) {
+  say(speech: Speech, chat = false) {
     if (this.queue.length >= MAX_PENDING) return this.report('speech dropped, too many waiting', about(speech));
-    this.queue.push(speech);
-    this.report('speech queued', { ...about(speech), waiting: this.queue.length, speaking: this.speaking });
+    this.queue.push({ speech, chat });
+    this.report('speech queued', { ...about(speech), waiting: this.queue.length, speaking: !!this.speaking });
     void this.pump();
   }
 
-  // Drops what's waiting and cuts off what's playing.
-  stop(reason: string) {
-    if (this.queue.length || this.speaking) this.report(`speech stopped: ${reason}`, { dropped: this.queue.length, cutOff: this.speaking });
-    this.queue = [];
+  // Drops what's waiting and cuts off what's playing; with chatOnly, just the read-aloud chat.
+  stop(reason: string, chatOnly = false) {
+    const dropped = this.queue.filter((l) => !chatOnly || l.chat).length;
+    const cut = !!this.speaking && (!chatOnly || this.speaking.chat);
+    if (dropped || cut) this.report(`speech stopped: ${reason}`, { dropped, cutOff: cut });
+    this.queue = chatOnly ? this.queue.filter((l) => !l.chat) : [];
+    if (!cut) return;
     this.generation++;
     this.source?.stop();
     if ('speechSynthesis' in window) speechSynthesis.cancel();
+  }
+
+  // 0 to 1. Audio and eSpeak change at once, mid-line too; a browser voice from its next line.
+  setVolume(volume: number) {
+    this.volume = volume;
+    if (this.gain) this.gain.gain.value = volume;
   }
 
   // Plays one line now and reports failures; the dashboard's preview uses it.
@@ -51,15 +64,15 @@ export class SpeechPlayer {
   private async pump() {
     const next = this.speaking ? undefined : this.queue.shift();
     if (!next) return;
-    this.speaking = true;
-    this.report('speaking', { ...about(next), waiting: this.queue.length });
+    this.speaking = next;
+    this.report('speaking', { ...about(next.speech), waiting: this.queue.length });
     try {
-      await this.play(next);
+      await this.play(next.speech);
     } catch (err) {
       console.warn('Fluxion: could not speak', err);
       this.report('could not speak', { error: String(err) });
     } finally {
-      this.speaking = false;
+      this.speaking = null;
       void this.pump();
     }
   }
@@ -70,7 +83,7 @@ export class SpeechPlayer {
     if (generation !== this.generation) return; // stopped while it was being made
     const source = ctx.createBufferSource();
     source.buffer = buffer;
-    applyEffect(ctx, source, effect).connect(ctx.destination);
+    applyEffect(ctx, source, effect).connect(this.output(ctx));
     this.source = source;
     await new Promise<void>((resolve) => {
       source.onended = () => resolve();
@@ -79,10 +92,21 @@ export class SpeechPlayer {
     if (this.source === source) this.source = null;
   }
 
+  // A new page's audio (the overlay remakes it after closing) gets a new volume node.
+  private output(ctx: AudioContext) {
+    if (this.gain?.context !== ctx) {
+      this.gain = ctx.createGain();
+      this.gain.gain.value = this.volume;
+      this.gain.connect(ctx.destination);
+    }
+    return this.gain;
+  }
+
   private browser(text: string, voiceName: string | null, effect: VoiceEffect) {
     if (!('speechSynthesis' in window)) return Promise.resolve();
     const utterance = new SpeechSynthesisUtterance(text);
     utteranceEffect(utterance, effect);
+    utterance.volume = this.volume;
     const voice = voiceName ? speechSynthesis.getVoices().find((v) => v.name === voiceName) : undefined;
     if (voice) utterance.voice = voice;
     return new Promise<void>((resolve) => {
