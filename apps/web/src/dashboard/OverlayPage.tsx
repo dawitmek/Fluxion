@@ -92,7 +92,7 @@ function widgetInfo(w: Pick<ScreenWidget, 'type' | 'goalId'>, goals: Goal[]) {
 const widgetKey = (w: Pick<ScreenWidget, 'type' | 'goalId'>) => (w.goalId ? `goal:${w.goalId}` : w.type);
 
 function WidgetsEditor({ widgets, goals, scale, onSave }: { widgets: ScreenWidget[]; goals: Goal[]; scale: number; onSave: (widgets: ScreenWidget[]) => void }) {
-  const [positioning, setPositioning] = useState<number | null>(null);
+  const [positioning, setPositioning] = useState<number | 'all' | null>(null); // one widget, or every one
   const replace = (i: number, widget: ScreenWidget) => onSave(widgets.map((w, j) => (j === i ? widget : w)));
   // Back into a spot: the hand-placed position goes.
   const toSpot = (i: number, spot: WidgetSpot) => {
@@ -109,9 +109,16 @@ function WidgetsEditor({ widgets, goals, scale, onSave }: { widgets: ScreenWidge
 
   return (
     <div className="stack">
-      <h3>
-        Widgets {widgets.length > 0 && <span className="tag">{widgets.length}</span>}
-      </h3>
+      <div className="row">
+        <h3>
+          Widgets {widgets.length > 0 && <span className="tag">{widgets.length}</span>}
+        </h3>
+        {widgets.some((w) => w.type !== 'firework') && (
+          <button className="btn btn-sm btn-icon" onClick={() => setPositioning('all')} aria-label="Position every widget" title="Position every widget">
+            <Icon name="layout" />
+          </button>
+        )}
+      </div>
       {widgets.length === 0 ? (
         <p className="muted small">None yet. They show while you're live or in test mode, in the spot you pick. Widgets in the same spot stack.</p>
       ) : (
@@ -182,13 +189,13 @@ function WidgetsEditor({ widgets, goals, scale, onSave }: { widgets: ScreenWidge
         </ul>
       )}
       {options.length > 0 && widgets.length < MAX_WIDGETS && <WidgetPicker options={options} goals={goals} onAdd={add} />}
-      {positioning !== null && widgets[positioning] && (
+      {(positioning === 'all' || (positioning !== null && widgets[positioning])) && (
         <PositionDialog
           widgets={widgets}
-          index={positioning}
+          index={positioning === 'all' ? null : positioning}
           goals={goals}
           scale={scale}
-          onSave={(widget) => (replace(positioning, widget), setPositioning(null))}
+          onSave={(next) => (onSave(next), setPositioning(null))}
           onClose={() => setPositioning(null)}
         />
       )}
@@ -294,8 +301,9 @@ export function FadedWidgets({ widgets, feed }: { widgets: ScreenWidget[]; feed:
 // The screen as a 1920 by 1080 canvas, drawn smaller to fit. Widgets keep their real size against it.
 export const CANVAS = { width: 1920, height: 1080 };
 
-// Places one widget: drag it anywhere, or snap it to a spot. The screen's other widgets show faded behind it.
-// Fireworks cover the whole screen, so for them it's a preview only.
+// Places one widget, or with no index every widget on the screen: drag them anywhere, or snap the one picked to a spot.
+// With one widget, the screen's others show faded behind it. Fireworks cover the whole screen, so for them it's a
+// preview only.
 function PositionDialog({
   widgets,
   index,
@@ -305,16 +313,17 @@ function PositionDialog({
   onClose,
 }: {
   widgets: ScreenWidget[];
-  index: number;
+  index: number | null;
   goals: Goal[];
   scale: number;
-  onSave: (widget: ScreenWidget) => void;
+  onSave: (widgets: ScreenWidget[]) => void;
   onClose: () => void;
 }) {
-  const original = widgets[index]!;
-  const [draft, setDraft] = useState<ScreenWidget>(original);
-  const info = widgetInfo(original, goals);
-  const fixedPlace = original.type === 'firework';
+  const [draft, setDraft] = useState<ScreenWidget[]>(widgets);
+  const movable = (i: number) => (index === null ? widgets[i]!.type !== 'firework' : i === index);
+  const [picked, setPicked] = useState(() => index ?? widgets.findIndex((w) => w.type !== 'firework'));
+  const info = index === null ? { label: 'Every widget', icon: 'layout' as const, hue: 'indigo' as const } : widgetInfo(widgets[index]!, goals);
+  const fixedPlace = index !== null && widgets[index]!.type === 'firework';
   const dialog = useRef<HTMLDialogElement>(null);
   const stage = useRef<HTMLDivElement>(null);
   const [fit, setFit] = useState(0.4); // canvas pixels to stage pixels
@@ -332,11 +341,13 @@ function PositionDialog({
     return () => resize.disconnect();
   }, []);
 
-  // Dragging moves the widget's top-left corner, kept on the screen. Listens on the window: the widget moves
-  // out of its spot into a place of its own as the drag starts.
-  const startDrag = (e: ReactPointerEvent<HTMLElement>) => {
-    if (fixedPlace || e.button !== 0) return;
+  const place = (i: number, patch: Partial<ScreenWidget>) => setDraft((d) => d.map((w, j) => (j === i ? { ...w, ...patch } : w)));
+  // Dragging moves a widget's top-left corner, kept on the screen, and picks it. Listens on the window: the widget
+  // moves out of its spot into a place of its own as the drag starts.
+  const startDrag = (i: number, e: ReactPointerEvent<HTMLElement>) => {
+    if (e.button !== 0) return;
     e.preventDefault();
+    setPicked(i);
     const box = stage.current!.getBoundingClientRect();
     const target = e.currentTarget.getBoundingClientRect();
     const grab = { x: e.clientX - target.left, y: e.clientY - target.top };
@@ -345,7 +356,7 @@ function PositionDialog({
     const move = (m: PointerEvent) => {
       const x = clamp(((m.clientX - box.left - grab.x) / box.width) * 100, 100 - size.x);
       const y = clamp(((m.clientY - box.top - grab.y) / box.height) * 100, 100 - size.y);
-      setDraft((d) => ({ ...d, pos: { x, y } }));
+      place(i, { pos: { x, y } });
     };
     const stop = () => {
       window.removeEventListener('pointermove', move);
@@ -354,30 +365,37 @@ function PositionDialog({
     window.addEventListener('pointermove', move);
     window.addEventListener('pointerup', stop);
   };
-  const snap = (spot: WidgetSpot) => {
-    const { pos: _pos, ...widget } = draft;
-    setDraft({ ...widget, spot });
-  };
+  const snap = (spot: WidgetSpot) =>
+    setDraft((d) =>
+      d.map((w, j) => {
+        if (j !== picked) return w;
+        const { pos: _pos, ...widget } = w;
+        return { ...widget, spot };
+      }),
+    );
 
   const own = new Set(widgets.map((w) => w.goalId).filter(Boolean));
   const statsFor = (w: ScreenWidget) => (w.type === 'goals' && !w.goalId && stats ? { ...stats, goals: stats.goals.filter((g) => !own.has(g.id)) } : stats);
   const draw = (w: ScreenWidget) => <Widget widget={w} stats={statsFor(w)} chat={chat} bus={bus} />;
-  const target = fixedPlace ? null : (
-    <div className="pos-target" onPointerDown={startDrag}>
-      {draw(draft)}
-    </div>
-  );
-  // Everything but this widget, faded, where it sits on stream.
-  const others = widgets.filter((w, i) => i !== index && w.type !== 'firework');
+  // The ones to move, outlined, the one picked brightest; anything else faded, where it sits on stream.
   const spots = Object.fromEntries(WIDGET_SPOTS.map((s) => [s, [] as ReactNode[]])) as Record<WidgetSpot, ReactNode[]>;
   const placed: ReactNode[] = [];
-  others.forEach((w, i) => {
-    const el = <div key={`o${i}`} className="pos-other">{draw(w)}</div>;
-    if (w.pos) placed.push(<div key={`o${i}`} className="overlay-placed" style={{ left: `${w.pos.x}%`, top: `${w.pos.y}%` }}>{el}</div>);
+  draft.forEach((w, i) => {
+    if (w.type === 'firework') return;
+    const key = widgetKey(w);
+    const el = movable(i) ? (
+      <div key={key} className={`pos-target ${index === null && i !== picked ? 'unpicked' : ''}`} onPointerDown={(e) => startDrag(i, e)}>
+        {draw(w)}
+      </div>
+    ) : (
+      <div key={key} className="pos-other">
+        {draw(w)}
+      </div>
+    );
+    if (w.pos) placed.push(<div key={key} className="overlay-placed" style={{ left: `${w.pos.x}%`, top: `${w.pos.y}%` }}>{el}</div>);
     else spots[w.spot].push(el);
   });
-  if (target && draft.pos) placed.push(<div key="target" className="overlay-placed" style={{ left: `${draft.pos.x}%`, top: `${draft.pos.y}%` }}>{target}</div>);
-  else if (target) spots[draft.spot].push(<div key="target">{target}</div>);
+  const current = draft[picked];
 
   return (
     <dialog ref={dialog} className="pos-dialog" onClose={onClose} aria-labelledby="pos-title">
@@ -388,7 +406,9 @@ function PositionDialog({
           <p className="muted small">
             {fixedPlace
               ? 'Fireworks cover the whole screen. Sample gifts set them off.'
-              : 'Drag the widget anywhere, or snap it to a spot. Your other widgets show faded. Sample viewers and gifts.'}
+              : index === null
+                ? 'Drag any widget anywhere. The one you moved last is picked: snap it to a spot below. Sample viewers and gifts.'
+                : 'Drag the widget anywhere, or snap it to a spot. Your other widgets show faded. Sample viewers and gifts.'}
           </p>
         </div>
         <button className="btn btn-ghost btn-sm btn-icon" onClick={() => dialog.current?.close()} aria-label="Close">
@@ -398,7 +418,7 @@ function PositionDialog({
       <div className="pos-stage" ref={stage} style={{ aspectRatio: `${CANVAS.width} / ${CANVAS.height}` }}>
         <div className="pos-canvas" style={{ ...CANVAS, transform: `scale(${fit})` }}>
           <div className="overlay-screen" style={{ '--overlay-scale': scale / 100 } as CSSProperties}>
-            {fixedPlace && <Fireworks min={original.minDiamonds ?? DEFAULT_FIREWORK_DIAMONDS} bus={bus} />}
+            {fixedPlace && <Fireworks min={widgets[index]!.minDiamonds ?? DEFAULT_FIREWORK_DIAMONDS} bus={bus} />}
             {WIDGET_SPOTS.map((s) => (
               <div key={s} className={`overlay-spot spot-${s}`}>
                 {spots[s]}
@@ -408,22 +428,25 @@ function PositionDialog({
           </div>
         </div>
       </div>
-      {!fixedPlace && (
+      {!fixedPlace && current && (
         <div className="pos-foot">
-          <div className="pos-spots" role="group" aria-label="Snap to a spot">
+          <div className="pos-spots" role="group" aria-label={`Snap ${widgetInfo(current, goals).label} to a spot`}>
             {WIDGET_SPOTS.map((s) => (
-              <button key={s} type="button" className={`btn btn-sm ${!draft.pos && draft.spot === s ? 'on' : ''}`} aria-pressed={!draft.pos && draft.spot === s} onClick={() => snap(s)}>
+              <button key={s} type="button" className={`btn btn-sm ${!current.pos && current.spot === s ? 'on' : ''}`} aria-pressed={!current.pos && current.spot === s} onClick={() => snap(s)}>
                 {SPOT_LABELS[s]}
               </button>
             ))}
           </div>
-          <span className="muted small">{draft.pos ? `Custom: ${Math.round(draft.pos.x)}% across, ${Math.round(draft.pos.y)}% down` : `In the ${SPOT_LABELS[draft.spot].toLowerCase()} spot`}</span>
+          <span className="muted small">
+            {index === null && <strong>{widgetInfo(current, goals).label}: </strong>}
+            {current.pos ? `Custom: ${Math.round(current.pos.x)}% across, ${Math.round(current.pos.y)}% down` : `In the ${SPOT_LABELS[current.spot].toLowerCase()} spot`}
+          </span>
           <span className="spacer" />
           <button className="btn btn-ghost" onClick={() => dialog.current?.close()}>
             Cancel
           </button>
           <button className="btn btn-primary" onClick={() => onSave(draft)}>
-            Save position
+            {index === null ? 'Save positions' : 'Save position'}
           </button>
         </div>
       )}
@@ -471,8 +494,9 @@ function WidgetPicker({ options, goals, onAdd }: { options: WidgetChoice[]; goal
   return (
     <div className="stack">
       <button className="btn picker-toggle" aria-expanded={open} aria-controls="widget-picker" onClick={() => setOpen(!open)}>
-        <Icon name="chevron" />
+        <Icon name="plus" />
         Add a widget
+        <Icon name="chevron" />
       </button>
       {open && (
         <div id="widget-picker" className="stack">
@@ -489,6 +513,7 @@ function WidgetPicker({ options, goals, onAdd }: { options: WidgetChoice[]; goal
                       <span className="muted small">{info.help}</span>
                     </span>
                     <button className="btn btn-sm btn-primary" onClick={() => onAdd(w)} aria-label={`Add ${info.label}`}>
+                      <Icon name="plus" />
                       Add
                     </button>
                   </div>
@@ -609,6 +634,7 @@ function ScreenCard({ screen, goals, reload }: { screen: Screen; goals: Goal[]; 
     <Card
       title={screen.name}
       id={`screen-${screen.id}`}
+      icon={<HueIcon name="overlay" hue="indigo" />}
       description={screen.main ? 'Your original overlay address. It shows everything unless you change it.' : undefined}
       actions={
         !screen.main && (

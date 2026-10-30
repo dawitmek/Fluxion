@@ -39,19 +39,24 @@ export function Card({
   actions,
   children,
   id,
+  icon,
 }: {
   title: string;
   description?: ReactNode;
   actions?: ReactNode;
   children: ReactNode;
   id?: string;
+  icon?: ReactNode; // sets the title apart, like a screen's name on the Overlay page
 }) {
   const headingId = id ?? `card-${title.toLowerCase().replace(/\W+/g, '-')}`;
   return (
     <section className="card stack" aria-labelledby={headingId}>
       <div className="card-head" style={{ marginBottom: 0 }}>
         <div>
-          <h2 id={headingId}>{title}</h2>
+          <h2 id={headingId} className={icon ? 'card-title' : undefined}>
+            {icon}
+            {title}
+          </h2>
           {description && <p>{description}</p>}
         </div>
         {actions}
@@ -136,6 +141,45 @@ export function NumberCell({
       }}
     />
   );
+}
+
+// Every number box can be dragged: up for more, down for less. Steps grow with the number, so a target of 1,000 moves
+// by tens. A click without a drag types as usual, and a box already being typed in selects text as usual. The drag
+// ends by leaving the box, so ones that save on blur save then.
+const NUMBER_DRAG_PX = 4; // per step
+const SPINNER_PX = 20; // the browser's up and down arrows, at the right end
+export function installNumberDrag() {
+  const setValue = Object.getOwnPropertyDescriptor(HTMLInputElement.prototype, 'value')!.set!;
+  document.addEventListener('mousedown', (e) => {
+    const input = e.target;
+    if (!(input instanceof HTMLInputElement) || input.type !== 'number' || input.disabled || input.readOnly) return;
+    if (e.button !== 0 || document.activeElement === input || e.offsetX > input.clientWidth - SPINNER_PX) return;
+    const start = Number(input.value) || 0;
+    const step = Number(input.step) || 1;
+    const by = Math.ceil(Math.max(step, 10 ** (Math.floor(Math.log10(Math.abs(start) || 1)) - 2)) / step) * step;
+    const decimals = String(step).split('.')[1]?.length ?? 0;
+    const min = input.min === '' ? -Infinity : Number(input.min);
+    const max = input.max === '' ? Infinity : Number(input.max);
+    let moved = false;
+    const move = (m: MouseEvent) => {
+      const dy = e.clientY - m.clientY;
+      if (!moved && Math.abs(dy) < 4) return; // a click wobbles a little; that's not a drag
+      if (!moved) (moved = true), document.documentElement.classList.add('number-dragging');
+      const next = String(Number(Math.min(max, Math.max(min, start + Math.round(dy / NUMBER_DRAG_PX) * by)).toFixed(decimals)));
+      if (next === input.value) return;
+      setValue.call(input, next);
+      input.dispatchEvent(new Event('input', { bubbles: true })); // so React's onChange sees it
+    };
+    const up = () => {
+      window.removeEventListener('mousemove', move);
+      window.removeEventListener('mouseup', up);
+      if (!moved) return;
+      document.documentElement.classList.remove('number-dragging');
+      input.blur();
+    };
+    window.addEventListener('mousemove', move);
+    window.addEventListener('mouseup', up);
+  });
 }
 
 // A number you can drag across to change, step with the buttons at each end, or click to type.

@@ -49,6 +49,13 @@ const paths = {
   shield: <path d="M12 3 4 6v6c0 5 3.5 8 8 9 4.5-1 8-4 8-9V6l-8-3z" />,
   menu: <path d="M4 7h16M4 12h16M4 17h16" />,
   close: <path d="M6 6l12 12M18 6 6 18" />,
+  plus: <path d="M12 5v14M5 12h14" />,
+  layout: (
+    <>
+      <rect x="3" y="4" width="18" height="16" rx="2" />
+      <path d="M3 12h18M12 4v16" />
+    </>
+  ),
   logo: <path d="M4 16c3-8 6-8 8 0s5 8 8 0" />,
   // Overlay widgets, screen parts and goal metrics.
   target: (

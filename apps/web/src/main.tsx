@@ -7,6 +7,7 @@ import { HomePage } from './site/HomePage';
 import { DownloadPage, FaqPage, FeaturesPage, HowItWorksPage, SelfHostingPage } from './site/pages';
 import { Overlay } from './Overlay';
 import { usePath } from './router';
+import { installNumberDrag } from './ui';
 import './app.css';
 import './overlay.css';
 
@@ -23,6 +24,8 @@ window.addEventListener('vite:preloadError', (event) => {
   event.preventDefault();
   location.reload();
 });
+
+installNumberDrag();
 
 const overlayToken = location.pathname.match(/^\/overlay\/([^/]+)/)?.[1];
 // Set before the first paint so the overlay never flashes the dashboard background.
