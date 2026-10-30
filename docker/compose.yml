@@ -1,7 +1,7 @@
-# Self-hosted Fluxion: the server (with dashboard and overlay) plus Postgres.
-# Usage: cp .env.example .env, set POSTGRES_PASSWORD and SECRETS_KEY, then
+# Self-hosted Fluxion: the server (with dashboard and overlay) plus Postgres, and optionally Caddy for HTTPS.
+# Step-by-step guide: docs/SELF_HOSTING.md. In short, put POSTGRES_PASSWORD and SECRETS_KEY in .env, plus DOMAIN and
+# COMPOSE_PROFILES=https for automatic HTTPS, then:
 #   docker compose -f docker/compose.yml --env-file .env up -d --build
-# Put a reverse proxy with HTTPS in front of port 3000 (see docs/SELF_HOSTING.md).
 name: fluxion-selfhost
 services:
   fluxion:
@@ -16,8 +16,26 @@ services:
       SECRETS_KEY: ${SECRETS_KEY:?set SECRETS_KEY in .env (openssl rand -base64 32)}
       TIKTOK_SESSION_ID: ${TIKTOK_SESSION_ID:-}
       COOKIE_SECURE: ${COOKIE_SECURE:-true}
+      TRUST_PROXY: ${TRUST_PROXY:-loopback,uniquelocal}
     ports:
       - "${FLUXION_BIND:-127.0.0.1}:${FLUXION_PORT:-3000}:3000"
+
+  # Only with COMPOSE_PROFILES=https. Gets and renews a certificate for DOMAIN by itself.
+  caddy:
+    image: caddy:2
+    profiles: [https]
+    restart: unless-stopped
+    depends_on:
+      - fluxion
+    environment:
+      DOMAIN: ${DOMAIN:-}
+    ports:
+      - "80:80"
+      - "443:443"
+      - "443:443/udp"
+    volumes:
+      - ./Caddyfile:/etc/caddy/Caddyfile:ro
+      - caddy-data:/data
 
   postgres:
     image: postgres:17
@@ -36,3 +54,4 @@ services:
 
 volumes:
   pgdata:
+  caddy-data:
