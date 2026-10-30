@@ -4,6 +4,7 @@
    :root[data-theme=…] so they win over theme.css whichever file loads first. */
 @import '@fontsource-variable/oxanium';
 @import '@fontsource-variable/dm-sans';
+@import '@fontsource-variable/plus-jakarta-sans';
 
 /* Solar Dusk: warm parchment and amber in light mode, stone and orange in dark. */
 :root[data-theme='solar-dusk'] {
@@ -205,4 +206,112 @@
   --radius-scale: 1.33;
   --shadow: 0 1px 3px 0 oklch(0 0 0 / 0.1);
   letter-spacing: 0;
+}
+
+/* Sage Mist: soft sage as the action color, with black text on it, and olive for text accents and the active
+   sidebar item; near-black and warm in dark mode. */
+:root[data-theme='sage-mist'] {
+  --ground: #fdfdfd;
+  --panel: #fdfdfd;
+  --panel2: #f5f5f5;
+  --line: #e7e7ee;
+  --line-strong: #d6d6de;
+  --ink: #000000;
+  --muted: #6f6f6f;
+  --meter: #ebebeb;
+  --solid-bg: #afbea5;
+  --solid-ink: #000000;
+  --aurora: radial-gradient(900px 380px at 78% -8%, rgba(175, 190, 165, 0.28), transparent 70%),
+    radial-gradient(700px 320px at 40% -12%, rgba(74, 200, 133, 0.08), transparent 70%);
+  --red: #b3191f;
+  --red-soft: #fbe7e7;
+  --indigo: #495940;
+  --indigo-fill: #afbea5;
+  --indigo-soft: #e4eae1;
+  --key-ink: #495940;
+  --key-edge: #afbea5;
+  --brand-gradient: linear-gradient(135deg, #afbea5 0%, #495940 100%);
+  --edge-gradient: linear-gradient(90deg, #495940, #afbea5);
+  --plasma: linear-gradient(90deg, #4ac885 0%, #afbea5 50%, #495940 100%);
+  --usage-gradient: linear-gradient(90deg, #afbea5, #495940);
+  --avatar-gradient: linear-gradient(135deg, #afbea5, #495940);
+  --accent-gradient: linear-gradient(180deg, #bdcab4, #afbea5);
+  --accent-ink: #000000;
+  --accent-shadow: rgba(73, 89, 64, 0.35);
+  --glow-rgb: 140, 160, 128;
+  --sb-bg: #f5f8fb;
+  --sb-ink: #000000;
+  --sb-muted: #6f6f6f;
+  --sb-line: #ebebeb;
+  --sb-hover: rgba(0, 0, 0, 0.04);
+  --sb-active: #e4eae1;
+  --sb-focus: #afbea5;
+  --sb-marker: #000000;
+}
+:root[data-theme='sage-mist'] .sidebar {
+  --red: #b3191f; --indigo: #495940; --pink: #c0267a; --violet: #7444cc; --sky: #0a6cb4; --teal: #0a7a78; --orange: #b0500c; --green: #16824a;
+}
+:root[data-theme='sage-mist'] .content-glow .s-blob-1 { --c: 175, 190, 165; }
+:root[data-theme='sage-mist'] .content-glow .s-blob-2 { --c: 74, 200, 133; }
+:root[data-theme='sage-mist'] .content-glow .s-blob-3 { --c: 73, 89, 64; }
+:root[data-theme='sage-mist'] .content-glow .s-blob-4 { --c: 169, 227, 130; }
+:root[data-theme='sage-mist'] .content-glow .s-blob-5 { --c: 115, 189, 66; }
+:root[data-theme='sage-mist'] .content-glow .s-blob-pointer { --c: 175, 190, 165; }
+
+@media (prefers-color-scheme: dark) {
+  :root[data-theme='sage-mist'] {
+    --ground: #070503;
+    --panel: #100d08;
+    --panel2: #1e1a14;
+    --line: #2f281b;
+    --line-strong: #40372a;
+    --ink: #f9f8f7;
+    --muted: #928f8a;
+    --meter: #26211a;
+    --solid-bg: #afbea5;
+    --solid-ink: #040302;
+    --aurora: radial-gradient(900px 380px at 78% -8%, rgba(115, 189, 66, 0.12), transparent 70%),
+      radial-gradient(700px 320px at 40% -12%, rgba(175, 190, 165, 0.1), transparent 70%);
+    --red: #ef5f66;
+    --red-soft: rgba(179, 25, 31, 0.2);
+    --indigo: #afbea5;
+    --indigo-fill: #afbea5;
+    --indigo-soft: rgba(73, 89, 64, 0.45);
+    --key-ink: #c9d5c0;
+    --key-edge: #495940;
+    --brand-gradient: linear-gradient(135deg, #a9e382 0%, #408a0f 100%);
+    --edge-gradient: linear-gradient(90deg, #408a0f, #afbea5);
+    --plasma: linear-gradient(90deg, #408a0f 0%, #73bd42 50%, #afbea5 100%);
+    --usage-gradient: linear-gradient(90deg, #59a626, #a9e382);
+    --avatar-gradient: linear-gradient(135deg, #a9e382, #408a0f);
+    --accent-gradient: linear-gradient(180deg, #bdcab4, #afbea5);
+    --accent-ink: #040302;
+    --accent-shadow: rgba(0, 0, 0, 0.5);
+    --glow-rgb: 115, 189, 66;
+    --sb-bg: #040302;
+    --sb-ink: #f0eeeb;
+    --sb-muted: #928f8a;
+    --sb-line: #272117;
+    --sb-hover: rgba(255, 255, 255, 0.04);
+    --sb-active: #495940;
+    --sb-focus: #afbea5;
+    --sb-marker: #afbea5;
+  }
+  :root[data-theme='sage-mist'] .sidebar {
+    --red: #ff8a96; --indigo: #c9d5c0; --pink: #f78bc0; --violet: #c3a8ff; --sky: #7cc4f8; --teal: #62dad4; --orange: #ffae74; --green: #6fe0a2;
+  }
+}
+
+/* Full theme: Plus Jakarta Sans, round 1.4rem corners and soft shadows. This font's spaces are narrow, and the
+   spec's -0.025em letter spacing ran small words together, so letters keep their spacing and words get a little
+   more room. */
+:root[data-theme='sage-mist'][data-theme-style='full'] {
+  --font: 'Plus Jakarta Sans Variable', system-ui, sans-serif;
+  --radius-scale: 1.5;
+  --shadow: 0 2px 3px 0 rgba(0, 0, 0, 0.16);
+  letter-spacing: 0;
+  word-spacing: 0.08em;
+}
+@media (prefers-color-scheme: dark) {
+  :root[data-theme='sage-mist'][data-theme-style='full'] { --shadow: 0 2px 12px 0 rgba(0, 0, 0, 0.35); }
 }

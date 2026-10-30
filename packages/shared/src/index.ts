@@ -276,6 +276,7 @@ export const UI_THEMES = [
   { id: 'default', label: 'Default' },
   { id: 'solar-dusk', label: 'Solar Dusk' },
   { id: 'graphite-mono', label: 'Graphite Mono' },
+  { id: 'sage-mist', label: 'Sage Mist' },
 ] as const;
 export type UiTheme = (typeof UI_THEMES)[number]['id'];
 export type UiThemeStyle = 'full' | 'colors';
