@@ -203,17 +203,36 @@ const LINKS_SHOWN = 8; // four rows of two, then the rest behind Show more
 function WidgetLinksCard({ main, goals }: { main: Screen; goals: Goal[] }) {
   const [copied, setCopied] = useState<string | null>(null);
   const [expanded, setExpanded] = useState(false);
+  const [search, setSearch] = useState('');
   const [bus] = useState(() => new GiftBus());
   const { stats, chat } = usePreview(true, bus);
+  const help = (w: WidgetChoice) => (w.type === 'goals' && !w.goalId ? 'Every goal together in one panel.' : widgetInfo(w, goals).help);
   const link = (w: WidgetChoice) => `${location.origin}/overlay/${main.token}?widget=${w.type}${w.goalId ? `&goal=${w.goalId}` : ''}`;
   const all: WidgetChoice[] = [...WIDGET_TYPES.map((type) => ({ type })), ...goals.map((g) => ({ type: 'goals' as const, goalId: g.id }))];
+  // Matches a widget's name or description; a goal's own widget also by what it counts. Every match shows.
+  const query = search.trim().toLowerCase();
+  const words = (w: WidgetChoice) => {
+    const goal = w.goalId && goals.find((g) => g.id === w.goalId);
+    return [widgetInfo(w, goals).label, help(w), goal ? METRIC_LABELS[goal.metric] : ''].join(' ').toLowerCase();
+  };
+  const found = query ? all.filter((w) => words(w).includes(query)) : all;
+  const shown = query || expanded ? found : found.slice(0, LINKS_SHOWN);
   return (
     <Card
       title="Widget links"
       description="Each widget on its own, as a browser source of its own, without a whole screen. Size and the coin jar and fireworks amounts follow your Main screen. Previews use sample viewers and gifts. Keep the links private."
     >
+      <input
+        className="input"
+        type="search"
+        placeholder="Find a widget, like chat or coins"
+        aria-label="Find a widget"
+        value={search}
+        onChange={(e) => setSearch(e.target.value)}
+      />
+      {found.length === 0 && <p className="empty">No widget matches “{search.trim()}”.</p>}
       <div className="widget-picker">
-        {(expanded ? all : all.slice(0, LINKS_SHOWN)).map((w) => {
+        {shown.map((w) => {
           const info = widgetInfo(w, goals);
           const key = widgetKey(w);
           return (
@@ -222,7 +241,7 @@ function WidgetLinksCard({ main, goals }: { main: Screen; goals: Goal[] }) {
                 <HueIcon name={info.icon} hue={info.hue} />
                 <span className="widget-name">
                   <strong>{info.label}</strong>
-                  <span className="muted small">{w.type === 'goals' && !w.goalId ? 'Every goal together in one panel.' : info.help}</span>
+                  <span className="muted small">{help(w)}</span>
                 </span>
                 <button className="btn btn-sm" onClick={() => navigator.clipboard.writeText(link(w)).then(() => setCopied(key))}>
                   {copied === key ? 'Copied' : 'Copy link'}
@@ -234,7 +253,7 @@ function WidgetLinksCard({ main, goals }: { main: Screen; goals: Goal[] }) {
           );
         })}
       </div>
-      {all.length > LINKS_SHOWN && (
+      {!query && all.length > LINKS_SHOWN && (
         <button className="show-more" aria-expanded={expanded} onClick={() => setExpanded(!expanded)}>
           {expanded ? 'Show fewer' : `Show ${all.length - LINKS_SHOWN} more widget${all.length - LINKS_SHOWN === 1 ? '' : 's'}`}
           <Icon name="chevron" />
