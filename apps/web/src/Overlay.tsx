@@ -34,8 +34,9 @@ const SINGLE = (WIDGET_TYPES as readonly string[]).includes(params.get('widget')
   ? { type: params.get('widget') as ScreenWidget['type'], goalId: params.get('goal') ?? undefined }
   : null;
 
-// The overlay is laid out on a 1920 by 1080 screen and scaled to fit the browser source, whatever its size: OBS
-// makes new browser sources 800 by 600 and stretches them, which at full size would crowd the corners together.
+// The overlay is laid out on a 1920 by 1080 screen and scaled down to fit a smaller browser source: OBS makes new
+// browser sources 800 by 600 and stretches them, which at full size would crowd the corners together. A bigger source
+// isn't scaled up: it gets more room, with widgets at their normal size (the screen's Size setting makes them bigger).
 const REFERENCE = { width: 1920, height: 1080 };
 function useFit() {
   const [size, setSize] = useState({ width: innerWidth, height: innerHeight });
@@ -44,7 +45,7 @@ function useFit() {
     addEventListener('resize', resize);
     return () => removeEventListener('resize', resize);
   }, []);
-  const fit = Math.min(size.width / REFERENCE.width, size.height / REFERENCE.height) || 1;
+  const fit = Math.min(size.width / REFERENCE.width, size.height / REFERENCE.height, 1) || 1;
   const width = size.width / fit;
   const height = size.height / fit;
   // The canvas size goes to CSS too, for sizes that would otherwise be in vw and vh of the unscaled page.
@@ -98,7 +99,12 @@ export function Overlay({ token }: { token: string }) {
       socket = new WebSocket(`${protocol}://${location.host}/ws/overlay?token=${encodeURIComponent(token)}`);
       socket.onmessage = (event) => {
         const message = JSON.parse(event.data) as ServerToOverlay;
-        if (message.type === 'debug') (reporting = true), flush();
+        if (message.type === 'debug') {
+          reporting = true;
+          // The browser source's size decides how much the 1920 by 1080 layout is scaled (see useFit).
+          const fit = Math.min(innerWidth / REFERENCE.width, innerHeight / REFERENCE.height, 1);
+          report('page size', { width: innerWidth, height: innerHeight, zoom: devicePixelRatio, fit: Math.round(fit * 1000) / 1000 });
+        }
         if (message.type === 'screen') {
           screenRef.current = message.screen;
           player.audible = message.screen.audio && !SINGLE;
