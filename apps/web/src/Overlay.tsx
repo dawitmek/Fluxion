@@ -13,7 +13,8 @@ import {
   type StreamStats,
   type WidgetSpot,
 } from '@fluxion/shared';
-import { DEFAULT_FIREWORK_DIAMONDS, Fireworks, GiftBus, usePreview, Widget, type ChatLine } from './overlay-widgets';
+import { DEFAULT_FIREWORK_DIAMONDS, Fireworks, GiftBus, Title, usePreview, Widget, type ChatLine } from './overlay-widgets';
+import { Icon } from './icons';
 
 // A command, a level-up shout-out, or a viewer's points when they ask.
 type FeedItem = { id: number; viewer: string } & ({ keyword: string; level?: number } | { levelUp: number } | { points: number });
@@ -219,11 +220,12 @@ function LiveWidgets({
 
 function Leaderboard({ leaderboard }: { leaderboard: { entries: LeaderboardEntry[]; progression: boolean } }) {
   return (
-    <div className="overlay-panel overlay-leaderboard">
-      <div className="overlay-title">Top players</div>
+    <div className="overlay-panel overlay-leaderboard tone-sky">
+      <Title icon="trophy">Top players</Title>
       {leaderboard.entries.slice(0, LEADERBOARD_SIZE).map((entry, i) => (
         <div key={entry.viewer} className="overlay-row">
-          <span className="overlay-rank">{i + 1}</span>
+          {/* The top three get medals. */}
+          <span className={`overlay-rank ${i < 3 ? `medal-${i + 1}` : ''}`}>{i + 1}</span>
           <span className="overlay-name">{entry.viewer}</span>
           <span className="overlay-score">{leaderboard.progression ? `Lv ${levelForXp(entry.xp)}` : entry.commands}</span>
         </div>
@@ -240,10 +242,12 @@ function Feed({ items, hint }: { items: FeedItem[]; hint: boolean }) {
       {items.map((item) =>
         'levelUp' in item ? (
           <div key={item.id} className="overlay-item overlay-levelup">
+            <Icon name="star" size={18} strokeWidth={2.5} />
             <span className="overlay-viewer">{item.viewer}</span> reached <span className="overlay-keyword">level {item.levelUp}</span>
           </div>
         ) : 'points' in item ? (
-          <div key={item.id} className="overlay-item">
+          <div key={item.id} className="overlay-item overlay-points">
+            <Icon name="coin" size={18} strokeWidth={2.5} />
             <span className="overlay-viewer">{item.viewer}</span> has{' '}
             <span className="overlay-keyword">
               {item.points.toLocaleString()} point{item.points === 1 ? '' : 's'}
@@ -282,10 +286,10 @@ function ModePanel({ state, clockOffset }: { state: ModeState; clockOffset: numb
   if (state.mode === 'democracy') {
     const total = state.tally.reduce((sum, t) => sum + t.votes, 0);
     return (
-      <div className="overlay-panel overlay-mode">
-        <div className="overlay-title">
-          Vote{secondsLeft !== null && <span className="overlay-timer">{secondsLeft}s</span>}
-        </div>
+      <div className="overlay-panel overlay-mode tone-indigo">
+        <Title icon="crowd" end={secondsLeft !== null && <span className="overlay-timer">{secondsLeft}s</span>}>
+          Vote
+        </Title>
         {state.tally.length === 0 && <div className="overlay-muted">Type a command to vote</div>}
         {state.tally.slice(0, MAX_TALLY).map((t) => (
           <div key={t.keyword} className="overlay-bar">
@@ -300,11 +304,10 @@ function ModePanel({ state, clockOffset }: { state: ModeState; clockOffset: numb
 
   if (state.mode === 'queue') {
     return (
-      <div className="overlay-panel overlay-mode">
-        <div className="overlay-title">
+      <div className="overlay-panel overlay-mode tone-indigo">
+        <Title icon="crowd" end={secondsLeft !== null && <span className="overlay-timer">{secondsLeft}s</span>}>
           {state.viewer ? 'Now playing' : 'Nobody playing'}
-          {secondsLeft !== null && <span className="overlay-timer">{secondsLeft}s</span>}
-        </div>
+        </Title>
         {state.viewer && <div className="overlay-player">{state.viewer}</div>}
         {state.queue.length > 0 && <div className="overlay-muted">Next: {state.queue.join(', ')}</div>}
         <div className="overlay-muted">
@@ -316,8 +319,8 @@ function ModePanel({ state, clockOffset }: { state: ModeState; clockOffset: numb
 
   if (state.mode === 'gift') {
     return (
-      <div className="overlay-panel overlay-mode">
-        <div className="overlay-title">Send a gift to play!</div>
+      <div className="overlay-panel overlay-mode tone-amber">
+        <Title icon="gift">Send a gift to play!</Title>
       </div>
     );
   }

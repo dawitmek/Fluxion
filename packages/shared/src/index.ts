@@ -63,6 +63,9 @@ export const MAX_WIDGETS = 12;
 //   countdown, and actions can run on a win or a loss.
 // - Still to design: a wheel of fortune (spun by a gift, a command or points) and points drops (!claim in a window).
 
+// TODO(live streak widget): not built yet. Gift combos as they happen (who, which gift, the count climbing with a
+// flame), gone a few seconds after the combo ends; not the stream's longest streak, which top_streak already shows.
+
 // What a goal counts, over the current stream.
 export const GOAL_METRICS = ['likes', 'follows', 'shares', 'diamonds', 'subscriptions'] as const;
 export type GoalMetric = (typeof GOAL_METRICS)[number];

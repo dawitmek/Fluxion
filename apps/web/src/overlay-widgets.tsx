@@ -1,5 +1,6 @@
-import { useEffect, useRef, useState, type CSSProperties } from 'react';
-import type { ScreenWidget, StreamStats } from '@fluxion/shared';
+import { useEffect, useRef, useState, type CSSProperties, type ReactNode } from 'react';
+import type { GoalMetric, ScreenWidget, StreamStats } from '@fluxion/shared';
+import { Icon, type IconName } from './icons';
 
 // Overlay widgets. Each reads the stream's totals (StreamStats) or listens for chat and gifts.
 
@@ -25,6 +26,15 @@ function useGifts(bus: GiftBus, onGift: (gift: GiftEvent) => void) {
 
 const number = (n: number) => n.toLocaleString();
 const METRIC_UNITS = { likes: 'likes', follows: 'follows', shares: 'shares', diamonds: 'diamonds', subscriptions: 'subs' } as const;
+// Each widget has one accent (a tone- class in overlay.css), the same as its icon on the dashboard.
+type Tone = 'amber' | 'orange' | 'sky' | 'indigo' | 'teal' | 'violet' | 'pink' | 'green';
+const METRIC_LOOK: Record<GoalMetric, { icon: IconName; tone: Tone }> = {
+  likes: { icon: 'heart', tone: 'pink' },
+  follows: { icon: 'follower', tone: 'sky' },
+  shares: { icon: 'share', tone: 'green' },
+  diamonds: { icon: 'diamond', tone: 'amber' },
+  subscriptions: { icon: 'star', tone: 'violet' },
+};
 
 export const DEFAULT_FIREWORK_DIAMONDS = 100;
 export const DEFAULT_JAR_DIAMONDS = 1000;
@@ -38,14 +48,18 @@ export function Widget({ widget, stats, chat, bus }: { widget: ScreenWidget; sta
     }
     case 'top_gift':
       return stats?.topGift ? (
-        <Highlight title="Top gift" viewer={stats.topGift.viewer} detail={`${stats.topGift.gift}, ${number(stats.topGift.diamonds)} diamonds`} />
+        <Highlight title="Top gift" icon="trophy" tone="amber" viewer={stats.topGift.viewer} detail={`${stats.topGift.gift}, ${number(stats.topGift.diamonds)} diamonds`} />
       ) : null;
     case 'top_streak':
-      return stats?.topStreak ? <Highlight title="Longest streak" viewer={stats.topStreak.viewer} detail={`${stats.topStreak.gift} ×${number(stats.topStreak.count)}`} /> : null;
+      return stats?.topStreak ? (
+        <Highlight title="Longest streak" icon="flame" tone="orange" viewer={stats.topStreak.viewer} detail={stats.topStreak.gift} count={stats.topStreak.count} />
+      ) : null;
     case 'last_follower':
-      return stats?.lastFollower ? <Highlight title="Latest follower" viewer={stats.lastFollower} /> : null;
+      return stats?.lastFollower ? <Highlight title="Latest follower" icon="follower" tone="sky" viewer={stats.lastFollower} /> : null;
     case 'last_gifter':
-      return stats?.lastGifter ? <Highlight title="Latest gift" viewer={stats.lastGifter.viewer} detail={`${stats.lastGifter.gift} ×${number(stats.lastGifter.count)}`} /> : null;
+      return stats?.lastGifter ? (
+        <Highlight title="Latest gift" icon="gift" tone="amber" viewer={stats.lastGifter.viewer} detail={`${stats.lastGifter.gift} ×${number(stats.lastGifter.count)}`} />
+      ) : null;
     case 'stats':
       return stats ? <Stats stats={stats} /> : null;
     case 'chat':
@@ -57,15 +71,34 @@ export function Widget({ widget, stats, chat, bus }: { widget: ScreenWidget; sta
   }
 }
 
-function Goals({ goals }: { goals: StreamStats['goals'] }) {
+// A panel's title: an icon on a tinted badge, then the name, and anything else (a countdown) at the far end.
+export function Title({ icon, children, end }: { icon: IconName; children: ReactNode; end?: ReactNode }) {
   return (
-    <div className="overlay-panel w-goals">
+    <div className="overlay-title">
+      <span className="overlay-badge">
+        <Icon name={icon} size={14} strokeWidth={2.5} />
+      </span>
+      <span className="overlay-title-text">{children}</span>
+      {end}
+    </div>
+  );
+}
+
+function Goals({ goals }: { goals: StreamStats['goals'] }) {
+  // One goal takes its own color; several share the violet of the goals widget.
+  const tone = goals.length === 1 ? METRIC_LOOK[goals[0]!.metric].tone : 'violet';
+  return (
+    <div className={`overlay-panel w-goals tone-${tone}`}>
       {goals.map((g) => {
         const done = g.current >= g.target;
+        const look = METRIC_LOOK[g.metric];
         return (
-          <div key={g.id} className={`w-goal ${done ? 'done' : ''}`}>
+          <div key={g.id} className={`w-goal tone-${look.tone} ${done ? 'done' : ''}`}>
             <div className="w-goal-head">
-              <span>{g.name}</span>
+              <span className="overlay-badge">
+                <Icon name={done ? 'star' : look.icon} size={14} strokeWidth={2.5} />
+              </span>
+              <span className="w-goal-name">{g.name}</span>
               <span className="overlay-score">{done ? 'Done!' : `${number(g.current)} / ${number(g.target)}`}</span>
             </div>
             <div className="w-goal-track" role="progressbar" aria-valuemin={0} aria-valuemax={g.target} aria-valuenow={Math.min(g.current, g.target)} aria-label={`${g.name}, ${METRIC_UNITS[g.metric]}`}>
@@ -78,44 +111,86 @@ function Goals({ goals }: { goals: StreamStats['goals'] }) {
   );
 }
 
+// A viewer's initial in a ring of the panel's color.
+function Avatar({ name }: { name: string }) {
+  return <span className="w-avatar">{[...name][0]?.toUpperCase()}</span>;
+}
+
 // One viewer worth showing: the top gifter, the latest follower and so on. Pops when the viewer changes.
-function Highlight({ title, viewer, detail }: { title: string; viewer: string; detail?: string }) {
+// A streak shows its count beside a flame.
+function Highlight({ title, icon, tone, viewer, detail, count }: { title: string; icon: IconName; tone: Tone; viewer: string; detail?: string; count?: number }) {
   return (
-    <div className="overlay-panel w-highlight">
-      <div className="overlay-title">{title}</div>
-      <div key={`${viewer}:${detail}`} className="w-highlight-body">
-        <span className="w-highlight-name">{viewer}</span>
-        {detail && <span className="overlay-muted">{detail}</span>}
+    <div className={`overlay-panel w-highlight tone-${tone}`}>
+      <Title icon={icon}>{title}</Title>
+      <div key={`${viewer}:${detail}:${count}`} className="w-highlight-body">
+        <Avatar name={viewer} />
+        <span className="w-highlight-text">
+          <span className="w-highlight-name">{viewer}</span>
+          {detail && <span className="overlay-muted">{detail}</span>}
+        </span>
+        {count !== undefined && (
+          <span className="w-streak">
+            <Flame />
+            <span className="w-streak-count">×{number(count)}</span>
+          </span>
+        )}
       </div>
     </div>
   );
 }
 
-function Stats({ stats }: { stats: StreamStats }) {
-  const tiles = [
-    ['Viewers', stats.viewers],
-    ['Likes', stats.likes],
-    ['Follows', stats.follows],
-    ['Diamonds', stats.diamonds],
-  ] as const;
+// A flickering flame, filled, for streaks.
+function Flame() {
   return (
-    <div className="overlay-panel w-stats">
-      {tiles.map(([label, value]) => (
-        <div key={label}>
+    <svg className="w-flame" viewBox="0 0 24 24" aria-hidden="true">
+      <defs>
+        <linearGradient id="w-flame-fill" x1="0" y1="1" x2="0" y2="0">
+          <stop offset="0" stopColor="#ff4d2e" />
+          <stop offset="0.55" stopColor="#ff9a2e" />
+          <stop offset="1" stopColor="#ffd84d" />
+        </linearGradient>
+      </defs>
+      <path fill="url(#w-flame-fill)" d="M12 23a7 7 0 0 0 7-7c0-4.5-3.2-7-4.4-11.5-2.3 2.2-3.4 4.5-3.4 6.8-1.2-1-2.1-2.4-2.3-4.4C6.6 9.6 5 12.6 5 16a7 7 0 0 0 7 7z" />
+      <path fill="#fff6c8" opacity="0.85" d="M12 22a3.5 3.5 0 0 0 3.5-3.5c0-2.3-1.6-3.4-2.2-5.6-1.7 1.4-2.6 3-2.6 4.6-.6-.4-1-1-1.2-1.8-.7 1-1 2-1 2.8A3.5 3.5 0 0 0 12 22z" />
+    </svg>
+  );
+}
+
+function Stats({ stats }: { stats: StreamStats }) {
+  const tiles: [string, number, IconName, Tone][] = [
+    ['Viewers', stats.viewers, 'eye', 'teal'],
+    ['Likes', stats.likes, 'heart', 'pink'],
+    ['Follows', stats.follows, 'follower', 'sky'],
+    ['Diamonds', stats.diamonds, 'diamond', 'amber'],
+  ];
+  return (
+    <div className="overlay-panel w-stats tone-teal">
+      {tiles.map(([label, value, icon, tone]) => (
+        <div key={label} className={`tone-${tone}`}>
+          <span className="w-stat-icon">
+            <Icon name={icon} size={18} strokeWidth={2.5} />
+          </span>
           <strong>{number(value)}</strong>
-          <span>{label}</span>
+          <span className="w-stat-label">{label}</span>
         </div>
       ))}
     </div>
   );
 }
 
+// Each viewer keeps one name color, picked from their name, so a conversation is easy to follow.
+const NAME_COLORS = ['#ff8fbf', '#7cc8ff', '#ffc35a', '#8fe3a8', '#b9a1ff', '#ff9a6b', '#5fe0d0'];
+const nameColor = (name: string) => NAME_COLORS[[...name].reduce((h, c) => (h * 31 + c.charCodeAt(0)) >>> 0, 7) % NAME_COLORS.length];
+
 function Chat({ lines }: { lines: ChatLine[] }) {
   return (
-    <div className="overlay-panel w-chat">
+    <div className="overlay-panel w-chat tone-indigo">
+      <Title icon="chat">Chat</Title>
       {lines.map((l) => (
         <div key={l.id} className="w-chat-line">
-          <span className="overlay-viewer">{l.viewer}</span>
+          <span className="overlay-viewer" style={{ color: nameColor(l.viewer) }}>
+            {l.viewer}
+          </span>
           {l.text}
         </div>
       ))}
@@ -136,7 +211,7 @@ function CoinJar({ diamonds, target, bus }: { diamonds: number; target: number; 
   });
   const level = Math.min(1, diamonds / target);
   return (
-    <div className="overlay-panel w-jar">
+    <div className="overlay-panel w-jar tone-amber">
       <div className="w-jar-glass">
         <div className="w-jar-fill" style={{ height: `${level * 100}%` }} />
         {coins.map((c) => (

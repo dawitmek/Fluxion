@@ -1,44 +1,123 @@
 /* Overlay: transparent so it sits on top of the stream. */
-/* No :has() here: OBS 27–29 ship Chromium 95–103, which drop the whole rule if it contains :has(). */
+/* No :has() or color-mix() here: OBS 27–29 ship Chromium 95–103, which drop the whole rule if it contains either. */
 html.overlay-page, html.overlay-page body { background: transparent; }
-.overlay { display: flex; flex-direction: column-reverse; gap: 8px; font-family: system-ui, sans-serif; }
-.overlay-item, .overlay-hint { background: rgba(0, 0, 0, 0.7); color: #fff; padding: 8px 14px; border-radius: 10px; font-size: 22px; animation: pop 0.25s ease-out; }
-.overlay-viewer { font-weight: 700; margin-right: 10px; }
-.overlay-keyword { text-transform: uppercase; color: #ffd166; font-weight: 800; letter-spacing: 1px; }
+
+/* Accents: each panel takes one, the same as its widget's icon on the dashboard. Children can take their own. */
+.overlay-panel, .overlay-item, .overlay-hint { --accent: #a3a6ff; --accent-soft: rgba(163, 166, 255, 0.18); }
+.tone-amber { --accent: #ffc35a; --accent-soft: rgba(255, 195, 90, 0.18); }
+.tone-orange { --accent: #ff9a4d; --accent-soft: rgba(255, 154, 77, 0.18); }
+.tone-sky { --accent: #6cc6ff; --accent-soft: rgba(108, 198, 255, 0.18); }
+.tone-indigo { --accent: #a3a6ff; --accent-soft: rgba(163, 166, 255, 0.18); }
+.tone-teal { --accent: #4fe0cc; --accent-soft: rgba(79, 224, 204, 0.16); }
+.tone-violet { --accent: #bb9cff; --accent-soft: rgba(187, 156, 255, 0.18); }
+.tone-pink { --accent: #ff7cb6; --accent-soft: rgba(255, 124, 182, 0.18); }
+.tone-green { --accent: #5fdc96; --accent-soft: rgba(95, 220, 150, 0.16); }
+
+/* Panels: dark glass with a faint glow of their accent in the top-left corner. */
+.overlay-panel {
+  position: relative;
+  min-width: 220px;
+  box-sizing: border-box;
+  padding: 12px 16px 14px;
+  border-radius: 16px;
+  border: 1px solid rgba(255, 255, 255, 0.09);
+  background: radial-gradient(140% 90% at 0% 0%, var(--accent-soft), transparent 55%), linear-gradient(180deg, rgba(24, 26, 38, 0.9), rgba(13, 14, 22, 0.9));
+  box-shadow: 0 12px 32px -14px rgba(0, 0, 0, 0.7), inset 0 1px 0 rgba(255, 255, 255, 0.06);
+  color: #fff;
+  font-family: var(--font);
+  font-size: 20px;
+  animation: pop 0.3s ease-out;
+}
 @keyframes pop { from { transform: translateY(8px); opacity: 0; } to { transform: none; opacity: 1; } }
-.overlay-panel { min-width: 220px; background: rgba(0, 0, 0, 0.7); color: #fff; padding: 10px 14px; border-radius: 10px; font-family: system-ui, sans-serif; font-size: 20px; animation: pop 0.25s ease-out; }
-.overlay-title { display: flex; justify-content: space-between; gap: 16px; font-weight: 800; text-transform: uppercase; letter-spacing: 1px; font-size: 16px; margin-bottom: 6px; }
-.overlay-timer { color: #ffd166; font-variant-numeric: tabular-nums; }
-.overlay-muted { color: rgba(255, 255, 255, 0.75); font-size: 16px; margin-top: 4px; }
-.overlay-player { font-size: 26px; font-weight: 800; }
-.overlay-row { display: flex; gap: 10px; padding: 2px 0; }
-.overlay-rank { width: 1.2em; color: #ffd166; font-weight: 800; }
-.overlay-name { flex: 1; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; max-width: 220px; }
+.overlay-title { display: flex; align-items: center; gap: 8px; margin-bottom: 10px; color: rgba(255, 255, 255, 0.72); font-size: 13px; font-weight: 700; letter-spacing: 0.08em; text-transform: uppercase; }
+.overlay-title-text { flex: 1; }
+.overlay-badge { display: inline-grid; place-items: center; flex: none; width: 24px; height: 24px; border-radius: 7px; background: var(--accent-soft); color: var(--accent); }
+.overlay-timer { padding: 2px 9px; border-radius: 999px; background: var(--accent-soft); color: var(--accent); font-variant-numeric: tabular-nums; letter-spacing: 0; }
+.overlay-muted { margin-top: 2px; color: rgba(255, 255, 255, 0.68); font-size: 15px; }
 .overlay-score { font-weight: 700; font-variant-numeric: tabular-nums; }
-.overlay-bar { position: relative; display: flex; justify-content: space-between; gap: 12px; padding: 4px 8px; margin-top: 4px; border-radius: 6px; overflow: hidden; background: rgba(255, 255, 255, 0.08); }
+
+/* Command feed: who pressed what, newest at the bottom. */
+.overlay { display: flex; flex-direction: column-reverse; gap: 8px; font-family: var(--font); }
+.overlay-item, .overlay-hint {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  padding: 8px 14px;
+  border-radius: 12px;
+  border: 1px solid rgba(255, 255, 255, 0.09);
+  background: linear-gradient(180deg, rgba(24, 26, 38, 0.9), rgba(13, 14, 22, 0.9));
+  box-shadow: 0 10px 24px -14px rgba(0, 0, 0, 0.7);
+  color: #fff;
+  font-size: 22px;
+  animation: pop 0.25s ease-out;
+}
+.overlay-item svg { flex: none; color: #ffc35a; }
+.overlay-viewer { font-weight: 700; margin-right: 10px; }
+.overlay-item .overlay-viewer { margin-right: 0; }
+.overlay-keyword { padding: 1px 10px; border-radius: 8px; background: rgba(255, 195, 90, 0.16); color: #ffc35a; font-size: 0.85em; font-weight: 800; letter-spacing: 0.04em; text-transform: uppercase; }
+.overlay-level { padding: 1px 8px; border-radius: 8px; background: rgba(187, 156, 255, 0.2); color: #cbb6ff; font-size: 15px; font-weight: 700; }
+.overlay-levelup { border-color: rgba(255, 255, 255, 0.2); background: linear-gradient(90deg, rgba(232, 23, 93, 0.92), rgba(255, 140, 0, 0.92)); }
+.overlay-levelup svg { color: #fff; }
+.overlay-levelup .overlay-keyword { background: rgba(255, 255, 255, 0.22); color: #fff; }
+
+/* Leaderboard: medals for the top three. */
+.overlay-row { display: flex; align-items: center; gap: 10px; padding: 4px 0; }
+.overlay-rank { display: inline-grid; place-items: center; flex: none; width: 26px; height: 26px; border-radius: 50%; background: rgba(255, 255, 255, 0.1); font-size: 14px; font-weight: 800; }
+.overlay-rank.medal-1 { background: linear-gradient(145deg, #ffe596, #f2ae0b); color: #3d2700; box-shadow: 0 0 12px rgba(255, 196, 40, 0.45); }
+.overlay-rank.medal-2 { background: linear-gradient(145deg, #f4f7fb, #aab4c3); color: #1f2430; }
+.overlay-rank.medal-3 { background: linear-gradient(145deg, #f5c39a, #bb7340); color: #2b1405; }
+.overlay-name { flex: 1; max-width: 220px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.overlay-leaderboard .overlay-score { color: var(--accent); }
+
+/* Crowd mode: the vote, the queue, or the gift-mode banner. */
+.overlay-player { font-size: 26px; font-weight: 800; }
+.overlay-bar { position: relative; display: flex; justify-content: space-between; gap: 12px; margin-top: 6px; padding: 6px 10px; border-radius: 10px; overflow: hidden; background: rgba(255, 255, 255, 0.07); }
 .overlay-bar > span { position: relative; }
-.overlay-bar-fill { position: absolute; inset: 0 auto 0 0; background: rgba(232, 23, 93, 0.6); transition: width 0.3s ease-out; }
-.overlay-level { display: inline-block; margin-right: 10px; padding: 1px 7px; border-radius: 6px; background: rgba(255, 209, 102, 0.25); color: #ffd166; font-size: 16px; font-weight: 700; vertical-align: 2px; }
-.overlay-levelup { background: linear-gradient(90deg, rgba(232, 23, 93, 0.85), rgba(255, 140, 0, 0.85)); }
-.overlay-levelup .overlay-keyword { color: #fff; }
+.overlay-bar .overlay-keyword { padding: 0; background: none; color: #fff; }
+.overlay-bar-fill { position: absolute; inset: 0 auto 0 0; background: linear-gradient(90deg, rgba(143, 147, 255, 0.6), rgba(255, 111, 174, 0.6)); transition: width 0.3s ease-out; }
+
+/* Alerts */
 .overlay-screen { zoom: var(--overlay-scale, 1); }
 .overlay-screen { --alert-top: 22%; --alert-shift: 0%; }
 .alerts-middle { --alert-top: 50%; --alert-shift: -50%; }
 .alerts-bottom { --alert-top: auto; }
 .alerts-bottom .overlay-alert { bottom: 8%; }
-.overlay-alert { position: fixed; top: var(--alert-top); left: 50%; transform: translate(-50%, var(--alert-shift)); max-width: 80vw; padding: 18px 32px; border-radius: 16px; background: linear-gradient(90deg, rgba(232, 23, 93, 0.92), rgba(124, 58, 237, 0.92)); color: #fff; font-family: system-ui, sans-serif; font-size: 40px; font-weight: 800; text-align: center; text-shadow: 0 2px 6px rgba(0, 0, 0, 0.4); animation: alert-in 0.4s cubic-bezier(0.2, 1.4, 0.4, 1); }
+.overlay-alert {
+  position: fixed;
+  top: var(--alert-top);
+  left: 50%;
+  z-index: 2;
+  max-width: 80vw;
+  padding: 18px 32px;
+  overflow: hidden;
+  border-radius: 18px;
+  background: linear-gradient(100deg, rgba(232, 23, 93, 0.95), rgba(124, 58, 237, 0.95));
+  box-shadow: inset 0 0 0 1px rgba(255, 255, 255, 0.2), 0 18px 50px -12px rgba(124, 58, 237, 0.75), 0 0 60px -12px rgba(232, 23, 93, 0.6);
+  color: #fff;
+  font-family: var(--font);
+  font-size: 40px;
+  font-weight: 800;
+  text-align: center;
+  text-shadow: 0 2px 6px rgba(0, 0, 0, 0.35);
+  transform: translate(-50%, var(--alert-shift));
+  animation: alert-in 0.4s cubic-bezier(0.2, 1.4, 0.4, 1);
+}
+/* A shine passes over each alert as it arrives. */
+.overlay-alert::after { content: ''; position: absolute; inset: 0; background: linear-gradient(100deg, transparent 30%, rgba(255, 255, 255, 0.35) 50%, transparent 70%); transform: translateX(-100%); animation: shine-once 1.1s 0.25s ease-out both; pointer-events: none; }
+@keyframes shine-once { to { transform: translateX(100%); } }
 @keyframes alert-in { from { transform: translate(-50%, var(--alert-shift)) scale(0.6); opacity: 0; } to { transform: translate(-50%, var(--alert-shift)) scale(1); opacity: 1; } }
 .overlay-alert-media { display: block; max-width: min(560px, 70vw); max-height: 45vh; margin: 0 auto 12px; border-radius: 12px; }
-.overlay-alert.media-only { padding: 0; background: none; }
+.overlay-alert.media-only { padding: 0; background: none; box-shadow: none; }
+.overlay-alert.media-only::after { display: none; }
 .overlay-alert.media-only .overlay-alert-media { margin: 0 auto; }
 .overlay-unblock { position: fixed; bottom: 16px; right: 16px; padding: 10px 14px; border: 0; border-radius: 8px; background: #fff; color: #111; font: 600 14px system-ui, sans-serif; cursor: pointer; }
 .overlay-preview-note { position: fixed; top: 50%; left: 0; transform: translateY(-50%); z-index: 3; max-width: 160px; padding: 6px 10px; border-radius: 0 6px 6px 0; background: rgba(255, 255, 255, 0.85); color: #111; font: 600 12px system-ui, sans-serif; }
 
 /* Widget spots: each corner and edge stacks its widgets. */
-.overlay-spot { position: fixed; display: flex; flex-direction: column; gap: 10px; max-width: 34vw; font-family: system-ui, sans-serif; }
+.overlay-spot { position: fixed; display: flex; flex-direction: column; gap: 10px; max-width: 34vw; font-family: var(--font); }
 .overlay-spot:empty { display: none; }
 /* A widget placed by hand: its top-left corner at a percentage of the screen. */
-.overlay-placed { position: fixed; font-family: system-ui, sans-serif; }
+.overlay-placed { position: fixed; font-family: var(--font); }
 .spot-top-left { top: 16px; left: 16px; align-items: flex-start; }
 .spot-top { top: 16px; left: 50%; transform: translateX(-50%); align-items: center; }
 .spot-top-right { top: 16px; right: 16px; align-items: flex-end; }
@@ -46,31 +125,58 @@ html.overlay-page, html.overlay-page body { background: transparent; }
 .spot-bottom { bottom: 16px; left: 50%; transform: translateX(-50%); align-items: center; }
 .spot-bottom-right { bottom: 16px; right: 16px; align-items: flex-end; }
 
-.w-goals { min-width: 300px; display: flex; flex-direction: column; gap: 10px; }
-.w-goal-head { display: flex; justify-content: space-between; gap: 16px; font-weight: 700; margin-bottom: 6px; }
-.w-goal-track { height: 14px; border-radius: 999px; background: rgba(255, 255, 255, 0.14); overflow: hidden; }
-.w-goal-track > span { display: block; height: 100%; border-radius: inherit; background: linear-gradient(90deg, #e8175d, #7c3aed); transition: width 0.6s cubic-bezier(0.2, 0.8, 0.2, 1); }
-.w-goal.done .w-goal-track > span { background: linear-gradient(90deg, #ffd166, #ff8c00); }
-.w-goal.done .overlay-score { color: #ffd166; }
+/* Goals: a bar in each goal's color, with a soft shine moving along it; gold once reached. */
+.w-goals { min-width: 320px; display: flex; flex-direction: column; gap: 12px; }
+.w-goal-head { display: flex; align-items: center; gap: 8px; margin-bottom: 8px; font-size: 18px; font-weight: 700; }
+.w-goal-name { flex: 1; }
+.w-goal .overlay-score { color: rgba(255, 255, 255, 0.85); font-size: 16px; }
+.w-goal-track { height: 12px; border-radius: 999px; background: rgba(255, 255, 255, 0.1); overflow: hidden; }
+.w-goal-track > span { position: relative; display: block; height: 100%; overflow: hidden; border-radius: inherit; background: linear-gradient(90deg, rgba(255, 255, 255, 0), rgba(255, 255, 255, 0.3)), var(--accent); transition: width 0.6s cubic-bezier(0.2, 0.8, 0.2, 1); }
+.w-goal-track > span::after { content: ''; position: absolute; inset: 0; background: linear-gradient(100deg, transparent 20%, rgba(255, 255, 255, 0.5) 50%, transparent 80%); transform: translateX(-100%); animation: shine 3s ease-in-out infinite; }
+@keyframes shine { 55%, 100% { transform: translateX(100%); } }
+.w-goal.done { --accent: #ffcf4a; --accent-soft: rgba(255, 207, 74, 0.2); }
+.w-goal.done .w-goal-track > span { box-shadow: 0 0 12px rgba(255, 207, 74, 0.6); }
+.w-goal.done .overlay-score { color: var(--accent); }
 
-.w-highlight-body { display: flex; flex-direction: column; animation: pop 0.3s ease-out; }
-.w-highlight-name { font-size: 26px; font-weight: 800; }
+/* One viewer: an initial in a ring of the panel's color, the name, and what they did. */
+.w-highlight-body { display: flex; align-items: center; gap: 12px; animation: pop 0.3s ease-out; }
+.w-avatar { display: inline-grid; place-items: center; flex: none; width: 44px; height: 44px; border-radius: 50%; background: linear-gradient(145deg, var(--accent), rgba(255, 255, 255, 0.35)); box-shadow: 0 0 0 3px rgba(255, 255, 255, 0.08), 0 0 18px var(--accent-soft); color: #14151f; font-size: 20px; font-weight: 800; }
+.w-highlight-text { display: flex; flex-direction: column; min-width: 0; }
+.w-highlight-name { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; font-size: 24px; font-weight: 800; }
+.w-streak { display: flex; align-items: center; gap: 2px; margin-left: auto; padding-left: 12px; }
+.w-flame { width: 34px; height: 34px; transform-origin: 50% 90%; filter: drop-shadow(0 0 8px rgba(255, 120, 40, 0.65)); animation: flicker 1.6s ease-in-out infinite; }
+@keyframes flicker {
+  0%, 100% { transform: scale(1) rotate(-2deg); }
+  25% { transform: scale(1.06, 0.96) rotate(2deg); }
+  50% { transform: scale(0.97, 1.05) rotate(-1deg); }
+  75% { transform: scale(1.04, 0.98) rotate(1.5deg); }
+}
+.w-streak-count { color: var(--accent); font-size: 28px; font-weight: 800; font-variant-numeric: tabular-nums; }
 
-.w-stats { display: flex; gap: 22px; }
-.w-stats > div { display: flex; flex-direction: column; align-items: center; }
+/* Stream stats: each number in the color of what it counts. */
+.w-stats { display: flex; gap: 24px; padding: 12px 20px; }
+.w-stats > div { display: flex; flex-direction: column; align-items: center; gap: 2px; }
+.w-stat-icon { color: var(--accent); }
 .w-stats strong { font-size: 26px; font-variant-numeric: tabular-nums; }
-.w-stats span { font-size: 13px; text-transform: uppercase; letter-spacing: 1px; color: rgba(255, 255, 255, 0.75); }
+.w-stat-label { color: rgba(255, 255, 255, 0.65); font-size: 12px; letter-spacing: 0.08em; text-transform: uppercase; }
 
-.w-chat { width: 360px; display: flex; flex-direction: column; gap: 6px; font-size: 18px; }
+/* Chat: each viewer's name keeps its own color. */
+.w-chat { width: 380px; display: flex; flex-direction: column; gap: 6px; font-size: 18px; }
 .w-chat-line { overflow-wrap: anywhere; animation: pop 0.25s ease-out; }
 
+/* Coin jar */
 .w-jar { display: flex; flex-direction: column; align-items: center; gap: 8px; min-width: 0; }
-.w-jar-glass { position: relative; width: 140px; height: 170px; border: 4px solid rgba(255, 255, 255, 0.75); border-top-width: 10px; border-radius: 18px 18px 36px 36px; overflow: hidden; background: rgba(255, 255, 255, 0.06); }
-.w-jar-fill { position: absolute; inset: auto 0 0 0; background: linear-gradient(180deg, #ffd166, #f59e0b); transition: height 0.8s cubic-bezier(0.2, 0.8, 0.2, 1); }
+.w-jar-glass { position: relative; width: 140px; height: 170px; border: 4px solid rgba(255, 255, 255, 0.75); border-top-width: 10px; border-radius: 18px 18px 36px 36px; overflow: hidden; background: linear-gradient(100deg, rgba(255, 255, 255, 0.1), rgba(255, 255, 255, 0.02) 40%); }
+.w-jar-fill { position: absolute; inset: auto 0 0 0; background: linear-gradient(180deg, #ffd166, #f59e0b); box-shadow: 0 -4px 14px rgba(255, 196, 70, 0.45); transition: height 0.8s cubic-bezier(0.2, 0.8, 0.2, 1); }
 .w-coin { position: absolute; top: -20px; width: 18px; height: 18px; margin-left: -9px; border-radius: 50%; background: radial-gradient(circle at 35% 35%, #fff3c4, #ffd166 45%, #d97706); box-shadow: 0 0 0 2px rgba(0, 0, 0, 0.15); animation: coin-drop 1.1s cubic-bezier(0.5, 0, 0.75, 0) both; }
 @keyframes coin-drop { to { top: calc(var(--land) - 18px); opacity: 0.9; } }
 .w-jar-label { font-size: 16px; }
 .w-jar-label strong { color: #ffd166; font-size: 20px; }
 
 .w-fireworks { position: fixed; inset: 0; z-index: 0; width: 100vw; height: 100vh; pointer-events: none; }
-.overlay-alert { z-index: 2; }
+
+/* Motion off, for those who ask: no flicker or shine. */
+@media (prefers-reduced-motion: reduce) {
+  .w-flame, .w-goal-track > span::after, .overlay-alert::after { animation: none; }
+  .w-goal-track > span::after, .overlay-alert::after { display: none; }
+}
