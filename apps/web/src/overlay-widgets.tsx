@@ -31,8 +31,11 @@ export const DEFAULT_JAR_DIAMONDS = 1000;
 
 export function Widget({ widget, stats, chat, bus }: { widget: ScreenWidget; stats: StreamStats | null; chat: ChatLine[]; bus: GiftBus }) {
   switch (widget.type) {
-    case 'goals':
-      return stats && stats.goals.length > 0 ? <Goals goals={stats.goals} /> : null;
+    case 'goals': {
+      if (!stats) return null;
+      const goals = widget.goalId ? stats.goals.filter((g) => g.id === widget.goalId) : stats.goals;
+      return goals.length > 0 ? <Goals goals={goals} /> : null;
+    }
     case 'top_gift':
       return stats?.topGift ? (
         <Highlight title="Top gift" viewer={stats.topGift.viewer} detail={`${stats.topGift.gift}, ${number(stats.topGift.diamonds)} diamonds`} />

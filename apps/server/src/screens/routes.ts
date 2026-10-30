@@ -29,6 +29,7 @@ const fields = {
         type: { enum: WIDGET_TYPES },
         spot: { enum: WIDGET_SPOTS },
         minDiamonds: { type: 'integer', minimum: 1, maximum: 10_000_000 },
+        goalId: { type: 'string', format: 'uuid' },
       },
     },
   },

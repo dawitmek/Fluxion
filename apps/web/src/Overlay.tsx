@@ -4,9 +4,11 @@ import {
   levelForXp,
   QUEUE_JOIN,
   WIDGET_SPOTS,
+  WIDGET_TYPES,
   type LeaderboardEntry,
   type ModeState,
   type OverlayScreen,
+  type ScreenWidget,
   type ServerToOverlay,
   type StreamStats,
   type WidgetSpot,
@@ -23,7 +25,12 @@ const MAX_TALLY = 4;
 const CHAT_LINES = 6;
 
 // ?preview (the dashboard's Open preview link) fills the widgets with sample numbers while offline.
-const PREVIEW = new URLSearchParams(location.search).has('preview');
+const params = new URLSearchParams(location.search);
+const PREVIEW = params.has('preview');
+// ?widget=chat (with &goal=<id> for one goal): just that widget, as a browser source of its own. No alerts, feed or sound.
+const SINGLE = (WIDGET_TYPES as readonly string[]).includes(params.get('widget') ?? '')
+  ? { type: params.get('widget') as ScreenWidget['type'], goalId: params.get('goal') ?? undefined }
+  : null;
 
 // Transparent page meant to sit on top of the stream as a browser source.
 export function Overlay({ token }: { token: string }) {
@@ -60,7 +67,7 @@ export function Overlay({ token }: { token: string }) {
         const message = JSON.parse(event.data) as ServerToOverlay;
         if (message.type === 'screen') {
           screenRef.current = message.screen;
-          player.audible = message.screen.audio;
+          player.audible = message.screen.audio && !SINGLE;
           setScreen(message.screen);
         }
         const shown = screenRef.current;
@@ -79,6 +86,7 @@ export function Overlay({ token }: { token: string }) {
           setItems((current) => [item, ...current].slice(0, MAX_ITEMS));
           setTimeout(() => setItems((current) => current.filter((i) => i.id !== item.id)), ITEM_TTL_MS);
         };
+        if (SINGLE) return; // the rest is alerts, speech and the feed
         if (shown?.feed) {
           if (message.type === 'command') add({ id: nextId++, viewer: message.viewer, keyword: message.keyword, level: message.level });
           if (message.type === 'levelUp') add({ id: nextId++, viewer: message.viewer, levelUp: message.level });
@@ -105,6 +113,28 @@ export function Overlay({ token }: { token: string }) {
   }, [token, player, bus]);
 
   if (!screen) return null;
+  if (SINGLE) {
+    // The screen's own settings for this widget, if it has it (the coin jar's target, say); else the defaults.
+    const widget: ScreenWidget = {
+      ...screen.widgets.find((w) => w.type === SINGLE.type && w.goalId === SINGLE.goalId),
+      ...SINGLE,
+      spot: 'top-left',
+    };
+    const shownStats = live ? stats : preview.stats;
+    return (
+      <div className="overlay-screen" style={{ '--overlay-scale': screen.scale / 100 } as CSSProperties}>
+        {PREVIEW && !live && <div className="overlay-preview-note">Preview with sample numbers. Your stream shows real ones.</div>}
+        {(live || PREVIEW) &&
+          (widget.type === 'firework' ? (
+            <Fireworks min={widget.minDiamonds ?? DEFAULT_FIREWORK_DIAMONDS} bus={bus} />
+          ) : (
+            <div className="overlay-spot spot-top-left">
+              <Widget widget={widget} stats={shownStats} chat={live ? chat : preview.chat} bus={bus} />
+            </div>
+          ))}
+      </div>
+    );
+  }
   return (
     <div className={`overlay-screen alerts-${screen.alertPosition}`} style={{ '--overlay-scale': screen.scale / 100 } as CSSProperties}>
       {/* Alerts show even while offline, so the dashboard's Test button works before going live. */}

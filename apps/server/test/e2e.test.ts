@@ -821,8 +821,12 @@ describe('widgets and goals', () => {
     const other = await signUp('other@example.com');
     expect((await api(other.cookie, 'PATCH', `/api/goals/${likes.id}`, { target: 5 })).statusCode).toBe(404);
     expect((await api(other.cookie, 'POST', '/api/actions', { name: 'x', trigger: 'goal', goalId: likes.id })).statusCode).toBe(400);
+    // A goal can have a widget of its own; deleting the goal takes that widget off the screen.
+    const own = { type: 'goals', spot: 'top-left', goalId: likes.id };
+    expect((await api(cookie, 'PATCH', `/api/screens/${main.id}`, { widgets: [...widgets, own] })).json().widgets).toContainEqual(own);
     expect((await api(cookie, 'DELETE', `/api/goals/${likes.id}`)).statusCode).toBe(204);
     expect((await api(cookie, 'GET', '/api/actions')).json()).toEqual([]); // its action went with it
+    expect((await api(cookie, 'GET', '/api/screens')).json()[0].widgets).toEqual(widgets);
   });
 });
 

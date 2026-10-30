@@ -48,6 +48,7 @@ export interface ScreenWidget {
   type: WidgetType;
   spot: WidgetSpot; // fireworks use the whole screen and ignore it
   minDiamonds?: number; // firework: gifts worth at least this; coin jar: diamonds that fill the jar
+  goalId?: string; // goals: just this goal; without it, every goal
 }
 export const MAX_WIDGETS = 12;
 

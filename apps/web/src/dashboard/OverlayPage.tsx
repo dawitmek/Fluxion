@@ -11,8 +11,11 @@ export function OverlayPage() {
   const [screens, setScreens] = useState<Screen[]>([]);
   const [name, setName] = useState('');
   const { error, guard } = useError();
+  const [goals, setGoals] = useState<Goal[]>([]);
   const load = useCallback(() => api<Screen[]>('GET', '/screens').then(setScreens), []);
-  useEffect(() => void load(), [load]);
+  const loadGoals = useCallback(() => api<Goal[]>('GET', '/goals').then(setGoals), []);
+  useEffect(() => void (load(), loadGoals()), [load, loadGoals]);
+  const main = screens.find((s) => s.main);
   const add = (e: FormEvent) => {
     e.preventDefault();
     guard(() => api('POST', '/screens', { name }).then(() => (setName(''), load())))();
@@ -35,9 +38,11 @@ export function OverlayPage() {
         </form>
       </Card>
       {screens.map((s) => (
-        <ScreenCard key={s.id} screen={s} reload={load} />
+        <ScreenCard key={s.id} screen={s} goals={goals} reload={load} />
       ))}
-      <GoalsCard />
+      {main && <WidgetLinksCard main={main} goals={goals} />}
+      {/* Deleting a goal also takes its widgets off the screens. */}
+      <GoalsCard goals={goals} reload={() => Promise.all([loadGoals(), load()])} />
     </div>
   );
 }
@@ -74,13 +79,28 @@ function SpotMap({ spot, hue }: { spot: WidgetSpot | null; hue: Hue }) {
   );
 }
 
-function WidgetsEditor({ widgets, onSave }: { widgets: ScreenWidget[]; onSave: (widgets: ScreenWidget[]) => void }) {
-  const [type, setType] = useState<WidgetType>('goals');
-  const [previewing, setPreviewing] = useState<WidgetType | null>(null);
+// A widget's name and look. A goal's own widget is named after the goal and drawn like what it counts.
+function widgetInfo(w: Pick<ScreenWidget, 'type' | 'goalId'>, goals: Goal[]) {
+  if (!w.goalId) return WIDGETS[w.type];
+  const goal = goals.find((g) => g.id === w.goalId);
+  return { ...WIDGETS.goals, label: goal?.name ?? 'Goal', help: "Just this goal's progress bar.", ...(goal && METRIC_ICONS[goal.metric]) };
+}
+// Each widget once per screen: a type, or one goal's own.
+const widgetKey = (w: Pick<ScreenWidget, 'type' | 'goalId'>) => (w.goalId ? `goal:${w.goalId}` : w.type);
+
+function WidgetsEditor({ widgets, goals, onSave }: { widgets: ScreenWidget[]; goals: Goal[]; onSave: (widgets: ScreenWidget[]) => void }) {
+  const [choice, setChoice] = useState<string>('goals');
+  const [previewing, setPreviewing] = useState<string | null>(null);
   const change = (i: number, patch: Partial<ScreenWidget>) => onSave(widgets.map((w, j) => (j === i ? { ...w, ...patch } : w)));
-  const used = new Set(widgets.map((w) => w.type));
-  const available = WIDGET_TYPES.filter((t) => !used.has(t));
-  const adding = available.includes(type) ? type : available[0];
+  const used = new Set(widgets.map(widgetKey));
+  const types = WIDGET_TYPES.filter((t) => !used.has(t));
+  const ownGoals = goals.filter((g) => !used.has(`goal:${g.id}`));
+  const keys = [...types, ...ownGoals.map((g) => `goal:${g.id}`)];
+  const adding = keys.includes(choice) ? choice : keys[0];
+  const add = (key: string) => {
+    const widget: ScreenWidget = key.startsWith('goal:') ? { type: 'goals', goalId: key.slice(5), spot: 'top' } : { type: key as WidgetType, spot: WIDGETS[key as WidgetType].spot };
+    onSave([...widgets, widget]);
+  };
 
   return (
     <div className="stack">
@@ -91,69 +111,119 @@ function WidgetsEditor({ widgets, onSave }: { widgets: ScreenWidget[]; onSave: (
         <p className="muted small">None yet. They show while you're live or in test mode, in the spot you pick. Widgets in the same spot stack.</p>
       ) : (
         <ul className="list">
-          {widgets.map((w, i) => (
-            <li key={w.type}>
-              <HueIcon name={WIDGETS[w.type].icon} hue={WIDGETS[w.type].hue} />
-              <span className="widget-name">
-                <strong>{WIDGETS[w.type].label}</strong>
-                <span className="muted small">{WIDGETS[w.type].help}</span>
-              </span>
-              <span className="spacer" />
-              {w.type === 'firework' || w.type === 'coin_jar' ? (
-                <label className="row" style={{ flexWrap: 'nowrap' }}>
-                  <span className="muted small">{w.type === 'firework' ? 'From' : 'Full at'}</span>
-                  <NumberCell
-                    value={w.minDiamonds ?? (w.type === 'firework' ? 100 : 1000)}
-                    min={1}
-                    max={10_000_000}
-                    label={w.type === 'firework' ? 'Fireworks for gifts worth at least, in diamonds' : 'Diamonds that fill the jar'}
-                    onSave={(minDiamonds) => change(i, { minDiamonds })}
-                  />
-                  <span className="muted small">diamonds</span>
-                </label>
-              ) : null}
-              <SpotMap spot={w.type === 'firework' ? null : w.spot} hue={WIDGETS[w.type].hue} />
-              {w.type !== 'firework' && (
-                <select className="input widget-spot" value={w.spot} aria-label={`Where ${WIDGETS[w.type].label} goes`} onChange={(e) => change(i, { spot: e.target.value as WidgetSpot })}>
-                  {WIDGET_SPOTS.map((s) => (
-                    <option key={s} value={s}>
-                      {SPOT_LABELS[s]}
-                    </option>
-                  ))}
-                </select>
-              )}
-              <button
-                className="btn btn-sm btn-try btn-icon"
-                aria-expanded={previewing === w.type}
-                aria-label={`${previewing === w.type ? 'Hide preview of' : 'Preview'} ${WIDGETS[w.type].label}`}
-                title={previewing === w.type ? 'Hide preview' : 'Preview'}
-                onClick={() => setPreviewing(previewing === w.type ? null : w.type)}
-              >
-                <Icon name={previewing === w.type ? 'eyeOff' : 'eye'} />
-              </button>
-              <button className="btn btn-ghost btn-sm btn-delete" onClick={() => onSave(widgets.filter((_, j) => j !== i))}>
-                Remove
-              </button>
-              {previewing === w.type && <WidgetPreview widget={w} />}
-            </li>
-          ))}
+          {widgets.map((w, i) => {
+            const info = widgetInfo(w, goals);
+            const key = widgetKey(w);
+            return (
+              <li key={key}>
+                <HueIcon name={info.icon} hue={info.hue} />
+                <span className="widget-name">
+                  <strong>{info.label}</strong>
+                  <span className="muted small">{info.help}</span>
+                </span>
+                <span className="spacer" />
+                {w.type === 'firework' || w.type === 'coin_jar' ? (
+                  <label className="row" style={{ flexWrap: 'nowrap' }}>
+                    <span className="muted small">{w.type === 'firework' ? 'From' : 'Full at'}</span>
+                    <NumberCell
+                      value={w.minDiamonds ?? (w.type === 'firework' ? 100 : 1000)}
+                      min={1}
+                      max={10_000_000}
+                      label={w.type === 'firework' ? 'Fireworks for gifts worth at least, in diamonds' : 'Diamonds that fill the jar'}
+                      onSave={(minDiamonds) => change(i, { minDiamonds })}
+                    />
+                    <span className="muted small">diamonds</span>
+                  </label>
+                ) : null}
+                <SpotMap spot={w.type === 'firework' ? null : w.spot} hue={info.hue} />
+                {w.type !== 'firework' && (
+                  <select className="input widget-spot" value={w.spot} aria-label={`Where ${info.label} goes`} onChange={(e) => change(i, { spot: e.target.value as WidgetSpot })}>
+                    {WIDGET_SPOTS.map((s) => (
+                      <option key={s} value={s}>
+                        {SPOT_LABELS[s]}
+                      </option>
+                    ))}
+                  </select>
+                )}
+                <button
+                  className="btn btn-sm btn-try btn-icon"
+                  aria-expanded={previewing === key}
+                  aria-label={`${previewing === key ? 'Hide preview of' : 'Preview'} ${info.label}`}
+                  title={previewing === key ? 'Hide preview' : 'Preview'}
+                  onClick={() => setPreviewing(previewing === key ? null : key)}
+                >
+                  <Icon name={previewing === key ? 'eyeOff' : 'eye'} />
+                </button>
+                <button className="btn btn-ghost btn-sm btn-delete" onClick={() => onSave(widgets.filter((_, j) => j !== i))}>
+                  Remove
+                </button>
+                {previewing === key && <WidgetPreview widget={w} />}
+              </li>
+            );
+          })}
         </ul>
       )}
       {adding && widgets.length < MAX_WIDGETS && (
         <div className="row add-row">
-          <select className="input" value={adding} onChange={(e) => setType(e.target.value as WidgetType)} aria-label="Widget to add">
-            {available.map((t) => (
+          <select className="input" value={adding} onChange={(e) => setChoice(e.target.value)} aria-label="Widget to add">
+            {types.map((t) => (
               <option key={t} value={t}>
-                {WIDGETS[t].label}
+                {t === 'goals' ? 'Goals (all of them)' : WIDGETS[t].label}
               </option>
             ))}
+            {ownGoals.length > 0 && (
+              <optgroup label="One goal on its own">
+                {ownGoals.map((g) => (
+                  <option key={g.id} value={`goal:${g.id}`}>
+                    {g.name}
+                  </option>
+                ))}
+              </optgroup>
+            )}
           </select>
-          <button className="btn" onClick={() => onSave([...widgets, { type: adding, spot: WIDGETS[adding].spot }])}>
+          <button className="btn" onClick={() => add(adding)}>
             Add widget
           </button>
         </div>
       )}
     </div>
+  );
+}
+
+// Every widget, and every goal on its own, as a browser source of its own: for a stream that wants just the chat, say.
+function WidgetLinksCard({ main, goals }: { main: Screen; goals: Goal[] }) {
+  const [copied, setCopied] = useState<string | null>(null);
+  const link = (w: Pick<ScreenWidget, 'type' | 'goalId'>) =>
+    `${location.origin}/overlay/${main.token}?widget=${w.type}${w.goalId ? `&goal=${w.goalId}` : ''}`;
+  const all: Pick<ScreenWidget, 'type' | 'goalId'>[] = [...WIDGET_TYPES.map((type) => ({ type })), ...goals.map((g) => ({ type: 'goals' as const, goalId: g.id }))];
+  return (
+    <Card
+      title="Widget links"
+      description="Each widget on its own, as a browser source of its own, without a whole screen. Size and the coin jar and fireworks amounts follow your Main screen. Keep the links private."
+    >
+      <ul className="list">
+        {all.map((w) => {
+          const info = widgetInfo(w, goals);
+          const key = widgetKey(w);
+          return (
+            <li key={key}>
+              <HueIcon name={info.icon} hue={info.hue} />
+              <span className="widget-name">
+                <strong>{w.type === 'goals' && !w.goalId ? 'Goals (all of them)' : info.label}</strong>
+                <span className="muted small">{info.help}</span>
+              </span>
+              <span className="spacer" />
+              <a className="btn btn-sm btn-try btn-icon" href={`${link(w)}&preview`} target="_blank" rel="noreferrer" aria-label={`Preview ${info.label}`} title="Preview">
+                <Icon name="eye" />
+              </a>
+              <button className="btn btn-sm" onClick={() => navigator.clipboard.writeText(link(w)).then(() => setCopied(key))}>
+                {copied === key ? 'Copied' : 'Copy link'}
+              </button>
+            </li>
+          );
+        })}
+      </ul>
+    </Card>
   );
 }
 
@@ -187,12 +257,9 @@ const METRIC_ICONS: Record<GoalMetric, { icon: IconName; hue: Hue }> = {
   subscriptions: { icon: 'star', hue: 'violet' },
 };
 
-function GoalsCard() {
-  const [goals, setGoals] = useState<Goal[]>([]);
+function GoalsCard({ goals, reload: load }: { goals: Goal[]; reload: () => Promise<unknown> }) {
   const [draft, setDraft] = useState<{ name: string; metric: GoalMetric; target: number }>({ name: '', metric: 'likes', target: 1000 });
   const { error, guard } = useError();
-  const load = useCallback(() => api<Goal[]>('GET', '/goals').then(setGoals), []);
-  useEffect(() => void load(), [load]);
   const update = (id: string, patch: Partial<Goal>) => guard(() => api('PATCH', `/goals/${id}`, patch).then(load))();
   const add = (e: FormEvent) => {
     e.preventDefault();
@@ -277,7 +344,7 @@ function GoalsCard() {
   );
 }
 
-function ScreenCard({ screen, reload }: { screen: Screen; reload: () => Promise<unknown> }) {
+function ScreenCard({ screen, goals, reload }: { screen: Screen; goals: Goal[]; reload: () => Promise<unknown> }) {
   const url = `${location.origin}/overlay/${screen.token}`;
   const [copied, setCopied] = useState(false);
   const { error, guard } = useError();
@@ -326,7 +393,7 @@ function ScreenCard({ screen, reload }: { screen: Screen; reload: () => Promise<
           <PartToggle key={part.part} {...part} checked={screen[part.part]} onChange={(on) => save({ [part.part]: on })} />
         ))}
       </div>
-      <WidgetsEditor widgets={screen.widgets} onSave={(widgets) => save({ widgets })} />
+      <WidgetsEditor widgets={screen.widgets} goals={goals} onSave={(widgets) => save({ widgets })} />
     </Card>
   );
 }

@@ -1,7 +1,8 @@
 import type { FastifyInstance } from 'fastify';
 import { and, eq } from 'drizzle-orm';
 import { GOAL_METRICS, type Goal, type GoalMetric } from '@fluxion/shared';
-import { goals } from '../db/schema.js';
+import { goals, overlayScreens } from '../db/schema.js';
+import { toScreen } from '../screens/routes.js';
 import { requireHost } from '../auth/session.js';
 
 type Body = { name: string; metric: GoalMetric; target: number; enabled?: boolean };
@@ -58,6 +59,13 @@ export async function goalRoutes(app: FastifyInstance) {
       .where(and(eq(goals.id, req.params.id), eq(goals.hostId, req.hostId)))
       .returning({ id: goals.id });
     if (!deleted) return reply.code(404).send({ error: 'Goal not found' });
+    // Its own widgets go with it.
+    for (const row of await db.select().from(overlayScreens).where(eq(overlayScreens.hostId, req.hostId))) {
+      const widgets = row.widgets.filter((w) => w.goalId !== deleted.id);
+      if (widgets.length === row.widgets.length) continue;
+      const [updated] = await db.update(overlayScreens).set({ widgets }).where(eq(overlayScreens.id, row.id)).returning();
+      app.hub.sendToScreen(req.hostId, row.id, { type: 'screen', screen: toScreen(updated!) });
+    }
     await app.live.reload(req.hostId);
     return reply.code(204).send();
   });
