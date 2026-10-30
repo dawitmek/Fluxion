@@ -395,11 +395,6 @@ label.btn.disabled { opacity: 0.6; pointer-events: none; }
 .pos-foot { display: flex; flex-wrap: wrap; align-items: center; gap: 10px 14px; }
 .pos-spots { display: grid; grid-template-columns: repeat(3, auto); gap: 4px; }
 .pos-spots .btn.on { color: var(--indigo); background: var(--indigo-soft); border-color: var(--indigo-fill); }
-/* Show more: a bar the width of its card. */
-.show-more { display: flex; align-items: center; justify-content: center; gap: 8px; width: 100%; min-height: 44px; border: 1px solid var(--line); border-radius: 12px; background: var(--panel2); color: var(--muted); font: 600 14px var(--font); cursor: pointer; transition: color 0.15s, border-color 0.15s; }
-.show-more:hover { color: var(--ink); border-color: var(--line-strong); }
-.show-more svg { transition: transform 0.2s; }
-.show-more[aria-expanded='true'] svg { transform: rotate(180deg); }
 /* Adding a widget: two cards to a row, each with its preview. */
 .picker-toggle { align-self: flex-start; }
 .picker-toggle svg:last-child { transition: transform 0.2s; }
